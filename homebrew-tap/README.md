@@ -16,24 +16,30 @@ Together they expose tools for UI/design, image, video, and audio processing thr
 
 ## Installation
 
-### Option 1 — Tap and install (macOS & Linux)
+### Option 1 — Direct URL (recommended, macOS & Linux)
 
-```bash
-brew tap --custom-remote gustavogutierrez/homebrew-devforge https://github.com/GustavoGutierrez/devforge-mcp
-brew install devforge
-```
-
-### Option 2 — Direct install from URL
+The simplest way — no tap needed:
 
 ```bash
 brew install https://raw.githubusercontent.com/GustavoGutierrez/devforge-mcp/homebrew-tap/Formula/devforge.rb
 ```
 
+### Option 2 — Clone the tap first, then install
+
+Since the repo is named `devforge-mcp` (not `homebrew-devforge`), `--custom-remote` is required:
+
+```bash
+brew tap --custom-remote gustavogutierrez/devforge https://github.com/GustavoGutierrez/devforge-mcp homebrew-tap
+brew install devforge
+```
+
 ### Option 3 — Manual clone
 
 ```bash
-git clone https://github.com/GustavoGutierrez/devforge-mcp --branch homebrew-tap \
-  "$(brew --prefix)/Library/Taps/GustavoGutierrez/homebrew-devforge"
+# Clone only the homebrew-tap branch into the expected tap directory
+git clone --branch homebrew-tap --depth 1 \
+  https://github.com/GustavoGutierrez/devforge-mcp \
+  "$(brew --prefix)/Library/Taps/gustavogutierrez/homebrew-devforge"
 brew install devforge
 ```
 

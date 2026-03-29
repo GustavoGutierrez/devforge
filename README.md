@@ -81,11 +81,57 @@ Shared config file between the MCP server and the CLI:
 
 Override with the `DEV_FORGE_CONFIG` environment variable.
 
+## Installation
+
+### Via Homebrew (Linux & macOS)
+
+Install all three components — `devforge` (CLI/TUI), `devforge-mcp` (MCP server), and `dpf` (media engine):
+
+```bash
+# Option 1 — Direct URL (recommended, works immediately)
+brew install https://raw.githubusercontent.com/GustavoGutierrez/devforge-mcp/homebrew-tap/Formula/devforge.rb
+
+# Option 2 — Clone the tap first, then install
+# (The repo is named devforge-mcp, not homebrew-devforge, so --custom-remote is required)
+brew tap --custom-remote gustavogutierrez/devforge https://github.com/GustavoGutierrez/devforge-mcp homebrew-tap
+brew install devforge
+```
+
+> **Note:** The `--custom-remote` flag is needed because Homebrew's standard tap convention expects `homebrew-{name}/` directories, but this repo uses `homebrew-tap/` for the formula branch.
+
+See the [DevForge Homebrew Tap README](homebrew-tap/README.md) for full post-install setup and troubleshooting.
+
+### From Source
+
+Build from source with Go 1.24+:
+
+```bash
+# Clone the repository
+git clone https://github.com/GustavoGutierrez/devforge-mcp.git
+cd devforge-mcp
+
+# Build all components (requires CGO)
+CGO_ENABLED=1 go build ./...
+
+# Ensure the media processing binary is executable
+chmod +x bin/dpf
+
+# Run the MCP server
+./devforge-mcp
+
+# Or run the CLI/TUI
+./devforge
+```
+
+For detailed setup instructions, see [docs/install.md](docs/install.md).
+
 ## System Requirements
 
 - **Go 1.24+** with CGO enabled (`CGO_ENABLED=1`)
 - **FFmpeg 6.0+** (for video/audio operations)
 - **Rust toolchain** (only if recompiling the `dpf` binary from [DevPixelForge](https://github.com/GustavoGutierrez/devpixelforge))
+- **Linux**: Ubuntu 22.04+ (for Homebrew bottles; building from source works on any glibc 2.17+)
+- **macOS**: 12+ (Monterey or later)
 
 ## Documentation
 
