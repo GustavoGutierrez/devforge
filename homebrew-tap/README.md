@@ -18,10 +18,8 @@ Together they expose tools for UI/design, image, video, and audio processing thr
 
 ### Option 1 — Tap and install (macOS & Linux)
 
-> **Note:** Because the source repo is named `devforge-mcp` (not `homebrew-devforge`), you must specify the repo URL and branch explicitly when tapping.
-
 ```bash
-brew tap GustavoGutierrez/devforge https://github.com/GustavoGutierrez/devforge-mcp homebrew-tap
+brew tap --custom-remote https://github.com/GustavoGutierrez/devforge-mcp gustavogutierrez/homebrew-devforge
 brew install devforge
 ```
 
@@ -99,7 +97,7 @@ Or edit `~/.config/devforge/config.json` directly.
 
 ```bash
 brew uninstall devforge
-brew untap GustavoGutierrez/devforge
+brew untap gustavogutierrez/homebrew-devforge
 ```
 
 ## Available Tools
