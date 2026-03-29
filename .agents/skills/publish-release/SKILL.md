@@ -8,7 +8,7 @@ description: >
 license: Apache-2.0
 metadata:
   author: GustavoGutierrez
-  version: "1.1"
+  version: "1.2"
 ---
 
 ## When to Use
@@ -29,7 +29,7 @@ Load this skill when:
 - **PR branch must differ from base** — CI pushes to `update-vX.Y.Z`, PR targets `homebrew-tap`. Never push directly to `homebrew-tap`.
 - **`CGO_ENABLED=1` required** — `go build ./...` without it will fail due to `go-sqlite3`.
 - **Release notes must be English Markdown** — no plain text, no other language.
-- **4 files must be updated every release**: `VERSION`, `README.md`, `cmd/devforge-mcp/main.go`, `Formula/devforge.rb`.
+- **5 files must be updated every release**: `VERSION`, `README.md`, `cmd/devforge-mcp/main.go`, `Formula/devforge.rb`, `internal/version/version.go`.
 - **`Formula/devforge.rb` in `main` needs BOTH `version` AND `sha256` synced after CI.** The CI only updates `homebrew-tap`; the formula on `main` is left with the old sha256 (Step 2 only updates `version`). If not synced, `brew upgrade` will report a checksum mismatch warning. Always run Step 9 after merging the Homebrew PR.
 
 ---
@@ -52,6 +52,7 @@ Load this skill when:
 | `README.md` | Badge URL: `version-X.Y.Z-blue.svg` |
 | `cmd/devforge-mcp/main.go` | `mcpserver.NewMCPServer("devforge", "X.Y.Z", ...)` |
 | `Formula/devforge.rb` | `version "X.Y.Z"` — **sha256 is updated later in Step 9** |
+| `internal/version/version.go` | `const Current = "X.Y.Z"` — displayed in TUI home, about screen, and update checker |
 
 ---
 
@@ -75,6 +76,7 @@ Use the `Edit` tool for each file:
 - `README.md` → badge `version-OLD-blue.svg` → `version-NEW-blue.svg`
 - `cmd/devforge-mcp/main.go` → version string in `NewMCPServer`
 - `Formula/devforge.rb` → `version "OLD"` → `version "NEW"`
+- `internal/version/version.go` → `const Current = "OLD"` → `const Current = "NEW"`
 
 ---
 
@@ -123,7 +125,7 @@ Use this template (English Markdown only, include only relevant sections):
 ### Step 5 — Commit and push to main
 
 ```bash
-git add VERSION README.md cmd/devforge-mcp/main.go Formula/devforge.rb
+git add VERSION README.md cmd/devforge-mcp/main.go Formula/devforge.rb internal/version/version.go
 git commit -m "chore(release): bump version to vX.Y.Z
 
 <one-line summary of what changed>"
@@ -246,6 +248,7 @@ gh pr list --repo GustavoGutierrez/devforge-mcp --state open
 [ ] VERSION updated (no v prefix)
 [ ] README.md badge updated
 [ ] cmd/devforge-mcp/main.go version string updated
+[ ] internal/version/version.go const Current updated
 [ ] Formula/devforge.rb version updated (sha256 stays old — will be fixed in Step 9)
 [ ] CGO_ENABLED=1 go build ./... passes clean
 [ ] Release notes written in English Markdown
@@ -270,6 +273,7 @@ gh pr list --repo GustavoGutierrez/devforge-mcp --state open
 | Skip Step 9 (sha256 sync) | `brew upgrade` prints "Formula reports different checksum" warning for all users | After Homebrew PR merges, read sha256 from `homebrew-tap`, update `main/Formula/devforge.rb`, commit+push |
 | CI drops `version` field from `homebrew-tap` formula | Homebrew must infer version from URL — fragile, may mismatch | After Homebrew PR merges, verify `version "X.Y.Z"` is explicit in `homebrew-tap/Formula/devforge.rb`; add if missing |
 | Hardcode sha256 in Step 2 | Wrong sha256 at release time (binary not yet built) | In Step 2, only update `version`; sha256 is computed by CI and synced in Step 9 |
+| Forget to update `internal/version/version.go` | TUI shows wrong version (old version in home badge, about screen, and update checker) | Always include this file in Step 2 — it's the runtime version source of truth for the CLI/TUI |
 
 ---
 

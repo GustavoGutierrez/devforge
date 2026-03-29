@@ -2,7 +2,7 @@
   <img src="devforge.png" width="300" alt="DevForge MCP" />
 </p>
 
-[![Version](https://img.shields.io/badge/version-1.1.0-blue.svg)](https://github.com/GustavoGutierrez/devforge-mcp)
+[![Version](https://img.shields.io/badge/version-1.1.1-blue.svg)](https://github.com/GustavoGutierrez/devforge-mcp)
 [![License](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](LICENSE)
 [![Go](https://img.shields.io/badge/Go-1.24+-00ADD8.svg?logo=go&logoColor=white)](https://golang.org)
 [![MCP](https://img.shields.io/badge/MCP-stdio-8B5CF6.svg?logo=modelcontextprotocol&logoColor=white)](https://modelcontextprotocol.io)
