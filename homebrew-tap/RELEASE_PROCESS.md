@@ -68,8 +68,9 @@ When the GitHub release is **published**, the `homebrew.yml` workflow runs autom
 It performs:
 
 1. **Build macOS bottles** (arm64 + intel) via matrix strategy
-2. **Upload bottles** to the GitHub release as assets
-3. **Open a PR** against the `homebrew-tap` branch with updated sha256 checksums
+2. **Build Linux bottle** (amd64) on ubuntu-latest
+3. **Upload bottles** to the GitHub release as assets
+4. **Open a PR** against the `homebrew-tap` branch with updated sha256 checksums
 
 ### Manual trigger
 
@@ -89,9 +90,10 @@ gh workflow run homebrew.yml
 gh release view vX.Y.Z --json assets
 ```
 
-You should see two assets:
+You should see three assets:
 - `devforge-X.Y.Z.macos-arm64.tar.gz`
 - `devforge-X.Y.Z.macos-intel.tar.gz`
+- `devforge-X.Y.Z.linux-amd64.tar.gz`
 
 ---
 
@@ -127,12 +129,12 @@ The script will:
 ### Option B — Manual formula update
 
 ```bash
-# 1. Download the release tarball
+# 1. Download the macOS release tarballs
 curl -sSL \
   "https://github.com/GustavoGutierrez/devforge-mcp/releases/download/vX.Y.Z/devforge-X.Y.Z.macos-arm64.tar.gz" \
   -o /tmp/devforge-arm64.tar.gz
 
-# 2. Compute sha256
+# Compute sha256
 shasum -a 256 /tmp/devforge-arm64.tar.gz
 # → abc123... (arm64)
 
@@ -142,6 +144,14 @@ curl -sSL \
 
 shasum -a 256 /tmp/devforge-intel.tar.gz
 # → def456... (intel)
+
+# 2. Download the Linux release tarball
+curl -sSL \
+  "https://github.com/GustavoGutierrez/devforge-mcp/releases/download/vX.Y.Z/devforge-X.Y.Z.linux-amd64.tar.gz" \
+  -o /tmp/devforge-linux.tar.gz
+
+sha256sum /tmp/devforge-linux.tar.gz
+# → ghi789... (linux)
 
 # 3. Update Formula/devforge.rb
 # Replace the sha256 values in the bottle blocks
@@ -218,6 +228,8 @@ Ensure the macOS runners have Xcode Command Line Tools:
 xcode-select --install
 ```
 
+For Linux builds, ensure the ubuntu-latest runner has the necessary build tools.
+
 ### dpf download fails in formula
 
 Check that the DevPixelForge release exists:
@@ -231,7 +243,12 @@ Update `DPF_VERSION` if the version tag changed.
 
 Delete the bottle cache and retry:
 ```bash
+# macOS
 rm -rf ~/Library/Caches/Homebrew/downloads/devforge-*
+
+# Linux
+rm -rf ~/.cache/Homebrew/downloads/devforge-*
+
 brew install --build-from-source devforge
 ```
 
@@ -240,6 +257,17 @@ brew install --build-from-source devforge
 Make sure the `homebrew-tap` branch is pushed:
 ```bash
 git push origin homebrew-tap
+```
+
+### Linux: FFmpeg not found
+
+Install FFmpeg via your system package manager:
+```bash
+# Ubuntu/Debian
+sudo apt install ffmpeg
+
+# Fedora
+sudo dnf install ffmpeg
 ```
 
 ---

@@ -16,7 +16,7 @@ Together they expose tools for UI/design, image, video, and audio processing thr
 
 ## Installation
 
-### Option 1 — Tap and install
+### Option 1 — Tap and install (macOS & Linux)
 
 ```bash
 brew tap GustavoGutierrez/devforge
@@ -27,6 +27,18 @@ brew install devforge
 
 ```bash
 brew install https://raw.githubusercontent.com/GustavoGutierrez/devforge-mcp/main/homebrew-tap/Formula/devforge.rb
+```
+
+### Linux Requirements
+
+On Linux (Ubuntu, Debian, Fedora), install FFmpeg separately:
+
+```bash
+# Ubuntu/Debian
+sudo apt install ffmpeg
+
+# Fedora
+sudo dnf install ffmpeg
 ```
 
 ## After Installation
@@ -118,9 +130,13 @@ brew upgrade devforge
 
 ## Requirements
 
+### macOS
 - **macOS** 12+ (Monterey or later)
-- **FFmpeg** (for video/audio tools) — auto-installed via Homebrew dependency
-- **SQLite** — auto-installed via Homebrew dependency
+- **FFmpeg** — auto-installed via Homebrew dependency
+
+### Linux
+- **Linux** (Ubuntu, Debian, Fedora, or other distros supported by Homebrew)
+- **FFmpeg** — must be installed via system package manager (see above)
 
 ## Troubleshooting
 
