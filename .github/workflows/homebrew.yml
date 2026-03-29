@@ -499,6 +499,6 @@ jobs:
           gh pr create \
             --repo "${{ github.repository }}" \
             --base "homebrew-tap" \
-            --head "homebrew-tap/update-v${{ steps.version.outputs.VERSION }}" \
+            --head "update-v${{ steps.version.outputs.VERSION }}" \
             --title "chore(homebrew): update bottles for v${{ steps.version.outputs.VERSION }}" \
             --body-file /tmp/pr_body_expanded.md
