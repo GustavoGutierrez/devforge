@@ -8,7 +8,7 @@ class Devforge < Formula
   version "1.0.1"
 
   # on_linux overrides these with the real bottle URL below.
-  # The source URL is not used for installation — we extract from lib/ (the downloaded bottle).
+  # Homebrew strips the top-level dist/ dir on extraction — binaries land at buildpath root.
   url "https://github.com/GustavoGutierrez/devforge-mcp/archive/refs/tags/v#{version}.tar.gz"
   sha256 "328a7d28132541eebd9bcd9ac0fa5f7a19889c4789a55c435071292be1bba18c"
 
@@ -18,10 +18,9 @@ class Devforge < Formula
   end
 
   def install
-    # Homebrew downloads the source (the Linux bottle on Linux) and extracts it.
-    # The bottle contains dist/ with all three binaries: devforge-mcp, devforge, dpf.
-    # Use buildpath since lib/ might not be ready yet when install runs.
-    libexec.install Dir["#{buildpath}/dist/*"]
+    # Homebrew extracts the bottle, stripping the top-level dist/ directory.
+    # The three binaries land directly in buildpath.
+    libexec.install "devforge", "devforge-mcp", "dpf"
 
     # Create bin wrappers
     (libexec/"bin").mkpath
@@ -40,5 +39,6 @@ class Devforge < Formula
     # Symlink wrappers into bin
     bin.install_symlink libexec/"bin/devforge-mcp" => "devforge-mcp"
     bin.install_symlink libexec/"bin/devforge" => "devforge"
+    bin.install_symlink libexec/"dpf"
   end
 end
