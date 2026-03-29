@@ -397,6 +397,7 @@ jobs:
           ref: homebrew-tap
           path: homebrew-tap
           fetch-depth: 1
+          set-safe-directory: true
 
       - name: Check if branch exists, create if not
         run: |
@@ -471,25 +472,31 @@ jobs:
           git push origin homebrew-tap
 
       - name: Open PR
-        uses: peter-evans/create-pull-request@v7
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          branch: homebrew-tap/update-v${{ steps.version.outputs.VERSION }}
-          base: homebrew-tap
-          title: "chore(homebrew): update bottles for v${{ steps.version.outputs.VERSION }}"
-          commit-message: "chore(homebrew): update bottles for v${{ steps.version.outputs.VERSION }}"
-          body: |
-            ## Homebrew Bottles — v${{ steps.version.outputs.VERSION }}
+        # peter-evans/create-pull-request needs .git which lives in homebrew-tap/.
+        # Use gh pr create from within that directory via working-directory.
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        working-directory: homebrew-tap
+        run: |
+          cat > /tmp/pr_body.md << 'PRBODY'
+          ## Homebrew Bottles — v{{ VERSION }}
 
-            Linux bottle built and uploaded.
+          Linux bottle built and uploaded.
 
-            | Architecture | sha256 |
-            |-------------|--------|
-            | linux (x86_64) | `${{ needs.build-linux.outputs.sha256 }}` |
+          | Architecture | sha256 |
+          |-------------|--------|
+          | linux (x86_64) | `{{ SHA256 }}` |
 
-            **After merging, users can install with:**
-            ```bash
-            brew update
-            brew upgrade devforge
-            ```
-          delete-branch: true
+          **After merging, users can install with:**
+          ```bash
+          brew update
+          brew upgrade devforge
+          ```
+          PRBODY
+          sed "s/{{ VERSION }}/${{ steps.version.outputs.VERSION }}/g; s/{{ SHA256 }}/${{ needs.build-linux.outputs.sha256 }}/g" /tmp/pr_body.md > /tmp/pr_body_expanded.md
+          gh pr create \
+            --repo "${{ github.repository }}" \
+            --base "homebrew-tap" \
+            --head "homebrew-tap/update-v${{ steps.version.outputs.VERSION }}" \
+            --title "chore(homebrew): update bottles for v${{ steps.version.outputs.VERSION }}" \
+            --body-file /tmp/pr_body_expanded.md
