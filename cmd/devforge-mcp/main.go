@@ -138,6 +138,17 @@ func executableDir() (string, error) {
 }
 
 func registerTools(s *mcpserver.MCPServer, app *mcpApp) {
+	// ── Utility groups ───────────────────────────────────────────
+	registerTextEncTools(s, app)
+	registerDataFmtTools(s, app)
+	registerCryptoUtilTools(s, app)
+	registerHTTPTools(s, app)
+	registerDateTimeTools(s, app)
+	registerFileTools(s, app)
+	registerFrontendTools(s, app)
+	registerBackendTools(s, app)
+	registerCodeTools(s, app)
+
 	// ── analyze_layout ──────────────────────────────────────────
 	s.AddTool(mcp.NewTool("analyze_layout",
 		mcp.WithDescription("Audit HTML/JSX markup for layout issues including accessibility, spacing, typography, and framework-specific conventions."),

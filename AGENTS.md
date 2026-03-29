@@ -202,6 +202,63 @@ Agents must adapt layout and token suggestions to the declared stack.
 | **Config** |||
 | `configure_gemini` | Set or update Gemini API key (hot-reload, no restart) | — |
 | `ui2md` | Analyze UI screenshot and generate Markdown design spec | `gemini_api_key` in config |
+| **Text & Encoding** |||
+| `text_escape` | Escape/unescape strings for JSON, JS, HTML, or SQL targets | — |
+| `text_slug` | Convert arbitrary text to URL-safe slugs | — |
+| `text_uuid` | Generate UUID v4, nanoid, or random token | — |
+| `text_base64` | Encode/decode Base64 (standard and URL-safe variants) | — |
+| `text_url_encode` | Percent-encode/decode URL parameters and paths | — |
+| `text_normalize` | Normalize whitespace, line endings, Unicode (NFC/NFD), strip BOM | — |
+| `text_case` | Convert between camelCase, snake_case, kebab-case, PascalCase, SCREAMING_SNAKE | — |
+| **Data Format** |||
+| `data_json_format` | Validate and pretty-print JSON; returns structured error with line/column | — |
+| `data_yaml_convert` | Convert JSON ↔ YAML without type loss | — |
+| `data_csv_convert` | Convert CSV ↔ JSON with configurable separator and headers | — |
+| `data_jsonpath` | Extract sub-structure from JSON using a JSONPath expression | — |
+| `data_schema_validate` | Validate a JSON payload against a JSON Schema | — |
+| `data_diff` | Compute structural diff between two JSON or YAML documents | — |
+| **Security & Cryptography** |||
+| `crypto_hash` | Hash a string with SHA-256, SHA-512, MD5, or SHA-1 | — |
+| `crypto_hmac` | Compute HMAC-SHA-256/SHA-512 given key + message | — |
+| `crypto_jwt` | Decode JWT header/payload, verify signature and expiry, generate test tokens | — |
+| `crypto_password` | Hash passwords with bcrypt or argon2id | — |
+| `crypto_keygen` | Generate RSA, EC, or Ed25519 key pairs in PEM or JWK format | — |
+| `crypto_random` | Generate cryptographically secure random tokens, bytes, or OTPs | — |
+| `crypto_mask` | Scan text/logs and redact patterns matching secrets, API keys, or passwords | — |
+| **HTTP & Networking** |||
+| `http_request` | Build and execute an HTTP request; return status, headers, body | — |
+| `http_curl_convert` | Convert a curl command to Go, TypeScript, or Python snippet | — |
+| `http_webhook_replay` | Re-send a saved HTTP payload (headers + body) to a target URL | — |
+| `http_signed_url` | Generate an HMAC-signed URL with expiry | — |
+| `http_url_parse` | Parse a URL into components and rebuild it safely | — |
+| **Date & Time** |||
+| `time_convert` | Convert between Unix epoch, ISO 8601, RFC 3339, and human-readable formats | — |
+| `time_diff` | Calculate duration between two timestamps; add/subtract time periods | — |
+| `time_cron` | Validate and describe a cron expression; list next N execution times | — |
+| `time_date_range` | Generate a list of dates (by day, week, or month) between start and end | — |
+| **File & Archive** |||
+| `file_checksum` | Calculate MD5/SHA-256/SHA-512 checksum of a file | — |
+| `file_archive` | Create or extract zip/tar.gz archives with exclusion patterns | — |
+| `file_diff` | Generate unified diff between two text files or strings | — |
+| `file_line_endings` | Normalize line endings (CRLF → LF) and detect encoding | — |
+| `file_hex_view` | Display binary file content as a hex+ASCII table | — |
+| **Frontend Utilities** |||
+| `frontend_color` | Convert colors between HEX, RGB, HSL; compute WCAG contrast ratio | — |
+| `frontend_css_unit` | Convert between px, rem, em, %, vw/vh with configurable base | — |
+| `frontend_breakpoint` | Identify responsive breakpoint for a viewport width; generate media queries | — |
+| `frontend_regex` | Test a regex against input; return all matches and capture groups | — |
+| `frontend_locale_format` | Format numbers, dates, and currency using IETF locale strings | — |
+| `frontend_icu_format` | Evaluate ICU message format strings with plural/select rules | — |
+| **Backend Utilities** |||
+| `backend_sql_format` | Format and lint a SQL query (keywords, indentation, anti-patterns) | — |
+| `backend_conn_string` | Build or parse DB connection strings for PostgreSQL, MySQL, MongoDB, Redis | — |
+| `backend_log_parse` | Parse and filter structured logs (JSON/NDJSON/Apache/Nginx) | — |
+| `backend_env_inspect` | Validate a `.env` file against a schema; generate `.env.example` | — |
+| `backend_mq_payload` | Build and serialize message queue payloads for Kafka, RabbitMQ, or SQS | — |
+| **Code Utilities** |||
+| `code_format` | Format a code snippet (Go, TypeScript, JSON, HTML, CSS) | — |
+| `code_metrics` | Report LOC, cyclomatic complexity estimate, and function count | — |
+| `code_template` | Render a Go template or Mustache template with a JSON context | — |
 
 ---
 
