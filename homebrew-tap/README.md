@@ -19,7 +19,7 @@ Together they expose tools for UI/design, image, video, and audio processing thr
 ### Option 1 — Tap and install (macOS & Linux)
 
 ```bash
-brew tap --custom-remote https://github.com/GustavoGutierrez/devforge-mcp gustavogutierrez/homebrew-devforge
+brew tap --custom-remote gustavogutierrez/homebrew-devforge https://github.com/GustavoGutierrez/devforge-mcp
 brew install devforge
 ```
 
