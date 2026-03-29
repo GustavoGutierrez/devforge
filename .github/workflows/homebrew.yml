@@ -97,14 +97,26 @@ jobs:
           tar -czf "$ARCHIVE" dist/
           echo "ARCHIVE=$ARCHIVE" >> $GITHUB_OUTPUT
 
+      - name: Get release upload URL
+        id: release
+        run: |
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            TAG="v${{ github.event.inputs.version }}"
+          else
+            TAG="${{ github.ref_name }}"
+          fi
+          UPLOAD_URL=$(gh api repos/${{ github.repository }}/releases/tags/$TAG --jq '.upload_url | rtrimstr("{?name,label}")')
+          echo "upload_url=$UPLOAD_URL" >> $GITHUB_OUTPUT
+
       - name: Upload to release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ steps.version.outputs.TAG }}
-          files: ${{ steps.version.outputs.ARCHIVE }}
-          overwrite_files: true
+        uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.release.outputs.upload_url }}
+          asset_path: ${{ steps.version.outputs.ARCHIVE }}
+          asset_name: ${{ steps.version.outputs.ARCHIVE }}
+          asset_content_type: application/gzip
 
       - name: Compute sha256
         id: sha256
@@ -177,14 +189,26 @@ jobs:
           tar -czf "$ARCHIVE" dist/
           echo "ARCHIVE=$ARCHIVE" >> $GITHUB_OUTPUT
 
+      - name: Get release upload URL
+        id: release
+        run: |
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            TAG="v${{ github.event.inputs.version }}"
+          else
+            TAG="${{ github.ref_name }}"
+          fi
+          UPLOAD_URL=$(gh api repos/${{ github.repository }}/releases/tags/$TAG --jq '.upload_url | rtrimstr("{?name,label}")')
+          echo "upload_url=$UPLOAD_URL" >> $GITHUB_OUTPUT
+
       - name: Upload to release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ steps.version.outputs.TAG }}
-          files: ${{ steps.version.outputs.ARCHIVE }}
-          overwrite_files: true
+        uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.release.outputs.upload_url }}
+          asset_path: ${{ steps.version.outputs.ARCHIVE }}
+          asset_name: ${{ steps.version.outputs.ARCHIVE }}
+          asset_content_type: application/gzip
 
       - name: Compute sha256
         id: sha256
@@ -255,14 +279,26 @@ jobs:
           tar -czf "$ARCHIVE" dist/
           echo "ARCHIVE=$ARCHIVE" >> $GITHUB_OUTPUT
 
+      - name: Get release upload URL
+        id: release
+        run: |
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            TAG="v${{ github.event.inputs.version }}"
+          else
+            TAG="${{ github.ref_name }}"
+          fi
+          UPLOAD_URL=$(gh api repos/${{ github.repository }}/releases/tags/$TAG --jq '.upload_url | rtrimstr("{?name,label}")')
+          echo "upload_url=$UPLOAD_URL" >> $GITHUB_OUTPUT
+
       - name: Upload to release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ steps.version.outputs.TAG }}
-          files: ${{ steps.version.outputs.ARCHIVE }}
-          overwrite_files: true
+        uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.release.outputs.upload_url }}
+          asset_path: ${{ steps.version.outputs.ARCHIVE }}
+          asset_name: ${{ steps.version.outputs.ARCHIVE }}
+          asset_content_type: application/gzip
 
       - name: Compute sha256
         id: sha256
