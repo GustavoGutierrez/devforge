@@ -426,6 +426,7 @@ jobs:
           SOURCE_SHA256: ${{ steps.source.outputs.source_sha256 }}
         working-directory: homebrew-tap
         run: |
+          mkdir -p Formula
           # Write the formula — Linux only (macOS pending build fixes).
           # Single-quoted heredoc prevents shell expansion of Ruby's #{version}.
           cat > Formula/devforge.rb << 'RUBY_EOF'
