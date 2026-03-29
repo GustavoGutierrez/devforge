@@ -32,7 +32,6 @@ on:
 # but we need write access to create releases and upload assets.
 permissions:
   contents: write
-  releases: write
 
 env:
   DPF_VERSION: "0.2.0"
