@@ -7,38 +7,31 @@ class Devforge < Formula
 
   version "1.0.1"
 
-  # on_linux overrides these with the real bottle URL below.
-  # Homebrew strips the top-level dist/ dir on extraction — binaries land at buildpath root.
-  url "https://github.com/GustavoGutierrez/devforge-mcp/archive/refs/tags/v#{version}.tar.gz"
-  sha256 "328a7d28132541eebd9bcd9ac0fa5f7a19889c4789a55c435071292be1bba18c"
-
-  on_linux do
-    url "https://github.com/GustavoGutierrez/devforge-mcp/releases/download/v#{version}/devforge-#{version}.linux-amd64.tar.gz"
-    sha256 "47eed27d5a44a62bd9c913869419e17c8d24a92b60decff1ac544b0265453026"
-  end
+  url "https://github.com/GustavoGutierrez/devforge-mcp/releases/download/v#{version}/devforge-#{version}.linux-amd64.tar.gz"
+  sha256 "47eed27d5a44a62bd9c913869419e17c8d24a92b60decff1ac544b0265453026"
 
   def install
-    # Homebrew extracts the bottle, stripping the top-level dist/ directory.
-    # The three binaries land directly in buildpath.
-    libexec.install buildpath/"devforge", buildpath/"devforge-mcp", buildpath/"dpf"
+    # Download the Linux bottle directly from GitHub Releases.
+    # Homebrew strips the top-level dist/ dir on extraction, so we
+    # bypass its extraction by downloading and extracting manually.
+    system "curl", "-sSL", "--fail",
+           "-o", "brew-bottle.tar.gz",
+           "https://github.com/GustavoGutierrez/devforge-mcp/releases/download/v#{version}/devforge-#{version}.linux-amd64.tar.gz"
+    system "tar", "-xzf", "brew-bottle.tar.gz"
+    FileUtils.rm_f "brew-bottle.tar.gz"
+    libexec.install "dist/devforge", "dist/devforge-mcp", "dist/dpf"
 
-    # Create bin wrappers
-    (libexec/"bin").mkpath
-    File.write(libexec/"bin/devforge-mcp", <<~WRAPPER)
+    # Create shell wrappers in bin/
+    File.write(bin/"devforge-mcp", <<~WRAPPER)
       #!/bin/sh
       exec "#{libexec}/devforge-mcp" "$@"
     WRAPPER
-    FileUtils.chmod 0755, libexec/"bin/devforge-mcp"
+    FileUtils.chmod 0755, bin/"devforge-mcp"
 
-    File.write(libexec/"bin/devforge", <<~WRAPPER)
+    File.write(bin/"devforge", <<~WRAPPER)
       #!/bin/sh
       exec "#{libexec}/devforge" "$@"
     WRAPPER
-    FileUtils.chmod 0755, libexec/"bin/devforge"
-
-    # Symlink wrappers into bin
-    bin.install_symlink libexec/"bin/devforge-mcp" => "devforge-mcp"
-    bin.install_symlink libexec/"bin/devforge" => "devforge"
-    bin.install_symlink libexec/"dpf"
+    FileUtils.chmod 0755, bin/"devforge"
   end
 end
