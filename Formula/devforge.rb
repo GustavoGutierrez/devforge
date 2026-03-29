@@ -11,15 +11,14 @@ class Devforge < Formula
   sha256 "47eed27d5a44a62bd9c913869419e17c8d24a92b60decff1ac544b0265453026"
 
   def install
-    # Download the Linux bottle directly from GitHub Releases.
-    # Homebrew strips the top-level dist/ dir on extraction, so we
-    # bypass its extraction by downloading and extracting manually.
+    # Download directly into libexec so we control extraction completely.
+    # Homebrew's default extraction strips the top-level dist/ dir.
     system "curl", "-sSL", "--fail",
-           "-o", "brew-bottle.tar.gz",
+           "-o", "#{libexec}/brew-bottle.tar.gz",
            "https://github.com/GustavoGutierrez/devforge-mcp/releases/download/v#{version}/devforge-#{version}.linux-amd64.tar.gz"
-    system "tar", "-xzf", "brew-bottle.tar.gz"
-    FileUtils.rm_f "brew-bottle.tar.gz"
-    libexec.install "dist/devforge", "dist/devforge-mcp", "dist/dpf"
+    system "tar", "-xzf", "#{libexec}/brew-bottle.tar.gz",
+           "-C", libexec, "--strip-components=1"
+    FileUtils.rm_f "#{libexec}/brew-bottle.tar.gz"
 
     # Create shell wrappers in bin/
     File.write(bin/"devforge-mcp", <<~WRAPPER)
