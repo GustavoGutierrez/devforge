@@ -188,18 +188,18 @@ main (source repo)
         └── devforge.rb
 ```
 
-The `homebrew-tap` branch is used as the tap source. Users install via:
+The `homebrew-tap` branch is used as the tap source. Because the repo is named `devforge-mcp` (not `homebrew-devforge`), users must specify the URL and branch:
 
 ```bash
-brew tap GustavoGutierrez/devforge
+brew tap GustavoGutierrez/devforge https://github.com/GustavoGutierrez/devforge-mcp homebrew-tap
 brew install devforge
 ```
 
 ### Verify the tap is working
 
 ```bash
-# Tap the repo
-brew tap GustavoGutierrez/devforge
+# Tap the repo (specify URL + branch since repo is not named homebrew-devforge)
+brew tap GustavoGutierrez/devforge https://github.com/GustavoGutierrez/devforge-mcp homebrew-tap
 
 # Check the formula is visible
 brew info devforge
@@ -257,6 +257,14 @@ brew install --build-from-source devforge
 Make sure the `homebrew-tap` branch is pushed:
 ```bash
 git push origin homebrew-tap
+```
+
+### Tap command fails with "repository not found"
+
+Homebrew expects the tap repo to be named `homebrew-{name}` (e.g., `homebrew-devforge` for `GustavoGutierrez/devforge`). Since this repo is `devforge-mcp`, you must specify the URL explicitly:
+
+```bash
+brew tap GustavoGutierrez/devforge https://github.com/GustavoGutierrez/devforge-mcp homebrew-tap
 ```
 
 ### Linux: FFmpeg not found
