@@ -458,7 +458,8 @@ jobs:
 
       - name: Commit and push
         run: |
-          # Run from repo root so git commands find .git
+          # Ensure we are at the repo root — actions/checkout with path: leaves cwd inside homebrew-tap/
+          cd "$GITHUB_WORKSPACE"
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add homebrew-tap/Formula/devforge.rb
