@@ -30,6 +30,10 @@ on:
 
 env:
   DPF_VERSION: "0.2.0"
+  # dpf v0.2.0 commit SHA (points to main branch)
+  DPF_SHA: "7987aa01fa2cba830cc467ffd87e7c6cefe5835c"
+  # libsql commit — matched to go-libsql pseudo-version 43644db490ff
+  LIBSQL_SHA: "43644db490ff519c06a08a51c5cbb21a331ef638"
 
 jobs:
   # ── Build arm64 bottle ─────────────────────────────────────────────────────
@@ -91,8 +95,9 @@ jobs:
           cp devforge-mcp devforge dist/
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
           . "$HOME/.cargo/env"
-          git clone --depth 1 https://github.com/GustavoGutierrez/devpixelforge.git /tmp/devpixelforge
-          (cd /tmp/devpixelforge && git checkout 7987aa01fa2cba830cc467ffd87e7c6cefe5835c)
+          # Clone with sufficient depth to reach the tagged commit, then checkout
+          git clone --depth 100 https://github.com/GustavoGutierrez/devpixelforge.git /tmp/devpixelforge
+          (cd /tmp/devpixelforge && git fetch --depth=100 origin ${{ env.DPF_SHA }} && git checkout ${{ env.DPF_SHA }})
           rustup target add aarch64-apple-darwin
           cargo build --release --manifest-path /tmp/devpixelforge/rust-imgproc/Cargo.toml --target aarch64-apple-darwin
           cp /tmp/devpixelforge/rust-imgproc/target/aarch64-apple-darwin/release/dpf dist/
@@ -104,23 +109,12 @@ jobs:
           tar -czf "$ARCHIVE" dist/
           echo "ARCHIVE=$ARCHIVE" >> $GITHUB_OUTPUT
 
-      - name: Get release upload URL
-        id: release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          UPLOAD_URL=$(gh api repos/${{ github.repository }}/releases/tags/${{ steps.version.outputs.TAG }} --jq '.upload_url | rtrimstr("{?name,label}")')
-          echo "upload_url=$UPLOAD_URL" >> $GITHUB_OUTPUT
-
-      - name: Upload to release
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v2
         with:
-          upload_url: ${{ steps.release.outputs.upload_url }}
-          asset_path: ${{ steps.archive.outputs.ARCHIVE }}
-          asset_name: ${{ steps.archive.outputs.ARCHIVE }}
-          asset_content_type: application/gzip
+          tag_name: ${{ steps.version.outputs.TAG }}
+          files: "${{ steps.archive.outputs.ARCHIVE }}"
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Compute sha256
         id: sha256
@@ -160,6 +154,32 @@ jobs:
           echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
           echo "TAG=v$VERSION" >> $GITHUB_OUTPUT
 
+      - name: Install Rust (for dpf and libsql-native builds)
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
+          . "$HOME/.cargo/env"
+          # Add cross-compilation targets
+          rustup target add x86_64-apple-darwin
+          echo "RUST-installed"
+
+      # go-libsql ships darwin_amd64 native lib only for linux_amd64 (used via Rosetta 2
+      # on darwin_arm64). For native darwin_amd64, we must build from source.
+      # See: https://github.com/tursodatabase/go-libsql — darwin_amd64 lib not in module zip.
+      - name: Build libsql darwin_amd64 native lib from source
+        run: |
+          . "$HOME/.cargo/env"
+          # Clone libsql with sufficient history depth for bindings/c to compile
+          git clone --depth 100 https://github.com/tursodatabase/libsql.git /tmp/libsql
+          (cd /tmp/libsql && git fetch --depth=100 origin ${{ env.LIBSQL_SHA }} && git checkout ${{ env.LIBSQL_SHA }})
+          # Build the sql-experimental crate for darwin_amd64
+          cargo build --release -p sql-experimental --target x86_64-apple-darwin
+          # Copy the native lib to the go-libsql module cache so CGO finds it
+          GO_MOD_DIR=$(go env GOPATH)/pkg/mod/github.com/tursodatabase/go-libsql@*
+          mkdir -p "$GO_MOD_DIR/lib/darwin_amd64"
+          cp target/x86_64-apple-darwin/release/libsql_experimental.a "$GO_MOD_DIR/lib/darwin_amd64/"
+          echo "Native lib installed to $GO_MOD_DIR/lib/darwin_amd64/"
+          ls "$GO_MOD_DIR/lib/darwin_amd64/"
+
       - name: Build devforge-mcp (intel)
         env:
           GOOS: darwin
@@ -184,12 +204,12 @@ jobs:
 
       - name: Build dpf (intel)
         run: |
+          . "$HOME/.cargo/env"
           mkdir -p dist
           cp devforge-mcp devforge dist/
-          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
-          . "$HOME/.cargo/env"
-          git clone --depth 1 https://github.com/GustavoGutierrez/devpixelforge.git /tmp/devpixelforge
-          (cd /tmp/devpixelforge && git checkout 7987aa01fa2cba830cc467ffd87e7c6cefe5835c)
+          # Clone with sufficient depth to reach the tagged commit, then checkout
+          git clone --depth 100 https://github.com/GustavoGutierrez/devpixelforge.git /tmp/devpixelforge
+          (cd /tmp/devpixelforge && git fetch --depth=100 origin ${{ env.DPF_SHA }} && git checkout ${{ env.DPF_SHA }})
           cargo build --release --manifest-path /tmp/devpixelforge/rust-imgproc/Cargo.toml
           cp /tmp/devpixelforge/rust-imgproc/target/release/dpf dist/
 
@@ -200,23 +220,12 @@ jobs:
           tar -czf "$ARCHIVE" dist/
           echo "ARCHIVE=$ARCHIVE" >> $GITHUB_OUTPUT
 
-      - name: Get release upload URL
-        id: release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          UPLOAD_URL=$(gh api repos/${{ github.repository }}/releases/tags/${{ steps.version.outputs.TAG }} --jq '.upload_url | rtrimstr("{?name,label}")')
-          echo "upload_url=$UPLOAD_URL" >> $GITHUB_OUTPUT
-
-      - name: Upload to release
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v2
         with:
-          upload_url: ${{ steps.release.outputs.upload_url }}
-          asset_path: ${{ steps.archive.outputs.ARCHIVE }}
-          asset_name: ${{ steps.archive.outputs.ARCHIVE }}
-          asset_content_type: application/gzip
+          tag_name: ${{ steps.version.outputs.TAG }}
+          files: "${{ steps.archive.outputs.ARCHIVE }}"
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Compute sha256
         id: sha256
@@ -293,23 +302,12 @@ jobs:
           tar -czf "$ARCHIVE" dist/
           echo "ARCHIVE=$ARCHIVE" >> $GITHUB_OUTPUT
 
-      - name: Get release upload URL
-        id: release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          UPLOAD_URL=$(gh api repos/${{ github.repository }}/releases/tags/${{ steps.version.outputs.TAG }} --jq '.upload_url | rtrimstr("{?name,label}")')
-          echo "upload_url=$UPLOAD_URL" >> $GITHUB_OUTPUT
-
-      - name: Upload to release
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v2
         with:
-          upload_url: ${{ steps.release.outputs.upload_url }}
-          asset_path: ${{ steps.archive.outputs.ARCHIVE }}
-          asset_name: ${{ steps.archive.outputs.ARCHIVE }}
-          asset_content_type: application/gzip
+          tag_name: ${{ steps.version.outputs.TAG }}
+          files: "${{ steps.archive.outputs.ARCHIVE }}"
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Compute sha256
         id: sha256
