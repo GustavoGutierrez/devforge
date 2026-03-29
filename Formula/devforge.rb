@@ -20,7 +20,7 @@ class Devforge < Formula
   def install
     # Homebrew extracts the bottle, stripping the top-level dist/ directory.
     # The three binaries land directly in buildpath.
-    libexec.install "devforge", "devforge-mcp", "dpf"
+    libexec.install buildpath/"devforge", buildpath/"devforge-mcp", buildpath/"dpf"
 
     # Create bin wrappers
     (libexec/"bin").mkpath
