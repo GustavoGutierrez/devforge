@@ -153,6 +153,23 @@ chmod +x bin/dpf
 
 For detailed setup instructions, see [docs/install.md](docs/install.md).
 
+## Updating
+
+### Via Homebrew
+
+```bash
+brew update
+brew upgrade devforge
+```
+
+### From Source
+
+```bash
+git pull origin main
+CGO_ENABLED=1 go build ./...
+chmod +x bin/dpf
+```
+
 ## System Requirements
 
 - **Go 1.24+** with CGO enabled (`CGO_ENABLED=1`)
