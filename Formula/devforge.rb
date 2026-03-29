@@ -6,7 +6,7 @@ class Devforge < Formula
   license "GPL-3.0"
 
   url "https://github.com/GustavoGutierrez/devforge-mcp/releases/download/v#{version}/devforge-#{version}.linux-amd64.tar.gz"
-  sha256 "4f3648df8e39fa56eb4c8714cadfcb1e831dd192decd9ea46180756df10d129a"
+  sha256 "157a63e99732d0c524f77320e4e3068b0d2f8f2ae0b13b3dfe84419e24fdc3b8"
 
   def install
     libexec.mkpath
