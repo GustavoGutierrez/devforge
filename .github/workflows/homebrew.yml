@@ -80,19 +80,20 @@ jobs:
             -o devforge \
             ./cmd/devforge/
 
-      - name: Download dpf
+      - name: Build dpf (arm64)
         run: |
-          DPF_URL="https://github.com/GustavoGutierrez/devpixelforge/releases/download/v${DPF_VERSION}/dpf-${DPF_VERSION}-macos.tar.gz"
-          curl -sSL --fail -o dpf.tar.gz "$DPF_URL"
-          tar -xzf dpf.tar.gz
-          rm -f dpf.tar.gz
-          chmod +x dpf
+          mkdir -p dist
+          cp devforge-mcp devforge dist/
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
+          . "$HOME/.cargo/env"
+          git clone --depth 1 --branch v${DPF_VERSION} https://github.com/GustavoGutierrez/devpixelforge.git /tmp/devpixelforge
+          rustup target add aarch64-apple-darwin
+          cargo build --release --manifest-path /tmp/devpixelforge/rust-imgproc/Cargo.toml --target aarch64-apple-darwin
+          cp /tmp/devpixelforge/rust-imgproc/target/aarch64-apple-darwin/release/dpf dist/
 
       - name: Create bottle archive
         run: |
           ARCHIVE="devforge-${{ steps.version.outputs.VERSION }}.macos-arm64.tar.gz"
-          mkdir -p dist
-          cp devforge-mcp devforge dpf dist/
           tar -czf "$ARCHIVE" dist/
           echo "ARCHIVE=$ARCHIVE" >> $GITHUB_OUTPUT
 
@@ -101,7 +102,7 @@ jobs:
         with:
           tag_name: ${{ steps.version.outputs.TAG }}
           files: ${{ steps.version.outputs.ARCHIVE }}
-          allow_overwrites: true
+          overwrite_files: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -160,19 +161,19 @@ jobs:
             -o devforge \
             ./cmd/devforge/
 
-      - name: Download dpf
+      - name: Build dpf (intel)
         run: |
-          DPF_URL="https://github.com/GustavoGutierrez/devpixelforge/releases/download/v${DPF_VERSION}/dpf-${DPF_VERSION}-macos.tar.gz"
-          curl -sSL --fail -o dpf.tar.gz "$DPF_URL"
-          tar -xzf dpf.tar.gz
-          rm -f dpf.tar.gz
-          chmod +x dpf
+          mkdir -p dist
+          cp devforge-mcp devforge dist/
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
+          . "$HOME/.cargo/env"
+          git clone --depth 1 --branch v${DPF_VERSION} https://github.com/GustavoGutierrez/devpixelforge.git /tmp/devpixelforge
+          cargo build --release --manifest-path /tmp/devpixelforge/rust-imgproc/Cargo.toml
+          cp /tmp/devpixelforge/rust-imgproc/target/release/dpf dist/
 
       - name: Create bottle archive
         run: |
           ARCHIVE="devforge-${{ steps.version.outputs.VERSION }}.macos-intel.tar.gz"
-          mkdir -p dist
-          cp devforge-mcp devforge dpf dist/
           tar -czf "$ARCHIVE" dist/
           echo "ARCHIVE=$ARCHIVE" >> $GITHUB_OUTPUT
 
@@ -181,7 +182,7 @@ jobs:
         with:
           tag_name: ${{ steps.version.outputs.TAG }}
           files: ${{ steps.version.outputs.ARCHIVE }}
-          allow_overwrites: true
+          overwrite_files: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -242,15 +243,15 @@ jobs:
 
       - name: Download dpf (Linux binary)
         run: |
+          mkdir -p dist
+          cp devforge-mcp devforge dist/
           DPF_URL="https://github.com/GustavoGutierrez/devpixelforge/releases/download/v${DPF_VERSION}/dpf"
-          curl -sSL --fail -o dpf "$DPF_URL"
-          chmod +x dpf
+          curl -sSL --fail -o dist/dpf "$DPF_URL"
+          chmod +x dist/dpf
 
       - name: Create bottle archive
         run: |
           ARCHIVE="devforge-${{ steps.version.outputs.VERSION }}.linux-amd64.tar.gz"
-          mkdir -p dist
-          cp devforge-mcp devforge dpf dist/
           tar -czf "$ARCHIVE" dist/
           echo "ARCHIVE=$ARCHIVE" >> $GITHUB_OUTPUT
 
@@ -259,7 +260,7 @@ jobs:
         with:
           tag_name: ${{ steps.version.outputs.TAG }}
           files: ${{ steps.version.outputs.ARCHIVE }}
-          allow_overwrites: true
+          overwrite_files: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
