@@ -303,11 +303,12 @@ jobs:
           # Get the upload URL from the existing release, then upload via curl.
           # Using gh api + curl instead of softprops/action-gh-release because
           # the action can't update releases created by other workflows.
+          # Parse JSON with python to strip the {?name,label} template variable.
           UPLOAD_URL=$(gh api \
             --header "Accept: application/vnd.github+json" \
             --header "X-GitHub-Api-Version: 2022-11-28" \
-            "repos/${{ github.repository }}/releases/tags/${{ steps.version.outputs.TAG }}" \
-            --jq '.upload_url | gsub("\\\\{[^}]+\\}"; "")')
+            "repos/${{ github.repository }}/releases/tags/${{ steps.version.outputs.TAG }}" | \
+            python3 -c "import sys,json; print(json.load(sys.stdin)['upload_url'].split('{')[0])")
           echo "Upload URL: $UPLOAD_URL"
           curl -X POST \
             -H "Authorization: Bearer $GH_TOKEN" \
