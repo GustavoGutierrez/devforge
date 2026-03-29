@@ -467,14 +467,15 @@ jobs:
           cd homebrew-tap
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          # Create a new branch for the PR (not a direct push to homebrew-tap).
+          git checkout -b "update-v${{ steps.version.outputs.VERSION }}"
           git add Formula/devforge.rb
           git diff --staged --quiet && echo "No changes — skipping commit" && exit 0
           git commit -m "chore(homebrew): update bottles for v${{ steps.version.outputs.VERSION }}"
-          git push origin homebrew-tap
+          git push origin "update-v${{ steps.version.outputs.VERSION }}"
 
       - name: Open PR
-        # peter-evans/create-pull-request needs .git which lives in homebrew-tap/.
-        # Use gh pr create from within that directory via working-directory.
+        # Run from homebrew-tap/ where .git lives (actions/checkout with path: homebrew-tap).
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         working-directory: homebrew-tap
