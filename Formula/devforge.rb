@@ -5,8 +5,7 @@ class Devforge < Formula
   homepage "https://github.com/GustavoGutierrez/devforge-mcp"
   license "GPL-3.0"
 
-  url "https://github.com/GustavoGutierrez/devforge-mcp/archive/refs/tags/v#{version}.tar.gz"
-  sha256 "328a7d28132541eebd9bcd9ac0fa5f7a19889c4789a55c435071292be1bba18c"
+  version "1.0.1"
 
   def install
     # Download and extract the pre-built Linux bottle.
