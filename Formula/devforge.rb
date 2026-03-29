@@ -18,9 +18,10 @@ class Devforge < Formula
   end
 
   def install
-    # Homebrew downloads the source (the Linux bottle on Linux) and extracts it to lib/.
+    # Homebrew downloads the source (the Linux bottle on Linux) and extracts it.
     # The bottle contains dist/ with all three binaries: devforge-mcp, devforge, dpf.
-    libexec.install Dir["#{lib}/dist/*"]
+    # Use buildpath since lib/ might not be ready yet when install runs.
+    libexec.install Dir["#{buildpath}/dist/*"]
 
     # Create bin wrappers
     (libexec/"bin").mkpath
