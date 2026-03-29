@@ -24,6 +24,7 @@ Built around a SQLite-backed pattern store with FTS5 search and optional vector 
 - **Multimedia optimization** — Compress and convert images, video, and audio for the web using the DevPixelForge Rust engine (with FFmpeg).
 - **Design system management** — Store, search, and retrieve UI patterns, design tokens, color palettes, and architecture diagrams.
 - **Layout analysis & generation** — Audit existing layouts and generate new ones adapted to any supported frontend stack.
+- **Developer utilities** — 48 stateless tools covering text encoding, data format conversion, cryptography, HTTP, date/time, file operations, frontend math, backend helpers, and code formatting — all callable by AI agents or from the CLI.
 - **MCP tool surface** — Works as an MCP server so any AI client (Claude, OpenCode, Copilot, etc.) can invoke its tools via stdio.
 - **CLI/TUI companion** — A Bubble Tea-based terminal interface for browsing patterns, launching audits, and configuring integrations without leaving the terminal.
 - **Specialized skills** — Extends capabilities through configurable skills and sub-agents for frontend, backend, architecture, documentation, and QA.
@@ -49,6 +50,15 @@ The UI and design tools adapt their output to the declared stack:
     - **Video**: `video_transcode`, `video_resize`, `video_trim`, `video_thumbnail`, `video_profile`
     - **Audio**: `audio_transcode`, `audio_trim`, `audio_normalize`, `audio_silence_trim`
     - **Config**: `configure_gemini`, `ui2md`
+    - **Text & Encoding**: `text_escape`, `text_slug`, `text_uuid`, `text_base64`, `text_url_encode`, `text_normalize`, `text_case`
+    - **Data Format**: `data_json_format`, `data_yaml_convert`, `data_csv_convert`, `data_jsonpath`, `data_schema_validate`, `data_diff`
+    - **Security & Cryptography**: `crypto_hash`, `crypto_hmac`, `crypto_jwt`, `crypto_password`, `crypto_keygen`, `crypto_random`, `crypto_mask`
+    - **HTTP & Networking**: `http_request`, `http_curl_convert`, `http_webhook_replay`, `http_signed_url`, `http_url_parse`
+    - **Date & Time**: `time_convert`, `time_diff`, `time_cron`, `time_date_range`
+    - **File & Archive**: `file_checksum`, `file_archive`, `file_diff`, `file_line_endings`, `file_hex_view`
+    - **Frontend Utilities**: `frontend_color`, `frontend_css_unit`, `frontend_breakpoint`, `frontend_regex`, `frontend_locale_format`, `frontend_icu_format`
+    - **Backend Utilities**: `backend_sql_format`, `backend_conn_string`, `backend_log_parse`, `backend_env_inspect`, `backend_mq_payload`
+    - **Code Utilities**: `code_format`, `code_metrics`, `code_template`
 
 - `cmd/devforge/`
   - Go CLI/TUI built with Bubble Tea for:
@@ -70,6 +80,24 @@ The UI and design tools adapt their output to the declared stack:
   - Supports: images (resize, optimize, convert, favicon), video (transcode, resize, trim, thumbnail, profile), audio (transcode, trim, normalize, silence_trim).
   - Requires FFmpeg for video/audio operations.
   - See [`internal/dpf/INTEGRATION.md`](internal/dpf/INTEGRATION.md).
+
+## Developer Utilities (48 Tools)
+
+Stateless, deterministic tools for everyday developer tasks — callable from AI agents via MCP or from the CLI.
+
+| Group | Tools | Description |
+|-------|-------|-------------|
+| **Text & Encoding** | `text_escape`, `text_slug`, `text_uuid`, `text_base64`, `text_url_encode`, `text_normalize`, `text_case` | String transformations and encoding operations |
+| **Data Format** | `data_json_format`, `data_yaml_convert`, `data_csv_convert`, `data_jsonpath`, `data_schema_validate`, `data_diff` | Parse, convert, validate, and diff structured data |
+| **Security & Cryptography** | `crypto_hash`, `crypto_hmac`, `crypto_jwt`, `crypto_password`, `crypto_keygen`, `crypto_random`, `crypto_mask` | Hashing, signing, JWT, password hashing, key generation, secret redaction |
+| **HTTP & Networking** | `http_request`, `http_curl_convert`, `http_webhook_replay`, `http_signed_url`, `http_url_parse` | Execute requests, convert curl, sign URLs, parse URLs |
+| **Date & Time** | `time_convert`, `time_diff`, `time_cron`, `time_date_range` | Timestamp conversion, duration math, cron parsing, date ranges |
+| **File & Archive** | `file_checksum`, `file_archive`, `file_diff`, `file_line_endings`, `file_hex_view` | Checksums, zip/tar.gz, unified diff, line ending normalization, hex dump |
+| **Frontend Utilities** | `frontend_color`, `frontend_css_unit`, `frontend_breakpoint`, `frontend_regex`, `frontend_locale_format`, `frontend_icu_format` | Color conversion, CSS units, breakpoints, regex testing, locale formatting |
+| **Backend Utilities** | `backend_sql_format`, `backend_conn_string`, `backend_log_parse`, `backend_env_inspect`, `backend_mq_payload` | SQL formatting, DSN builder, log parsing, .env validation, MQ payloads |
+| **Code Utilities** | `code_format`, `code_metrics`, `code_template` | Code formatting (Go/TS/JSON/HTML/CSS), metrics (LOC/complexity), template rendering |
+
+All 48 tools are documented in [`docs/tools/`](docs/tools/).
 
 ## Configuration
 
