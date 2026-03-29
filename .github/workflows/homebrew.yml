@@ -28,6 +28,12 @@ on:
         required: true
         type: string
 
+# Required for workflow_dispatch: GITHUB_TOKEN is read-only by default,
+# but we need write access to create releases and upload assets.
+permissions:
+  contents: write
+  releases: write
+
 env:
   DPF_VERSION: "0.2.0"
   # dpf v0.2.0 commit SHA (points to main branch)
