@@ -351,15 +351,11 @@ jobs:
       - name: Upload to GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.version.outputs.TAG }}
           ARCHIVE: ${{ steps.archive.outputs.ARCHIVE }}
-          UPLOAD_URL: ${{ needs.prepare-release.outputs.upload_url }}
         run: |
-          echo "Upload URL: $UPLOAD_URL"
-          curl -X POST \
-            -H "Authorization: Bearer $GH_TOKEN" \
-            -F "file=@$ARCHIVE" \
-            --fail-with-body \
-            "${UPLOAD_URL}?name=${ARCHIVE}"
+          # gh release upload supports --clobber to overwrite existing assets.
+          gh release upload "$TAG" "$ARCHIVE" --clobber --repo "${{ github.repository }}"
 
       - name: Compute sha256
         id: sha256
