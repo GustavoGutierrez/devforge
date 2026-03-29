@@ -12,6 +12,6 @@ class Devforge < Formula
   if OS.linux?
     on_linux do
       url "https://github.com/GustavoGutierrez/devforge-mcp/releases/download/v#{version}/devforge-#{version}.linux-amd64.tar.gz"
-      sha256 "9fa38776e003c0fec1b68baadf2f756613d5bc14460f3dd7c69e6c369ad72221"
+      sha256 "47eed27d5a44a62bd9c913869419e17c8d24a92b60decff1ac544b0265453026"
     end
   end
