@@ -458,11 +458,12 @@ jobs:
 
       - name: Commit and push
         run: |
-          # Ensure we are at the repo root — actions/checkout with path: leaves cwd inside homebrew-tap/
-          cd "$GITHUB_WORKSPACE"
+          # The .git directory is inside homebrew-tap/ (where actions/checkout cloned to).
+          # cd into it so git commands find .git.
+          cd homebrew-tap
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add homebrew-tap/Formula/devforge.rb
+          git add Formula/devforge.rb
           git diff --staged --quiet && echo "No changes — skipping commit" && exit 0
           git commit -m "chore(homebrew): update bottles for v${{ steps.version.outputs.VERSION }}"
           git push origin homebrew-tap
