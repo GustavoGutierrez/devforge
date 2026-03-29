@@ -5,17 +5,11 @@ class Devforge < Formula
   homepage "https://github.com/GustavoGutierrez/devforge-mcp"
   license "GPL-3.0"
 
-  version "1.0.1"
-
   url "https://github.com/GustavoGutierrez/devforge-mcp/releases/download/v#{version}/devforge-#{version}.linux-amd64.tar.gz"
-  sha256 "47eed27d5a44a62bd9c913869419e17c8d24a92b60decff1ac544b0265453026"
+  sha256 "9d646e330cdcaea31ef8633432533c67ba02e2bb9a2b45fb5288e1f30eec2c14"
 
   def install
-    # Create libexec first so we can write into it.
     libexec.mkpath
-
-    # Download and extract the pre-built bottle into libexec.
-    # Homebrew's default extraction strips the top-level dist/ dir.
     system "curl", "-sSL", "--fail",
            "-o", "#{libexec}/brew-bottle.tar.gz",
            "https://github.com/GustavoGutierrez/devforge-mcp/releases/download/v#{version}/devforge-#{version}.linux-amd64.tar.gz"
@@ -23,7 +17,6 @@ class Devforge < Formula
            "-C", libexec, "--strip-components=1"
     FileUtils.rm_f "#{libexec}/brew-bottle.tar.gz"
 
-    # Create shell wrappers in bin/
     bin.mkpath
     File.write(bin/"devforge-mcp", <<~WRAPPER)
       #!/bin/sh
@@ -37,7 +30,6 @@ class Devforge < Formula
     WRAPPER
     FileUtils.chmod 0755, bin/"devforge"
 
-    # Symlink dpf into bin/ so it's in PATH.
     bin.install_symlink libexec/"dpf"
   end
 end
