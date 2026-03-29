@@ -15,6 +15,7 @@ import (
 	"dev-forge-mcp/internal/dpf"
 	"dev-forge-mcp/internal/tools"
 	"dev-forge-mcp/internal/tui"
+	"dev-forge-mcp/internal/version"
 )
 
 func main() {
@@ -67,7 +68,7 @@ func main() {
 	framework, cssMode := detectStack()
 
 	// Launch TUI
-	m := tui.New(database, cfg, srv, framework, cssMode)
+	m := tui.New(database, cfg, srv, framework, cssMode, version.Current)
 	p := tea.NewProgram(m, tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
 		log.Fatalf("TUI error: %v", err)

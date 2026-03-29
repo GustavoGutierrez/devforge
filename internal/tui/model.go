@@ -20,13 +20,22 @@ const (
 	ViewBrowseArchitectures
 	ViewAnalyzeLayout
 	ViewGenerateLayout
+	ViewColorPalettes
 	ViewGenerateImages
 	ViewOptimizeImages
 	ViewGenerateFavicon
 	ViewVideo
 	ViewAudio
 	ViewUI2MD
-	ViewColorPalettes
+	ViewTextEnc
+	ViewDataFmt
+	ViewCryptoutil
+	ViewHTTPTools
+	ViewDateTime
+	ViewFileTools
+	ViewFrontendTools
+	ViewBackendTools
+	ViewCodeTools
 	ViewSettings
 	ViewMCPSetup
 	ViewAddRecord
@@ -41,6 +50,7 @@ type Model struct {
 	currentView View
 	width       int
 	height      int
+	version     string
 
 	// Shared dependencies
 	db     *sql.DB
@@ -64,6 +74,15 @@ type Model struct {
 	mcpSetup            mcpSetupModel
 	addRecord           addRecordModel
 	about               aboutModel
+	textEnc             textEncModel
+	dataFmt             dataFmtModel
+	cryptoutil          cryptoutilModel
+	httpTools           httpToolsModel
+	dateTime            dateTimeModel
+	fileTools           fileToolsModel
+	frontendTools       frontendToolsModel
+	backendTools        backendToolsModel
+	codeTools           codeToolsModel
 
 	// Detected stack
 	detectedFramework string
@@ -71,16 +90,17 @@ type Model struct {
 }
 
 // New creates the root model with all dependencies.
-func New(database *sql.DB, cfg *config.Config, srv *tools.Server, framework, cssMode string) Model {
+func New(database *sql.DB, cfg *config.Config, srv *tools.Server, framework, cssMode, ver string) Model {
 	m := Model{
 		currentView:       ViewHome,
 		db:                database,
 		config:            cfg,
 		srv:               srv,
+		version:           ver,
 		detectedFramework: framework,
 		detectedCSSMode:   cssMode,
 	}
-	m.home = newHomeModel()
+	m.home = newHomeModel(ver)
 	m.browsePatterns = newBrowsePatternsModel(srv)
 	m.browseArchitectures = newBrowseArchitecturesModel(srv)
 	m.analyzeLayout = newAnalyzeLayoutModel(srv, framework, cssMode)
@@ -95,7 +115,16 @@ func New(database *sql.DB, cfg *config.Config, srv *tools.Server, framework, css
 	m.settings = newSettingsModel(cfg)
 	m.mcpSetup = newMCPSetupModel()
 	m.addRecord = newAddRecordModel(srv)
-	m.about = newAboutModel()
+	m.about = newAboutModel(ver)
+	m.textEnc = newTextEncModel(srv)
+	m.dataFmt = newDataFmtModel(srv)
+	m.cryptoutil = newCryptoutilModel(srv)
+	m.httpTools = newHTTPToolsModel(srv)
+	m.dateTime = newDateTimeModel(srv)
+	m.fileTools = newFileToolsModel(srv)
+	m.frontendTools = newFrontendToolsModel(srv)
+	m.backendTools = newBackendToolsModel(srv)
+	m.codeTools = newCodeToolsModel(srv)
 	return m
 }
 
@@ -126,9 +155,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case ViewHome:
 		updated, cmd := m.home.Update(msg)
 		m.home = updated
-		// Check if home requested navigation
 		if m.home.selected >= 0 {
-			view := homeItemToView(m.home.selected)
+			view := m.homeItemToView(m.home.selected)
 			m.home.selected = -1
 			m.currentView = view
 			return m, nil
@@ -247,7 +275,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.settings = updated
 		if m.settings.goHome {
 			m.settings.goHome = false
-			// Update config reference if API key changed
 			if m.settings.saved {
 				m.config = m.settings.cfg
 				m.generateImages.cfg = m.config
@@ -278,6 +305,87 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case ViewAbout:
 		updated, cmd := m.about.Update(msg)
 		m.about = updated
+		return m, cmd
+
+	case ViewTextEnc:
+		updated, cmd := m.textEnc.Update(msg)
+		m.textEnc = updated
+		if m.textEnc.goHome {
+			m.textEnc = newTextEncModel(m.srv)
+			m.currentView = ViewHome
+		}
+		return m, cmd
+
+	case ViewDataFmt:
+		updated, cmd := m.dataFmt.Update(msg)
+		m.dataFmt = updated
+		if m.dataFmt.goHome {
+			m.dataFmt = newDataFmtModel(m.srv)
+			m.currentView = ViewHome
+		}
+		return m, cmd
+
+	case ViewCryptoutil:
+		updated, cmd := m.cryptoutil.Update(msg)
+		m.cryptoutil = updated
+		if m.cryptoutil.goHome {
+			m.cryptoutil = newCryptoutilModel(m.srv)
+			m.currentView = ViewHome
+		}
+		return m, cmd
+
+	case ViewHTTPTools:
+		updated, cmd := m.httpTools.Update(msg)
+		m.httpTools = updated
+		if m.httpTools.goHome {
+			m.httpTools = newHTTPToolsModel(m.srv)
+			m.currentView = ViewHome
+		}
+		return m, cmd
+
+	case ViewDateTime:
+		updated, cmd := m.dateTime.Update(msg)
+		m.dateTime = updated
+		if m.dateTime.goHome {
+			m.dateTime = newDateTimeModel(m.srv)
+			m.currentView = ViewHome
+		}
+		return m, cmd
+
+	case ViewFileTools:
+		updated, cmd := m.fileTools.Update(msg)
+		m.fileTools = updated
+		if m.fileTools.goHome {
+			m.fileTools = newFileToolsModel(m.srv)
+			m.currentView = ViewHome
+		}
+		return m, cmd
+
+	case ViewFrontendTools:
+		updated, cmd := m.frontendTools.Update(msg)
+		m.frontendTools = updated
+		if m.frontendTools.goHome {
+			m.frontendTools = newFrontendToolsModel(m.srv)
+			m.currentView = ViewHome
+		}
+		return m, cmd
+
+	case ViewBackendTools:
+		updated, cmd := m.backendTools.Update(msg)
+		m.backendTools = updated
+		if m.backendTools.goHome {
+			m.backendTools = newBackendToolsModel(m.srv)
+			m.currentView = ViewHome
+		}
+		return m, cmd
+
+	case ViewCodeTools:
+		updated, cmd := m.codeTools.Update(msg)
+		m.codeTools = updated
+		if m.codeTools.goHome {
+			m.codeTools = newCodeToolsModel(m.srv)
+			m.currentView = ViewHome
+		}
 		return m, cmd
 	}
 
@@ -319,12 +427,30 @@ func (m Model) View() string {
 		return m.addRecord.View()
 	case ViewAbout:
 		return m.about.View()
+	case ViewTextEnc:
+		return m.textEnc.View()
+	case ViewDataFmt:
+		return m.dataFmt.View()
+	case ViewCryptoutil:
+		return m.cryptoutil.View()
+	case ViewHTTPTools:
+		return m.httpTools.View()
+	case ViewDateTime:
+		return m.dateTime.View()
+	case ViewFileTools:
+		return m.fileTools.View()
+	case ViewFrontendTools:
+		return m.frontendTools.View()
+	case ViewBackendTools:
+		return m.backendTools.View()
+	case ViewCodeTools:
+		return m.codeTools.View()
 	}
 	return "Unknown view"
 }
 
-// homeItemToView maps menu item index to a View.
-func homeItemToView(idx int) View {
+// homeItemToView maps selectable menu item index (0-based, skipping sections) to a View.
+func (m Model) homeItemToView(idx int) View {
 	switch idx {
 	case 0:
 		return ViewBrowsePatterns
@@ -335,26 +461,44 @@ func homeItemToView(idx int) View {
 	case 3:
 		return ViewGenerateLayout
 	case 4:
-		return ViewGenerateImages
-	case 5:
-		return ViewOptimizeImages
-	case 6:
-		return ViewGenerateFavicon
-	case 7:
-		return ViewVideo
-	case 8:
-		return ViewAudio
-	case 9:
-		return ViewUI2MD
-	case 10:
 		return ViewColorPalettes
+	case 5:
+		return ViewGenerateImages
+	case 6:
+		return ViewOptimizeImages
+	case 7:
+		return ViewGenerateFavicon
+	case 8:
+		return ViewVideo
+	case 9:
+		return ViewAudio
+	case 10:
+		return ViewUI2MD
 	case 11:
-		return ViewSettings
+		return ViewTextEnc
 	case 12:
-		return ViewAddRecord
+		return ViewDataFmt
 	case 13:
-		return ViewMCPSetup
+		return ViewCryptoutil
 	case 14:
+		return ViewHTTPTools
+	case 15:
+		return ViewDateTime
+	case 16:
+		return ViewFileTools
+	case 17:
+		return ViewFrontendTools
+	case 18:
+		return ViewBackendTools
+	case 19:
+		return ViewCodeTools
+	case 20:
+		return ViewSettings
+	case 21:
+		return ViewAddRecord
+	case 22:
+		return ViewMCPSetup
+	case 23:
 		return ViewAbout
 	}
 	return ViewHome

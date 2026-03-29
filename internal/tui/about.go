@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"fmt"
 	"os"
 	"strings"
 
@@ -15,9 +16,11 @@ const aboutLogo = `██████╗ ███████╗██╗   █
 ██████╔╝███████╗ ╚████╔╝ ██║     ╚██████╔╝██║  ██║╚██████╔╝███████╗
 ╚═════╝ ╚══════╝  ╚═══╝  ╚═╝      ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝`
 
-type aboutModel struct{}
+type aboutModel struct {
+	version string
+}
 
-func newAboutModel() aboutModel { return aboutModel{} }
+func newAboutModel(ver string) aboutModel { return aboutModel{version: ver} }
 
 func (m aboutModel) Init() tea.Cmd { return nil }
 
@@ -49,6 +52,9 @@ func (m aboutModel) View() string {
 	b.WriteString("\n\n")
 
 	b.WriteString(titleStyle.Render("DevForge MCP"))
+	b.WriteString("\n")
+	b.WriteString(normalStyle.Render("  Version  "))
+	b.WriteString(dimStyle.Render(fmt.Sprintf("v%s", m.version)))
 	b.WriteString("\n\n")
 
 	b.WriteString(normalStyle.Render("DevForge MCP is an MCP server built in Go that acts as the core acceleration"))
