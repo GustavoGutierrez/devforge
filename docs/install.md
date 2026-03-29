@@ -31,7 +31,7 @@ xcode-select --install
 ## 1. Clone the repository
 
 ```bash
-git clone https://github.com/your-org/devforge-mcp.git
+git clone https://github.com/GustavoGutierrez/devforge-mcp.git
 cd devforge-mcp
 ```
 
@@ -45,14 +45,17 @@ A pre-built Rust binary ships in `bin/dpf`. Make it executable:
 chmod +x bin/dpf
 ```
 
-> If you need to recompile from source (requires Rust toolchain):
+> If you need to recompile from source (requires Rust toolchain and the [DevPixelForge](https://github.com/GustavoGutierrez/devpixelforge) source):
 >
 > ```bash
+> # Clone DevPixelForge alongside devforge-mcp
+> git clone https://github.com/GustavoGutierrez/devpixelforge.git
+> cd devpixelforge
 > make build-rust         # dynamic binary
 > # or for a fully static binary:
-> make build-rust-static  # output: rust-dpf/target/x86_64-unknown-linux-musl/release/dpf
-> cp rust-dpf/target/x86_64-unknown-linux-musl/release/dpf bin/dpf
-> chmod +x bin/dpf
+> make build-rust-static  # output: target/x86_64-unknown-linux-musl/release/dpf
+> cp target/release/dpf ../devforge-mcp/bin/dpf
+> chmod +x ../devforge-mcp/bin/dpf
 > ```
 
 ---

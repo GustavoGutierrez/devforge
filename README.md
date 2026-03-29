@@ -2,6 +2,13 @@
   <img src="devforge.png" width="300" alt="DevForge MCP" />
 </p>
 
+[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/GustavoGutierrez/devforge-mcp)
+[![License](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](LICENSE)
+[![Go](https://img.shields.io/badge/Go-1.24+-00ADD8.svg?logo=go&logoColor=white)](https://golang.org)
+[![MCP](https://img.shields.io/badge/MCP-stdio-8B5CF6.svg?logo=modelcontextprotocol&logoColor=white)](https://modelcontextprotocol.io)
+[![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20macOS-1e1e2e.svg?logo=linux&logoColor=white)](https://github.com/GustavoGutierrez/devforge-mcp)
+[![CGO](https://img.shields.io/badge/CGO-required-orange.svg)](https://github.com/GustavoGutierrez/devforge-mcp)
+
 # DevForge MCP
 
 **"One forge for every stage of your dev workflow."**
@@ -9,6 +16,8 @@
 DevForge MCP is a Go-based MCP server that acts as a transversal intelligence layer and utility toolkit across the software development lifecycle. It exposes a rich set of tools — for code, architecture, design, media processing, and documentation — through the MCP stdio transport, making it accessible to any MCP-compatible AI client.
 
 Built around a SQLite-backed pattern store with FTS5 search and optional vector embeddings, it provides specialized skills and sub-agents that work together to reduce friction at every phase: from initial architecture decisions to production-ready interfaces and optimized media assets.
+
+> **Multimedia engine:** All image, video, and audio processing is powered by [DevPixelForge](https://github.com/GustavoGutierrez/devpixelforge), a Rust-based processing engine that ships as a pre-built binary alongside DevForge.
 
 ## Key Capabilities
 
@@ -76,4 +85,16 @@ Override with the `DEV_FORGE_CONFIG` environment variable.
 
 - **Go 1.24+** with CGO enabled (`CGO_ENABLED=1`)
 - **FFmpeg 6.0+** (for video/audio operations)
-- **Rust toolchain** (only if recompiling the `dpf` binary)
+- **Rust toolchain** (only if recompiling the `dpf` binary from [DevPixelForge](https://github.com/GustavoGutierrez/devpixelforge))
+
+## Documentation
+
+| Doc | Description |
+|-----|-------------|
+| [docs/install.md](docs/install.md) | Full installation guide: build, install, configure, run |
+| [docs/mcp-connect.md](docs/mcp-connect.md) | Connect DevForge to VS Code, Claude Desktop, Claude Code, OpenCode |
+| [docs/cli-tui.md](docs/cli-tui.md) | CLI/TUI usage guide |
+| [docs/overview.md](docs/overview.md) | High-level project overview |
+| [docs/schema.md](docs/schema.md) | Database schema reference |
+| [internal/dpf/INTEGRATION.md](internal/dpf/INTEGRATION.md) | How to integrate DevPixelForge into any Go project |
+| [scripts/README.md](scripts/README.md) | Script reference for install, seed, and setup |

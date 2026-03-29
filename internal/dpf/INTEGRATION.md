@@ -1,74 +1,75 @@
-# Guía de integración — DevPixelForge (dpf) en un proyecto Go
+# DevPixelForge (dpf) Integration Guide
 
-Esta guía explica qué archivos debes copiar y cómo usar el motor de procesamiento
-de imágenes, video y audio en Rust desde cualquier proyecto Go.
+This guide explains how to integrate the DevPixelForge Rust processing engine into any Go project. It covers the required files, setup steps, and usage patterns.
+
+> **DevPixelForge** is the underlying Rust engine that powers all image, video, and audio operations in DevForge MCP. Source: [github.com/GustavoGutierrez/devpixelforge](https://github.com/GustavoGutierrez/devpixelforge)
 
 ---
 
-## 1. Qué necesitas llevarte
+## 1. What You Need
 
-### Binario Rust (obligatorio)
+### Rust Binary (required)
 
 ```
-dpf/target/release/dpf
+devpixelforge/target/release/dpf
 ```
 
-Este es el motor que hace el procesamiento real. Debe:
-- Estar compilado para la plataforma destino (`make build-rust` en Linux/macOS).
-- Ser accesible por el proceso Go en tiempo de ejecución.
+This is the processing engine. It must be:
+- Compiled for the target platform (`make build-rust` in DevPixelForge).
+- Accessible by the Go process at runtime.
 
-> Para distribuir sin dependencias del sistema usa el binario estático:
-> `make build-rust-static` → `dpf/target/x86_64-unknown-linux-musl/release/dpf`
+> For distribution without system dependencies, use the static binary:
+> `make build-rust-static` → `devpixelforge/target/x86_64-unknown-linux-musl/release/dpf`
 
-### Cliente Go (obligatorio)
+### Go Client (required)
 
-El cliente Go vive en `internal/dpf/` de devforge-mcp. Contiene:
-- Todos los tipos de job (`ResizeJob`, `OptimizeJob`, `VideoTranscodeJob`, `AudioNormalizeJob`, etc.)
-- `Client` — cliente one-shot (un proceso por operación)
-- `StreamClient` — cliente streaming (proceso Rust persistente, recomendado para servidores)
-- Métodos de conveniencia: `Resize`, `Optimize`, `Convert`, `Favicon`, `Placeholder`
+The Go client lives in `internal/dpf/` of devforge-mcp. It contains:
+- All job types (`ResizeJob`, `OptimizeJob`, `VideoTranscodeJob`, `AudioNormalizeJob`, etc.)
+- `Client` — one-shot client (one process per operation)
+- `StreamClient` — streaming client (persistent Rust process, recommended for servers)
+- Convenience methods: `Resize`, `Optimize`, `Convert`, `Favicon`, `Placeholder`
 - **Video**: `VideoTranscode`, `VideoResize`, `VideoTrim`, `VideoThumbnail`, `VideoProfile`
 - **Audio**: `AudioTranscode`, `AudioTrim`, `AudioNormalize`, `AudioSilenceTrim`
 
 ---
 
-## 2. Cómo integrarlo en tu proyecto Go
+## 2. How to Integrate into Your Go Project
 
-### Paso 1 — Copiar los archivos
+### Step 1 — Copy the Files
 
 ```bash
-# En tu proyecto Go
-cp /ruta/a/devpixelforge/dpf/target/release/dpf ./bin/
-cp -r /ruta/a/devpixelforge/internal/dpf ./internal/dpf
+# In your Go project
+cp /path/to/devpixelforge/target/release/dpf ./bin/
+cp -r /path/to/devforge-mcp/internal/dpf ./internal/dpf
 ```
 
-Estructura recomendada en tu proyecto:
+Recommended project structure:
 
 ```
-mi-proyecto/
+my-project/
 ├── bin/
-│   └── dpf                     # binario Rust
+│   └── dpf                     # Rust binary
 ├── internal/
 │   └── dpf/
-│       ├── dpf.go              # cliente Go principal
-│       ├── audio_job.go        # tipos de jobs de audio
-│       ├── video_job.go        # tipos de jobs de video
-│       └── image_suite_job.go  # tipos de jobs adicionales de imagen
+│       ├── dpf.go              # main Go client
+│       ├── audio_job.go        # audio job types
+│       ├── video_job.go        # video job types
+│       └── image_suite_job.go  # image job types
 └── ...
 ```
 
-### Paso 2 — Usar en tu código
+### Step 2 — Use in Your Code
 
-#### Opción A: Cliente one-shot (simple, para pocas operaciones)
+#### Option A: One-shot Client (simple, for few operations)
 
 ```go
-import "mi-proyecto/internal/dpf"
+import "my-project/internal/dpf"
 
 client := dpf.NewClient("./bin/dpf")
 client.SetTimeout(60 * time.Second)
 
-// Resize responsivo
-result, err := client.Resize(ctx, "uploads/foto.jpg", "public/img", []uint32{320, 640, 1280})
+// Responsive resize
+result, err := client.Resize(ctx, "uploads/photo.jpg", "public/img", []uint32{320, 640, 1280})
 
 // Video transcode
 result, err = client.VideoTranscode(ctx, &dpf.VideoTranscodeJob{
@@ -87,26 +88,24 @@ result, err = client.AudioNormalize(ctx, &dpf.AudioNormalizeJob{
 })
 ```
 
-#### Opción B: StreamClient (recomendado para servidores MCP o alta carga)
+#### Option B: StreamClient (recommended for MCP servers or high load)
 
-El `StreamClient` arranca el proceso Rust **una sola vez** y reutiliza el
-canal stdin/stdout para todas las operaciones. Elimina ~5ms de overhead por
-operación.
+`StreamClient` starts the Rust process **once** and reuses stdin/stdout for all operations, saving ~5 ms overhead per operation.
 
 ```go
-import "mi-proyecto/internal/dpf"
+import "my-project/internal/dpf"
 
-// Inicializar una vez (p.ej. al arrancar el servidor)
+// Initialize once (e.g. at server startup)
 sc, err := dpf.NewStreamClient("./bin/dpf")
 if err != nil {
     log.Fatal(err)
 }
 defer sc.Close()
 
-// Enviar trabajos concurrentemente (StreamClient es thread-safe)
+// Send jobs concurrently (StreamClient is thread-safe)
 result, err := sc.Execute(&dpf.ResizeJob{
     Operation: "resize",
-    Input:     "uploads/foto.jpg",
+    Input:     "uploads/photo.jpg",
     OutputDir: "public/img",
     Widths:    []uint32{320, 640, 1280},
 })
@@ -121,14 +120,12 @@ result, err = sc.Execute(&dpf.VideoTranscodeJob{
 
 ---
 
-## 3. Integración en un MCP server Go
-
-Patrón recomendado para un servidor MCP:
+## 3. Integration Pattern for a Go MCP Server
 
 ```go
 type MCPServer struct {
     dpf *dpf.StreamClient
-    // ... otros campos
+    // ... other fields
 }
 
 func NewMCPServer(binaryPath string) (*MCPServer, error) {
@@ -143,7 +140,7 @@ func (s *MCPServer) Shutdown() {
     s.dpf.Close()
 }
 
-// Handler para la tool "optimize_images"
+// Handler for "optimize_images" tool
 func (s *MCPServer) handleOptimizeImages(ctx context.Context, params json.RawMessage) (any, error) {
     var req struct {
         Paths     []string `json:"paths"`
@@ -166,7 +163,7 @@ func (s *MCPServer) handleOptimizeImages(ctx context.Context, params json.RawMes
     return result, nil
 }
 
-// Handler para la tool "video_transcode"
+// Handler for "video_transcode" tool
 func (s *MCPServer) handleVideoTranscode(ctx context.Context, params json.RawMessage) (any, error) {
     var req struct {
         Input   string `json:"input"`
@@ -187,7 +184,7 @@ func (s *MCPServer) handleVideoTranscode(ctx context.Context, params json.RawMes
     })
 }
 
-// Handler para la tool "audio_normalize"
+// Handler for "audio_normalize" tool
 func (s *MCPServer) handleAudioNormalize(ctx context.Context, params json.RawMessage) (any, error) {
     var req struct {
         Input      string  `json:"input"`
@@ -209,48 +206,48 @@ func (s *MCPServer) handleAudioNormalize(ctx context.Context, params json.RawMes
 
 ---
 
-## 4. Checklist de integración
+## 4. Integration Checklist
 
-- [ ] Binario `dpf` copiado y con permisos de ejecución (`chmod +x`)
-- [ ] Paquete `dpf` copiado a `internal/dpf/` de tu proyecto
-- [ ] Ruta al binario configurada correctamente (absoluta o relativa al CWD del proceso)
-- [ ] `StreamClient` inicializado al arrancar el servidor y cerrado al apagar (`defer sc.Close()`)
-- [ ] Timeout adecuado para operaciones pesadas (`client.SetTimeout(120 * time.Second)`)
-- [ ] FFmpeg instalado para operaciones de video/audio
+- [ ] `dpf` binary copied and executable (`chmod +x`)
+- [ ] `dpf` package copied to your project's `internal/dpf/`
+- [ ] Binary path configured correctly (absolute or relative to process CWD)
+- [ ] `StreamClient` initialized at startup and closed on shutdown (`defer sc.Close()`)
+- [ ] Adequate timeout set for heavy operations (`client.SetTimeout(120 * time.Second)`)
+- [ ] FFmpeg installed for video/audio operations
 
 ---
 
-## 5. Resumen de tipos de job disponibles
+## 5. Available Job Types
 
-| Tipo | Campo `operation` | Cuándo usarlo |
-|------|------------------|---------------|
-| **Imágenes** |||
-| `ResizeJob` | `"resize"` | Generar variantes responsivas |
-| `OptimizeJob` | `"optimize"` | Comprimir PNG/JPEG + generar WebP |
-| `ConvertJob` | `"convert"` | Cambiar formato (SVG→PNG, PNG→WebP, etc.) |
-| `FaviconJob` | `"favicon"` | Generar pack de favicons desde SVG/PNG |
-| `SpriteJob` | `"sprite"` | Crear sprite sheet + CSS |
-| `PlaceholderJob` | `"placeholder"` | LQIP, color dominante, gradiente CSS |
-| `BatchJob` | `"batch"` | Ejecutar múltiples operaciones en paralelo |
+| Type | `operation` value | Use case |
+|------|------------------|----------|
+| **Images** |||
+| `ResizeJob` | `"resize"` | Generate responsive variants |
+| `OptimizeJob` | `"optimize"` | Compress PNG/JPEG + generate WebP |
+| `ConvertJob` | `"convert"` | Format conversion (SVG→PNG, PNG→WebP, etc.) |
+| `FaviconJob` | `"favicon"` | Generate favicon pack from SVG/PNG |
+| `SpriteJob` | `"sprite"` | Create sprite sheet + CSS |
+| `PlaceholderJob` | `"placeholder"` | LQIP, dominant color, CSS gradient |
+| `BatchJob` | `"batch"` | Run multiple operations in parallel |
 | **Video** |||
-| `VideoTranscodeJob` | `"video_transcode"` | Transcodificar video a otro códec |
-| `VideoResizeJob` | `"video_resize"` | Redimensionar video |
-| `VideoTrimJob` | `"video_trim"` | Recortar video por tiempo |
-| `VideoThumbnailJob` | `"video_thumbnail"` | Extraer frame como imagen |
-| `VideoProfileJob` | `"video_profile"` | Aplicar perfil de codificación web |
+| `VideoTranscodeJob` | `"video_transcode"` | Transcode video to a different codec |
+| `VideoResizeJob` | `"video_resize"` | Resize video dimensions |
+| `VideoTrimJob` | `"video_trim"` | Trim video by time range |
+| `VideoThumbnailJob` | `"video_thumbnail"` | Extract frame as image |
+| `VideoProfileJob` | `"video_profile"` | Apply a web-optimized encoding profile |
 | **Audio** |||
-| `AudioTranscodeJob` | `"audio_transcode"` | Convertir entre formatos de audio |
-| `AudioTrimJob` | `"audio_trim"` | Recortar audio por tiempo |
-| `AudioNormalizeJob` | `"audio_normalize"` | Normalizar loudness a LUFS objetivo |
-| `AudioSilenceTrimJob` | `"audio_silence_trim"` | Eliminar silencio inicial/final |
+| `AudioTranscodeJob` | `"audio_transcode"` | Convert between audio formats |
+| `AudioTrimJob` | `"audio_trim"` | Trim audio by time range |
+| `AudioNormalizeJob` | `"audio_normalize"` | Normalize loudness to target LUFS |
+| `AudioSilenceTrimJob` | `"audio_silence_trim"` | Remove leading/trailing silence |
 
 ---
 
-## 6. Requisitos del Sistema
+## 6. System Requirements
 
-### FFmpeg (requerido para video/audio)
+### FFmpeg (required for video/audio)
 
-dpf usa FFmpeg CLI para procesamiento de video y audio. Asegúrate de tener FFmpeg instalado:
+dpf uses the FFmpeg CLI for video and audio processing. Make sure FFmpeg is installed:
 
 ```bash
 # Linux
@@ -259,8 +256,8 @@ sudo apt install ffmpeg
 # macOS
 brew install ffmpeg
 
-# Verificar instalación
+# Verify
 ffmpeg -version
 ```
 
-Versión mínima recomendada: **FFmpeg 6.0+**
+Minimum recommended version: **FFmpeg 6.0+**
