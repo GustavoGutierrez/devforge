@@ -472,7 +472,7 @@ jobs:
           git add Formula/devforge.rb
           git diff --staged --quiet && echo "No changes — skipping commit" && exit 0
           git commit -m "chore(homebrew): update bottles for v${{ steps.version.outputs.VERSION }}"
-          git push origin "update-v${{ steps.version.outputs.VERSION }}"
+          git push origin "update-v${{ steps.version.outputs.VERSION }}" --force-with-lease
 
       - name: Open PR
         # Run from homebrew-tap/ where .git lives (actions/checkout with path: homebrew-tap).
