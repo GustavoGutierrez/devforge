@@ -23,6 +23,7 @@ class Devforge < Formula
     FileUtils.rm_f "#{libexec}/brew-bottle.tar.gz"
 
     # Create shell wrappers in bin/
+    bin.mkpath
     File.write(bin/"devforge-mcp", <<~WRAPPER)
       #!/bin/sh
       exec "#{libexec}/devforge-mcp" "$@"
