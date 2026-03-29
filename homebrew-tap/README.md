@@ -18,15 +18,25 @@ Together they expose tools for UI/design, image, video, and audio processing thr
 
 ### Option 1 — Tap and install (macOS & Linux)
 
+> **Note:** Because the source repo is named `devforge-mcp` (not `homebrew-devforge`), you must specify the repo URL and branch explicitly when tapping.
+
 ```bash
-brew tap GustavoGutierrez/devforge
+brew tap GustavoGutierrez/devforge https://github.com/GustavoGutierrez/devforge-mcp homebrew-tap
 brew install devforge
 ```
 
-### Option 2 — Direct URL
+### Option 2 — Direct install from URL
 
 ```bash
-brew install https://raw.githubusercontent.com/GustavoGutierrez/devforge-mcp/main/homebrew-tap/Formula/devforge.rb
+brew install https://raw.githubusercontent.com/GustavoGutierrez/devforge-mcp/homebrew-tap/Formula/devforge.rb
+```
+
+### Option 3 — Manual clone
+
+```bash
+git clone https://github.com/GustavoGutierrez/devforge-mcp --branch homebrew-tap \
+  "$(brew --prefix)/Library/Taps/GustavoGutierrez/homebrew-devforge"
+brew install devforge
 ```
 
 ### Linux Requirements
