@@ -7,16 +7,20 @@ class Devforge < Formula
 
   version "1.0.1"
 
-  def install
-    # Download and extract the pre-built Linux bottle.
-    # We do this manually because the source archive does not contain dist/.
-    bottle_url = "https://github.com/GustavoGutierrez/devforge-mcp/releases/download/v1.0.1/devforge-1.0.1.linux-amd64.tar.gz"
-    system "curl", "-sSL", "--fail", "-o", "brew-bottle.tar.gz", bottle_url
-    system "tar", "-xzf", "brew-bottle.tar.gz"
-    FileUtils.rm_f "brew-bottle.tar.gz"
+  # on_linux overrides these with the real bottle URL below.
+  # The source URL is not used for installation — we extract from lib/ (the downloaded bottle).
+  url "https://github.com/GustavoGutierrez/devforge-mcp/archive/refs/tags/v#{version}.tar.gz"
+  sha256 "328a7d28132541eebd9bcd9ac0fa5f7a19889c4789a55c435071292be1bba18c"
 
-    # The tarball extracts into dist/
-    libexec.install "dist/devforge-mcp", "dist/devforge", "dist/dpf"
+  on_linux do
+    url "https://github.com/GustavoGutierrez/devforge-mcp/releases/download/v#{version}/devforge-#{version}.linux-amd64.tar.gz"
+    sha256 "47eed27d5a44a62bd9c913869419e17c8d24a92b60decff1ac544b0265453026"
+  end
+
+  def install
+    # Homebrew downloads the source (the Linux bottle on Linux) and extracts it to lib/.
+    # The bottle contains dist/ with all three binaries.
+    libexec.install Dir["#{lib}/*"]
 
     # Create bin wrappers
     (libexec/"bin").mkpath
