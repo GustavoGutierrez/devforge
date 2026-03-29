@@ -350,7 +350,6 @@ jobs:
           ARM64_SHA256: ${{ needs.build-arm64.outputs.sha256 }}
           INTEL_SHA256: ${{ needs.build-intel.outputs.sha256 }}
           LINUX_SHA256: ${{ needs.build-linux.outputs.sha256 }}
-          LINUX_SHA256: ${{ needs.build-linux.outputs.sha256 }}
         run: |
           # Write the formula with placeholder sha256 values.
           # Single-quoted heredoc prevents shell expansion of Ruby's #{version}.
