@@ -279,14 +279,19 @@ func (s *Server) ImageCrop(ctx context.Context, input ImageCropInput) string {
 		return errorJSON("dpf binary not available. Ensure bin/dpf is installed and executable.")
 	}
 
+	w, h := uint32(input.Width), uint32(input.Height)
 	job := &dpf.CropJob{
 		Operation: "crop",
 		Input:     input.Input,
 		Output:    input.Output,
-		X:         uint32(input.X),
-		Y:         uint32(input.Y),
-		Width:     uint32(input.Width),
-		Height:    uint32(input.Height),
+		Rect: &dpf.CropRect{
+			X:      uint32(input.X),
+			Y:      uint32(input.Y),
+			Width:  uint32(input.Width),
+			Height: uint32(input.Height),
+		},
+		Width:  &w,
+		Height: &h,
 	}
 
 	result, err := s.DPF.Crop(job)
@@ -317,9 +322,16 @@ func (s *Server) ImageRotate(ctx context.Context, input ImageRotateInput) string
 		Operation: "rotate",
 		Input:     input.Input,
 		Output:    input.Output,
-		Angle:     input.Angle,
-		FlipH:     input.FlipH,
-		FlipV:     input.FlipV,
+	}
+	if input.Angle != 0 {
+		job.AngleF = &input.Angle
+	}
+	if input.FlipH && input.FlipV {
+		job.Flip = "both"
+	} else if input.FlipH {
+		job.Flip = "horizontal"
+	} else if input.FlipV {
+		job.Flip = "vertical"
 	}
 
 	result, err := s.DPF.Rotate(job)
@@ -354,20 +366,24 @@ func (s *Server) ImageWatermark(ctx context.Context, input ImageWatermarkInput) 
 		Input:     input.Input,
 		Output:    input.Output,
 		Text:      input.Text,
-		ImagePath: input.ImagePath,
+		Image:     input.ImagePath,
 		Position:  input.Position,
-		Opacity:   input.Opacity,
 		Color:     input.Color,
 	}
-
+	if input.Opacity != 0 {
+		job.Opacity = &input.Opacity
+	}
 	if input.X != nil {
-		job.X = input.X
+		v := uint32(*input.X)
+		job.OffsetX = &v
 	}
 	if input.Y != nil {
-		job.Y = input.Y
+		v := uint32(*input.Y)
+		job.OffsetY = &v
 	}
 	if input.Size != nil {
-		job.Size = input.Size
+		v := uint32(*input.Size)
+		job.FontSize = &v
 	}
 
 	result, err := s.DPF.Watermark(job)
@@ -395,14 +411,24 @@ func (s *Server) ImageAdjust(ctx context.Context, input ImageAdjustInput) string
 	}
 
 	job := &dpf.AdjustJob{
-		Operation:  "adjust",
-		Input:      input.Input,
-		Output:     input.Output,
-		Brightness: input.Brightness,
-		Contrast:   input.Contrast,
-		Saturation: input.Saturation,
-		Blur:       input.Blur,
-		Sharpen:    input.Sharpen,
+		Operation: "adjust",
+		Input:     input.Input,
+		Output:    input.Output,
+	}
+	if input.Brightness != 0 {
+		job.Brightness = &input.Brightness
+	}
+	if input.Contrast != 0 {
+		job.Contrast = &input.Contrast
+	}
+	if input.Saturation != 0 {
+		job.Saturation = &input.Saturation
+	}
+	if input.Blur != 0 {
+		job.Blur = &input.Blur
+	}
+	if input.Sharpen != 0 {
+		job.Sharpen = &input.Sharpen
 	}
 
 	result, err := s.DPF.Adjust(job)
@@ -433,11 +459,11 @@ func (s *Server) ImageQuality(ctx context.Context, input ImageQualityInput) stri
 	}
 
 	job := &dpf.QualityJob{
-		Operation:    "quality",
-		Input:        input.Input,
-		Output:       input.Output,
-		TargetSizeKB: input.TargetSizeKB,
-		Format:       input.Format,
+		Operation:  "quality",
+		Input:      input.Input,
+		Output:     input.Output,
+		TargetSize: uint64(input.TargetSizeKB) * 1024,
+		Format:     input.Format,
 	}
 
 	if input.MaxQuality != nil {
@@ -484,7 +510,6 @@ func (s *Server) ImageSrcset(ctx context.Context, input ImageSrcsetInput) string
 		Input:     input.Input,
 		OutputDir: input.OutputDir,
 		Widths:    u32Widths,
-		Sizes:     input.Sizes,
 		Format:    input.Format,
 	}
 
