@@ -1,5 +1,5 @@
-// Package config provides read/write access to the dev-forge configuration file.
-// Config path: ~/.config/dev-forge/config.json
+// Package config provides read/write access to the devforge configuration file.
+// Config path: ~/.config/devforge/config.json
 // Override: DEV_FORGE_CONFIG environment variable.
 package config
 
@@ -9,12 +9,12 @@ import (
 	"path/filepath"
 )
 
-// Config holds all user-configurable settings for dev-forge.
+// Config holds all user-configurable settings for devforge.
 type Config struct {
 	GeminiAPIKey   string `json:"gemini_api_key"`
-	OllamaURL      string `json:"ollama_url"`       // default: http://localhost:11434
-	EmbeddingModel string `json:"embedding_model"`  // default: nomic-embed-text (768-dim)
-	ImageModel     string `json:"image_model"`      // default: gemini-2.5-flash-image
+	OllamaURL      string `json:"ollama_url"`      // default: http://localhost:11434
+	EmbeddingModel string `json:"embedding_model"` // default: nomic-embed-text (768-dim)
+	ImageModel     string `json:"image_model"`     // default: gemini-2.5-flash-image
 }
 
 // Path resolves the config file path from the environment or the default location.
@@ -26,7 +26,7 @@ func Path() string {
 	if err != nil {
 		return "config.json"
 	}
-	return filepath.Join(home, ".config", "dev-forge", "config.json")
+	return filepath.Join(home, ".config", "devforge", "config.json")
 }
 
 // Load reads and parses the config file.

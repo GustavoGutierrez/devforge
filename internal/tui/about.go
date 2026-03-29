@@ -37,10 +37,10 @@ func (m aboutModel) View() string {
 	if err != nil {
 		home = os.Getenv("HOME")
 	}
-	shareDir := home + "/.local/share/dev-forge/current"
+	shareDir := home + "/.local/share/devforge/current"
 	binDir := home + "/.local/bin"
-	dbPath := shareDir + "/dev-forge.db"
-	cfgPath := home + "/.config/dev-forge/config.json"
+	dbPath := shareDir + "/devforge.db"
+	cfgPath := home + "/.config/devforge/config.json"
 
 	var b strings.Builder
 
@@ -71,7 +71,7 @@ func (m aboutModel) View() string {
 	b.WriteString(titleStyle.Render("CONFIGURATION"))
 	b.WriteString("\n")
 	b.WriteString(normalStyle.Render("  Config file: "))
-	b.WriteString(dimStyle.Render("~/.config/dev-forge/config.json"))
+	b.WriteString(dimStyle.Render("~/.config/devforge/config.json"))
 	b.WriteString("\n")
 	b.WriteString(dimStyle.Render("  (or override with DEV_FORGE_CONFIG env var)"))
 	b.WriteString("\n\n")
@@ -82,7 +82,7 @@ func (m aboutModel) View() string {
 	b.WriteString(dimStyle.Render(shareDir + "/"))
 	b.WriteString("\n")
 	b.WriteString(normalStyle.Render("  Symlinks  : "))
-	b.WriteString(dimStyle.Render(binDir + "/  (dev-forge, dev-forge-mcp, dpf)"))
+	b.WriteString(dimStyle.Render(binDir + "/  (devforge, devforge-mcp, dpf)"))
 	b.WriteString("\n")
 	b.WriteString(normalStyle.Render("  Database  : "))
 	b.WriteString(dimStyle.Render(dbPath))
@@ -93,10 +93,10 @@ func (m aboutModel) View() string {
 
 	b.WriteString(titleStyle.Render("BINARIES"))
 	b.WriteString("\n")
-	b.WriteString(normalStyle.Render("  dev-forge          "))
+	b.WriteString(normalStyle.Render("  devforge           "))
 	b.WriteString(dimStyle.Render("— Interactive TUI for all DevForge tools (this app)"))
 	b.WriteString("\n")
-	b.WriteString(normalStyle.Render("  dev-forge-mcp      "))
+	b.WriteString(normalStyle.Render("  devforge-mcp      "))
 	b.WriteString(dimStyle.Render("— MCP server (stdio) — attach to Claude or any MCP client"))
 	b.WriteString("\n")
 	b.WriteString(normalStyle.Render("  dpf                 "))

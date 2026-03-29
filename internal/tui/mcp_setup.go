@@ -252,7 +252,7 @@ func writeConfig(ideIdx, scopeIdx int, binaryPath string) (string, bool) {
 	if err != nil {
 		return fmt.Sprintf("could not determine home directory: %v", err), true
 	}
-	devForgeConfigPath := filepath.Join(home, ".config", "dev-forge", "config.json")
+	devForgeConfigPath := filepath.Join(home, ".config", "devforge", "config.json")
 
 	cfgPath := configFilePath(ideIdx, scopeIdx)
 
@@ -277,7 +277,7 @@ func writeConfig(ideIdx, scopeIdx int, binaryPath string) (string, bool) {
 				"DEV_FORGE_CONFIG": devForgeConfigPath,
 			},
 		}
-		setNestedKey(root, entry, "mcp", "dev-forge")
+		setNestedKey(root, entry, "mcp", "devforge")
 
 	case 1: // Claude Code
 		entry := map[string]interface{}{
@@ -287,7 +287,7 @@ func writeConfig(ideIdx, scopeIdx int, binaryPath string) (string, bool) {
 				"DEV_FORGE_CONFIG": devForgeConfigPath,
 			},
 		}
-		setNestedKey(root, entry, "mcpServers", "dev-forge")
+		setNestedKey(root, entry, "mcpServers", "devforge")
 
 	case 2: // VSCode
 		entry := map[string]interface{}{
@@ -298,7 +298,7 @@ func writeConfig(ideIdx, scopeIdx int, binaryPath string) (string, bool) {
 				"DEV_FORGE_CONFIG": devForgeConfigPath,
 			},
 		}
-		setNestedKey(root, entry, "servers", "dev-forge")
+		setNestedKey(root, entry, "servers", "devforge")
 	}
 
 	// Ensure parent dirs exist.

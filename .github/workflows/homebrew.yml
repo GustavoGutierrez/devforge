@@ -1,0 +1,334 @@
+# .github/workflows/homebrew.yml
+#
+# DevForge Homebrew Bottles CI
+#
+# Triggered by:
+#   - GitHub Release published (automatic: detects new tag from release)
+#   - workflow_dispatch (manual: provide the version manually)
+#
+# What it does:
+#   1. Builds macOS bottles (arm64 + amd64) using a matrix strategy
+#   2. Uploads each bottle as a release asset
+#   3. Downloads the assets to compute sha256 checksums
+#   4. Commits the updated Formula/devforge.rb to the homebrew-tap branch
+#      and opens a PR
+#
+# Required secrets:
+#   GITHUB_TOKEN (automatic with repo scope)
+
+name: Homebrew Bottles
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version tag (e.g. v1.0.0)"
+        required: true
+        type: string
+
+env:
+  DPF_VERSION: "0.2.0"
+
+jobs:
+  # ── Build arm64 bottle ─────────────────────────────────────────────────────
+  build-arm64:
+    name: Build macOS arm64
+    runs-on: macos-14
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+          cache: true
+
+      - name: Read version
+        id: version
+        run: |
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION="${{ github.ref_name }}"
+          fi
+          VERSION="${VERSION#v}"
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "TAG=v$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Build devforge-mcp (arm64)
+        env:
+          GOOS: darwin
+          GOARCH: arm64
+          CGO_ENABLED: 1
+        run: |
+          CGO_ENABLED=1 go build \
+            -ldflags="-s -w" \
+            -o devforge-mcp \
+            ./cmd/devforge-mcp/
+
+      - name: Build devforge (arm64)
+        env:
+          GOOS: darwin
+          GOARCH: arm64
+          CGO_ENABLED: 1
+        run: |
+          CGO_ENABLED=1 go build \
+            -ldflags="-s -w" \
+            -o devforge \
+            ./cmd/devforge/
+
+      - name: Download dpf
+        run: |
+          DPF_URL="https://github.com/GustavoGutierrez/devpixelforge/releases/download/v${DPF_VERSION}/dpf-${DPF_VERSION}-macos.tar.gz"
+          curl -sSL --fail -o dpf.tar.gz "$DPF_URL"
+          tar -xzf dpf.tar.gz
+          rm -f dpf.tar.gz
+          chmod +x dpf
+
+      - name: Create bottle archive
+        run: |
+          ARCHIVE="devforge-${{ steps.version.outputs.VERSION }}.macos-arm64.tar.gz"
+          mkdir -p dist
+          cp devforge-mcp devforge dpf dist/
+          tar -czf "$ARCHIVE" dist/
+          echo "ARCHIVE=$ARCHIVE" >> $GITHUB_OUTPUT
+
+      - name: Upload to release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.TAG }}
+          files: ${{ steps.version.outputs.ARCHIVE }}
+          allow_overwrites: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compute sha256
+        id: sha256
+        run: |
+          SHA256=$(shasum -a 256 "${{ steps.version.outputs.ARCHIVE }}" | cut -d' ' -f1)
+          echo "sha256=$SHA256" >> $GITHUB_OUTPUT
+          echo "sha256=$SHA256"
+
+  # ── Build intel bottle ──────────────────────────────────────────────────────
+  build-intel:
+    name: Build macOS intel
+    runs-on: macos-13
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+          cache: true
+
+      - name: Read version
+        id: version
+        run: |
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION="${{ github.ref_name }}"
+          fi
+          VERSION="${VERSION#v}"
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "TAG=v$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Build devforge-mcp (intel)
+        env:
+          GOOS: darwin
+          GOARCH: amd64
+          CGO_ENABLED: 1
+        run: |
+          CGO_ENABLED=1 go build \
+            -ldflags="-s -w" \
+            -o devforge-mcp \
+            ./cmd/devforge-mcp/
+
+      - name: Build devforge (intel)
+        env:
+          GOOS: darwin
+          GOARCH: amd64
+          CGO_ENABLED: 1
+        run: |
+          CGO_ENABLED=1 go build \
+            -ldflags="-s -w" \
+            -o devforge \
+            ./cmd/devforge/
+
+      - name: Download dpf
+        run: |
+          DPF_URL="https://github.com/GustavoGutierrez/devpixelforge/releases/download/v${DPF_VERSION}/dpf-${DPF_VERSION}-macos.tar.gz"
+          curl -sSL --fail -o dpf.tar.gz "$DPF_URL"
+          tar -xzf dpf.tar.gz
+          rm -f dpf.tar.gz
+          chmod +x dpf
+
+      - name: Create bottle archive
+        run: |
+          ARCHIVE="devforge-${{ steps.version.outputs.VERSION }}.macos-intel.tar.gz"
+          mkdir -p dist
+          cp devforge-mcp devforge dpf dist/
+          tar -czf "$ARCHIVE" dist/
+          echo "ARCHIVE=$ARCHIVE" >> $GITHUB_OUTPUT
+
+      - name: Upload to release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.TAG }}
+          files: ${{ steps.version.outputs.ARCHIVE }}
+          allow_overwrites: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compute sha256
+        id: sha256
+        run: |
+          SHA256=$(shasum -a 256 "${{ steps.version.outputs.ARCHIVE }}" | cut -d' ' -f1)
+          echo "sha256=$SHA256" >> $GITHUB_OUTPUT
+          echo "sha256=$SHA256"
+
+  # ── Update formula ──────────────────────────────────────────────────────────
+  update-formula:
+    name: Update Homebrew formula
+    needs: [build-arm64, build-intel]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Determine version
+        id: version
+        run: |
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION="${{ github.ref_name }}"
+          fi
+          VERSION="${VERSION#v}"
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "TAG=v$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Compute source tarball sha256
+        id: source
+        run: |
+          SOURCE_URL="https://github.com/GustavoGutierrez/devforge-mcp/archive/refs/tags/v${{ steps.version.outputs.VERSION }}.tar.gz"
+          curl -sSL --fail -o /tmp/source.tar.gz "$SOURCE_URL"
+          SOURCE_SHA256=$(shasum -a 256 /tmp/source.tar.gz | cut -d' ' -f1)
+          echo "source_sha256=$SOURCE_SHA256" >> $GITHUB_OUTPUT
+          echo "source_sha256=$SOURCE_SHA256"
+
+      - name: Checkout homebrew-tap branch
+        uses: actions/checkout@v4
+        with:
+          ref: homebrew-tap
+          path: homebrew-tap
+          fetch-depth: 1
+
+      - name: Check if branch exists, create if not
+        run: |
+          git checkout homebrew-tap || git checkout -b homebrew-tap
+          git pull origin homebrew-tap --ff-only || true
+        working-directory: homebrew-tap
+
+      - name: Download arm64 asset
+        id: arm64
+        run: |
+          gh release download v${{ steps.version.outputs.VERSION }} \
+            --pattern "*.macos-arm64.tar.gz" \
+            -D /tmp/arm64/ \
+            --clobber
+          SHA256=$(shasum -a 256 /tmp/arm64/*.macos-arm64.tar.gz | cut -d' ' -f1)
+          echo "sha256=$SHA256" >> $GITHUB_OUTPUT
+          echo "sha256=$SHA256"
+
+      - name: Download intel asset
+        id: intel
+        run: |
+          gh release download v${{ steps.version.outputs.VERSION }} \
+            --pattern "*.macos-intel.tar.gz" \
+            -D /tmp/intel/ \
+            --clobber
+          SHA256=$(shasum -a 256 /tmp/intel/*.macos-intel.tar.gz | cut -d' ' -f1)
+          echo "sha256=$SHA256" >> $GITHUB_OUTPUT
+          echo "sha256=$SHA256"
+
+      - name: Update Formula/devforge.rb
+        env:
+          VERSION: ${{ steps.version.outputs.VERSION }}
+          TAG: ${{ steps.version.outputs.TAG }}
+          ARM64_SHA256: ${{ needs.build-arm64.outputs.sha256 }}
+          INTEL_SHA256: ${{ needs.build-intel.outputs.sha256 }}
+        run: |
+          # Write the formula with placeholder sha256 values.
+          # Single-quoted heredoc prevents shell expansion of Ruby's #{version}.
+          cat > Formula/devforge.rb << 'RUBY_EOF'
+          # frozen_string_literal: true
+
+          class Devforge < Formula
+            desc "DevForge — Design intelligence (CLI/TUI + MCP server) + image/video/audio processing (dpf)"
+            homepage "https://github.com/GustavoGutierrez/devforge-mcp"
+            license "GPL-3.0"
+
+            url "https://github.com/GustavoGutierrez/devforge-mcp/archive/refs/tags/v#{version}.tar.gz"
+            version "#{version}"
+            sha256 "SOURCE_PLACEHOLDER"
+
+            depends_on "go" => :build
+            depends_on "ffmpeg"
+            depends_on "sqlite"
+
+            on_macos_sequential do
+              url "https://github.com/GustavoGutierrez/devforge-mcp/releases/download/v#{version}/devforge-#{version}.macos-intel.tar.gz"
+              sha256 "INTEL_PLACEHOLDER"
+            end
+            on_macos_apple do
+              url "https://github.com/GustavoGutierrez/devforge-mcp/releases/download/v#{version}/devforge-#{version}.macos-arm64.tar.gz"
+              sha256 "ARM64_PLACEHOLDER"
+            end
+          RUBY_EOF
+
+          # Replace all placeholders with actual sha256 values
+          sed -i "s/SOURCE_PLACEHOLDER/${SOURCE_SHA256}/" Formula/devforge.rb
+          sed -i "s/INTEL_PLACEHOLDER/${INTEL_SHA256}/" Formula/devforge.rb
+          sed -i "s/ARM64_PLACEHOLDER/${ARM64_SHA256}/" Formula/devforge.rb
+
+          echo "Formula updated with sha256:"
+          echo "  source: ${SOURCE_SHA256}"
+          echo "  arm64:  ${ARM64_SHA256}"
+          echo "  intel:  ${INTEL_SHA256}"
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Formula/devforge.rb
+          git diff --staged --quiet && echo "No changes — skipping commit" && exit 0
+          git commit -m "chore(homebrew): update bottles for v${{ steps.version.outputs.VERSION }}"
+          git push origin homebrew-tap
+
+      - name: Open PR
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: homebrew-tap/update-v${{ steps.version.outputs.VERSION }}
+          base: homebrew-tap
+          title: "chore(homebrew): update bottles for v${{ steps.version.outputs.VERSION }}"
+          commit-message: "chore(homebrew): update bottles for v${{ steps.version.outputs.VERSION }}"
+          body: |
+            ## Homebrew Bottles — v${{ steps.version.outputs.VERSION }}
+
+            macOS bottles built and uploaded.
+
+            | Architecture | sha256 |
+            |-------------|--------|
+            | arm64 (Apple Silicon) | `${{ needs.build-arm64.outputs.sha256 }}` |
+            | intel (x86_64) | `${{ needs.build-intel.outputs.sha256 }}` |
+
+            **After merging, users can install with:**
+            ```bash
+            brew update
+            brew upgrade devforge
+            ```
+          delete-branch: true
