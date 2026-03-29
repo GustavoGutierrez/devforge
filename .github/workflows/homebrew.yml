@@ -132,7 +132,7 @@ jobs:
   # ── Build intel bottle ──────────────────────────────────────────────────────
   build-intel:
     name: Build macOS intel
-    runs-on: macos-13
+    runs-on: macos-15
     outputs:
       sha256: ${{ steps.sha256.outputs.sha256 }}
     steps:
