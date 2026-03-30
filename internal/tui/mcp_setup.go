@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -34,22 +35,83 @@ func newMCPSetupModel() mcpSetupModel {
 	}
 }
 
-// detectMCPBinaryPath tries to find the dev-forge-mcp binary next to the current executable.
+// detectMCPBinaryPath tries to find the devforge-mcp binary using multiple strategies:
+// 1. Check common Homebrew paths (Linuxbrew and macOS)
+// 2. Use "which" to find it in PATH
+// 3. Check paths relative to the current executable
+// 4. Fall back to common installation directories
 func detectMCPBinaryPath() string {
+	// Common Homebrew paths for Linux and macOS
+	homebrewPaths := []string{
+		"/home/linuxbrew/.linuxbrew/bin/devforge-mcp", // Linuxbrew (Linux)
+		"/opt/homebrew/bin/devforge-mcp",              // Homebrew ARM (macOS Apple Silicon)
+		"/usr/local/bin/devforge-mcp",                 // Homebrew Intel (macOS)
+	}
+
+	for _, path := range homebrewPaths {
+		if _, err := os.Stat(path); err == nil {
+			return path
+		}
+	}
+
+	// Try using "which" to find it in PATH
+	if whichPath, err := execLookPath("devforge-mcp"); err == nil {
+		return whichPath
+	}
+
+	// Check relative to current executable
 	exe, err := os.Executable()
 	if err == nil {
 		dir := filepath.Dir(exe)
-		candidate := filepath.Join(dir, "dev-forge-mcp")
+		candidate := filepath.Join(dir, "devforge-mcp")
 		if _, statErr := os.Stat(candidate); statErr == nil {
 			return candidate
 		}
 	}
 
+	// Common installation directories
 	home, err := os.UserHomeDir()
 	if err == nil {
-		return filepath.Join(home, ".local", "bin", "dev-forge-mcp")
+		paths := []string{
+			filepath.Join(home, ".local", "bin", "devforge-mcp"),
+			filepath.Join(home, ".cargo", "bin", "devforge-mcp"),
+			filepath.Join(home, "go", "bin", "devforge-mcp"),
+		}
+		for _, path := range paths {
+			if _, err := os.Stat(path); err == nil {
+				return path
+			}
+		}
 	}
-	return "/usr/local/bin/dev-forge-mcp"
+
+	return "devforge-mcp" // Final fallback - let PATH resolution handle it
+}
+
+// execLookPath uses the OS "which" command equivalent to find a binary in PATH.
+// This handles PATH modifications made by shell initialization scripts.
+func execLookPath(name string) (string, error) {
+	// Try os/exec first as a baseline
+	if path, err := exec.LookPath(name); err == nil {
+		return path, nil
+	}
+
+	// Try common shell-based PATH resolution for shells that modify PATH
+	shells := []string{"bash", "sh", "zsh", "fish"}
+	for _, shell := range shells {
+		cmd := exec.Command(shell, "-c", fmt.Sprintf("command -v %s 2>/dev/null || which %s 2>/dev/null || echo ''", name, name))
+		out, err := cmd.Output()
+		if err == nil && len(out) > 0 {
+			path := strings.TrimSpace(string(out))
+			if path != "" && !strings.Contains(path, "not found") {
+				// Verify the path exists
+				if _, statErr := os.Stat(path); statErr == nil {
+					return path, nil
+				}
+			}
+		}
+	}
+
+	return "", fmt.Errorf("not found")
 }
 
 func (m mcpSetupModel) Init() tea.Cmd { return nil }

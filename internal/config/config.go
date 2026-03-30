@@ -18,10 +18,31 @@ type Config struct {
 }
 
 // Path resolves the config file path from the environment or the default location.
+// It checks Homebrew-specific locations first, then falls back to the standard
+// XDG_CONFIG_HOME location (~/.config/devforge/config.json).
 func Path() string {
 	if p := os.Getenv("DEV_FORGE_CONFIG"); p != "" {
 		return p
 	}
+
+	// Homebrew-specific config paths (checked first for existing installations)
+	homebrewPaths := []string{
+		"/home/linuxbrew/.linuxbrew/etc/devforge/config.json", // Linuxbrew
+		"/opt/homebrew/etc/devforge/config.json",              // macOS ARM
+		"/usr/local/etc/devforge/config.json",                 // macOS Intel
+	}
+	for _, p := range homebrewPaths {
+		if _, err := os.Stat(p); err == nil {
+			return p
+		}
+	}
+
+	// Standard XDG_CONFIG_HOME location
+	if xdgConfig := os.Getenv("XDG_CONFIG_HOME"); xdgConfig != "" {
+		path := filepath.Join(xdgConfig, "devforge", "config.json")
+		return path
+	}
+
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "config.json"

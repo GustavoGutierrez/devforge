@@ -6,10 +6,77 @@
 set -euo pipefail
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
-BIN="${HOME}/.local/bin/devforge-mcp"
-CFG="${HOME}/.config/devforge/config.json"
+# Detect devforge-mcp binary with priority:
+# 1. ENV override
+# 2. Homebrew paths (Linuxbrew and macOS)
+# 3. which command (user's PATH)
+# 4. Common installation directories
+detect_binary() {
+    local path
 
-# Allow overrides via environment
+    # Try Homebrew paths first (most common for devforge-mcp installations)
+    local homebrew_paths=(
+        "/home/linuxbrew/.linuxbrew/bin/devforge-mcp"  # Linuxbrew (Linux)
+        "/opt/homebrew/bin/devforge-mcp"               # Homebrew ARM (macOS Apple Silicon)
+        "/usr/local/bin/devforge-mcp"                  # Homebrew Intel (macOS)
+    )
+
+    for path in "${homebrew_paths[@]}"; do
+        if [ -f "$path" ]; then
+            echo "$path"
+            return 0
+        fi
+    done
+
+    # Try which to find in PATH
+    if path=$(command -v devforge-mcp 2>/dev/null) && [ -n "$path" ]; then
+        echo "$path"
+        return 0
+    fi
+
+    # Common installation directories
+    local local_paths=(
+        "${HOME}/.local/bin/devforge-mcp"
+        "${HOME}/.cargo/bin/devforge-mcp"
+        "${HOME}/go/bin/devforge-mcp"
+    )
+
+    for path in "${local_paths[@]}"; do
+        if [ -f "$path" ]; then
+            echo "$path"
+            return 0
+        fi
+    done
+
+    # Fallback to default
+    echo "${HOME}/.local/bin/devforge-mcp"
+}
+
+# Detect config.json path - prefer XDG_CONFIG_HOME, fallback to ~/.config
+detect_config() {
+    local xdg_config="${XDG_CONFIG_HOME:-${HOME}/.config}"
+    local homebrew_config=""
+
+    # Try Homebrew-specific config location (for Linuxbrew/macOS Homebrew installs)
+    local homebrew_lib_paths=(
+        "/home/linuxbrew/.linuxbrew/etc/devforge/config.json"  # Linuxbrew
+        "/opt/homebrew/etc/devforge/config.json"              # macOS ARM
+        "/usr/local/etc/devforge/config.json"                 # macOS Intel
+    )
+
+    for path in "${homebrew_lib_paths[@]}"; do
+        if [ -f "$path" ]; then
+            echo "$path"
+            return 0
+        fi
+    done
+
+    # Standard XDG/config location
+    echo "${xdg_config}/devforge/config.json"
+}
+
+BIN="$(detect_binary)"
+CFG="$(detect_config)"
 BIN="${DEV_FORGE_BIN:-$BIN}"
 CFG="${DEV_FORGE_CONFIG:-$CFG}"
 

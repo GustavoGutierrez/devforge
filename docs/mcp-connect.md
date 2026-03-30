@@ -4,6 +4,64 @@ How to attach an MCP client to the server and how to send tool calls from the te
 
 ---
 
+## Finding Your devforge-mcp Installation Paths
+
+Before configuring any MCP client, you need to know two paths:
+
+### 1. The Binary Path
+
+Find where `devforge-mcp` is installed:
+
+```bash
+# Most reliable method - uses your shell's PATH
+which devforge-mcp
+
+# If Homebrew is installed (Linuxbrew on Linux, Homebrew on macOS)
+# Common Homebrew locations:
+# - Linux:      /home/linuxbrew/.linuxbrew/bin/devforge-mcp
+# - macOS ARM:  /opt/homebrew/bin/devforge-mcp
+# - macOS Intel: /usr/local/bin/devforge-mcp
+
+# Manual search in common locations
+ls -la ~/.local/bin/devforge-mcp 2>/dev/null || \
+ls -la /usr/local/bin/devforge-mcp 2>/dev/null || \
+ls -la /opt/homebrew/bin/devforge-mcp 2>/dev/null || \
+ls -la /home/linuxbrew/.linuxbrew/bin/devforge-mcp 2>/dev/null
+```
+
+**Homebrew installation paths by platform:**
+
+| Platform | Path |
+|----------|------|
+| Linux (Linuxbrew) | `/home/linuxbrew/.linuxbrew/bin/devforge-mcp` |
+| macOS Apple Silicon | `/opt/homebrew/bin/devforge-mcp` |
+| macOS Intel | `/usr/local/bin/devforge-mcp` |
+| Manual install | `~/.local/bin/devforge-mcp` |
+
+### 2. The Config Path
+
+Find where the config file is stored:
+
+```bash
+# Check standard locations
+ls -la ~/.config/devforge/config.json 2>/dev/null
+
+# Check Homebrew locations (if installed via Homebrew)
+ls -la /home/linuxbrew/.linuxbrew/etc/devforge/config.json 2>/dev/null  # Linux
+ls -la /opt/homebrew/etc/devforge/config.json 2>/dev/null               # macOS ARM
+ls -la /usr/local/etc/devforge/config.json 2>/dev/null                  # macOS Intel
+
+# Or check the DEV_FORGE_CONFIG environment variable
+echo $DEV_FORGE_CONFIG
+```
+
+**Config file priority:**
+1. `DEV_FORGE_CONFIG` environment variable (if set)
+2. Existing Homebrew config location (auto-detected)
+3. `~/.config/devforge/config.json` (XDG default)
+
+---
+
 ## Transport: stdio — no host, no port
 
 `devforge-mcp` uses the **MCP stdio transport**. There is no TCP socket, no
@@ -20,47 +78,9 @@ to stdin and read responses from stdout.
 
 ## Connecting from an MCP client
 
-### Claude Desktop (macOS / Windows)
+### VS Code — GitHub Copilot MCP
 
-Edit the Claude Desktop config file:
-
-- **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
-- **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
-
-```json
-{
-  "mcpServers": {
-    "devforge": {
-      "command": "/home/YOUR_USERNAME/.local/bin/devforge-mcp",
-      "args": [],
-      "env": {
-        "DEV_FORGE_CONFIG": "/home/YOUR_USERNAME/.config/devforge/config.json"
-      }
-    }
-  }
-}
-```
-
-Replace `YOUR_USERNAME` with your actual username. After saving, restart Claude
-Desktop. The `devforge` tools will appear in the tool palette.
-
-> **Working directory note**: The server must run from a directory that contains
-> `./bin/dpf`. If you installed via `make install`, copy or symlink
-> the imgproc binary so it is reachable from wherever the client launches the
-> process:
->
-> ```bash
-> mkdir -p ~/.local/bin/bin
-> cp bin/dpf ~/.local/bin/bin/dpf
-> ```
->
-> Or set the `workingDirectory` key if your client supports it.
-
----
-
-### VS Code — GitHub Copilot MCP (`.vscode/mcp.json`)
-
-Create `.vscode/mcp.json` in any workspace:
+Create `.vscode/mcp.json` in any workspace (recommended for project-specific setup):
 
 ```json
 {
@@ -77,17 +97,18 @@ Create `.vscode/mcp.json` in any workspace:
 }
 ```
 
----
+Or for a global setup, edit `~/.config/Code/User/mcp.json` (VS Code user settings).
 
-### Cursor
+**Quick setup with the CLI:**
 
-Open **Settings → MCP → Add server**:
+```bash
+# Use the interactive setup wizard
+./devforge
 
-| Field | Value |
-|-------|-------|
-| Name | `devforge` |
-| Type | `stdio` |
-| Command | `/home/YOUR_USERNAME/.local/bin/devforge-mcp` |
+# Or use the shell script
+bash scripts/setup-mcp-client.sh
+# Select option 1 for VS Code
+```
 
 ---
 
@@ -144,6 +165,17 @@ in the session automatically.
 > ln -sf ~/.local/bin/dpf bin/dpf
 > ```
 
+**Quick setup with the CLI:**
+
+```bash
+# Use the interactive setup wizard
+./devforge
+
+# Or use the shell script
+bash scripts/setup-mcp-client.sh
+# Select option 4 for OpenCode
+```
+
 ---
 
 ### Claude Code
@@ -151,7 +183,18 @@ in the session automatically.
 [Claude Code](https://docs.anthropic.com/en/docs/claude-code) supports MCP servers
 through a global user config or a project-level file.
 
-**Option A — global config** (applies to every project):
+**Option A — Use the CLI (recommended):**
+
+```bash
+# Interactive setup
+./devforge
+
+# Or via shell script
+bash scripts/setup-mcp-client.sh
+# Select option 3 for Claude Code
+```
+
+**Option B — Manual setup with `claude mcp add`:**
 
 ```bash
 claude mcp add devforge /home/YOUR_USERNAME/.local/bin/devforge-mcp \
@@ -164,7 +207,7 @@ This writes the entry to `~/.claude.json` automatically. To verify:
 claude mcp list
 ```
 
-**Option B — project-level `.mcp.json`** (checked into the repo, shared with the team):
+**Option C — Project-level `.mcp.json`** (checked into the repo, shared with the team):
 
 Create `.mcp.json` at the workspace root:
 
@@ -182,7 +225,7 @@ Create `.mcp.json` at the workspace root:
 }
 ```
 
-**Option C — manual edit of `~/.claude.json`**:
+**Option D — Manual edit of `~/.claude.json`:**
 
 ```json
 {
@@ -203,39 +246,108 @@ available immediately, no restart needed.
 
 ---
 
-### Claude Desktop on Ubuntu (Linux)
+### Claude Desktop (macOS / Linux)
 
-Claude Desktop on Linux stores its config at:
+**macOS:**
 
-```
-~/.config/Claude/claude_desktop_config.json
-```
+Edit `~/Library/Application Support/Claude/claude_desktop_config.json`:
 
-Create the file if it does not exist:
-
-```bash
-mkdir -p ~/.config/Claude
-cat > ~/.config/Claude/claude_desktop_config.json <<'EOF'
+```json
 {
   "mcpServers": {
     "devforge": {
-      "command": "/home/YOUR_USERNAME/.local/bin/devforge-mcp",
+      "command": "/opt/homebrew/bin/devforge-mcp",
       "args": [],
       "env": {
-        "DEV_FORGE_CONFIG": "/home/YOUR_USERNAME/.config/devforge/config.json"
+        "DEV_FORGE_CONFIG": "/home/USERNAME/.config/devforge/config.json"
       }
     }
   }
 }
-EOF
 ```
 
-Replace `YOUR_USERNAME` with your actual username (`echo $USER`). Restart Claude Desktop
-after saving. The tools appear in the tool palette on the next session.
+**Linux:**
+
+Edit `~/.config/Claude/claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "devforge": {
+      "command": "/home/linuxbrew/.linuxbrew/bin/devforge-mcp",
+      "args": [],
+      "env": {
+        "DEV_FORGE_CONFIG": "/home/USERNAME/.config/devforge/config.json"
+      }
+    }
+  }
+}
+```
+
+**Windows:**
+
+Edit `%APPDATA%\Claude\claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "devforge": {
+      "command": "C:\\Users\\USERNAME\\.local\\bin\\devforge-mcp.exe",
+      "args": [],
+      "env": {
+        "DEV_FORGE_CONFIG": "C:\\Users\\USERNAME\\.config\\devforge\\config.json"
+      }
+    }
+  }
+}
+```
+
+After saving, restart Claude Desktop. The `devforge` tools will appear in the tool palette.
+
+**Quick setup:**
+
+```bash
+bash scripts/setup-mcp-client.sh
+# Select option 2 for Claude Desktop
+```
 
 ---
 
-### Any MCP-compatible client
+### Cursor
+
+Open **Settings → MCP → Add server**:
+
+| Field | Value |
+|-------|-------|
+| Name | `devforge` |
+| Type | `stdio` |
+| Command | `/home/YOUR_USERNAME/.local/bin/devforge-mcp` |
+
+---
+
+## Using the Interactive Setup Wizard
+
+The DevForge CLI includes an interactive TUI for MCP setup:
+
+```bash
+# Run the CLI/TUI
+./devforge
+
+# Navigate to "Setup MCP Clients" menu
+# Select your IDE (OpenCode, Claude Code, or VSCode)
+# Choose scope (Global or Project-local)
+# Confirm the binary path (auto-detected)
+# Done!
+```
+
+The wizard auto-detects:
+- Homebrew installations (Linuxbrew, macOS ARM, macOS Intel)
+- Binary location using `which` command
+- Common installation directories
+
+---
+
+## Any MCP-Compatible Client
 
 All MCP clients that support the stdio transport follow the same pattern:
 
@@ -249,7 +361,7 @@ All MCP clients that support the stdio transport follow the same pattern:
 
 ---
 
-## Testing from the terminal
+## Testing from the Terminal
 
 Because the transport is stdio, "curl-style" testing means **piping JSON-RPC
 messages to the binary**. Each message is a single-line JSON object followed by
@@ -259,7 +371,7 @@ a newline.
 
 ```bash
 echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"0.1"}}}' \
-  | ~/.local/bin/devforge-mcp
+  | devforge-mcp
 ```
 
 Expected response:
@@ -284,7 +396,7 @@ Expected response:
 printf '%s\n%s\n' \
   '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"0.1"}}}' \
   '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}' \
-  | ~/.local/bin/devforge-mcp
+  | devforge-mcp
 ```
 
 ---
@@ -295,7 +407,7 @@ printf '%s\n%s\n' \
 printf '%s\n%s\n' \
   '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"0.1"}}}' \
   '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"suggest_color_palettes","arguments":{"mood":"calm and professional","count":3}}}' \
-  | ~/.local/bin/devforge-mcp
+  | devforge-mcp
 ```
 
 ---
@@ -308,7 +420,7 @@ LAYOUT=$(cat testdata/layouts/hero.html | jq -Rs .)
 printf '%s\n%s\n' \
   '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"0.1"}}}' \
   "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"analyze_layout\",\"arguments\":{\"markup\":$LAYOUT,\"stack\":{\"css_mode\":\"tailwind-v4\",\"framework\":\"next\"},\"page_type\":\"landing\",\"device_focus\":\"responsive\"}}}" \
-  | ~/.local/bin/devforge-mcp
+  | devforge-mcp
 ```
 
 ---
@@ -319,7 +431,7 @@ printf '%s\n%s\n' \
 printf '%s\n%s\n' \
   '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"0.1"}}}' \
   '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"suggest_layout","arguments":{"description":"SaaS landing page with hero, features grid, and pricing table","stack":{"css_mode":"tailwind-v4","framework":"next"},"fidelity":"mid"}}}' \
-  | ~/.local/bin/devforge-mcp
+  | devforge-mcp
 ```
 
 ---
@@ -330,7 +442,7 @@ printf '%s\n%s\n' \
 printf '%s\n%s\n' \
   '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"0.1"}}}' \
   '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"manage_tokens","arguments":{"mode":"read","css_mode":"tailwind-v4","scope":"colors"}}}' \
-  | ~/.local/bin/devforge-mcp
+  | devforge-mcp
 ```
 
 ---
@@ -341,7 +453,7 @@ printf '%s\n%s\n' \
 printf '%s\n%s\n' \
   '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"0.1"}}}' \
   '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"list_patterns","arguments":{"query":"hero section","framework":"next","limit":5}}}' \
-  | ~/.local/bin/devforge-mcp
+  | devforge-mcp
 ```
 
 ---
@@ -352,7 +464,7 @@ printf '%s\n%s\n' \
 printf '%s\n%s\n' \
   '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"0.1"}}}' \
   '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"configure_gemini","arguments":{"api_key":"AIzaXXXXXXXXXXX"}}}' \
-  | ~/.local/bin/devforge-mcp
+  | devforge-mcp
 ```
 
 ---
@@ -363,12 +475,12 @@ printf '%s\n%s\n' \
 printf '%s\n%s\n' \
   '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"0.1"}}}' \
   '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"store_pattern","arguments":{"name":"Hero Split","description":"Two-column hero: copy on the left, image on the right","category":"layout","framework":"next","css_mode":"tailwind-v4","snippet":"<section class=\"grid grid-cols-2 gap-8\">...</section>"}}}' \
-  | ~/.local/bin/devforge-mcp
+  | devforge-mcp
 ```
 
 ---
 
-## JSON-RPC message format reference
+## JSON-RPC Message Format Reference
 
 Every message sent to stdin must follow the MCP JSON-RPC 2.0 envelope:
 
@@ -395,16 +507,60 @@ crashes on tool-level errors.
 
 ---
 
-## Tips for multi-message sessions
+## Tips for Multi-Message Sessions
 
 The server keeps state (open DB, imgproc process) for the entire lifetime of the
 process. For automated testing, pipe multiple newline-separated JSON-RPC messages
 in a single stdin stream:
 
 ```bash
-cat <<'EOF' | ~/.local/bin/devforge-mcp | jq .
+cat <<'EOF' | devforge-mcp | jq .
 {"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"0.1"}}}
 {"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}
 {"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"suggest_color_palettes","arguments":{"mood":"bold and energetic","count":2}}}
 EOF
+```
+
+---
+
+## Troubleshooting
+
+### Binary not found
+
+If your MCP client reports "command not found":
+
+```bash
+# Find the correct path
+which devforge-mcp
+
+# Verify it exists and is executable
+ls -la $(which devforge-mcp)
+```
+
+### Config not found
+
+If you see config-related errors:
+
+```bash
+# Check if config exists
+ls -la ~/.config/devforge/config.json
+
+# Or check DEV_FORGE_CONFIG
+echo $DEV_FORGE_CONFIG
+
+# Create default config if missing
+mkdir -p ~/.config/devforge
+echo '{"gemini_api_key":"","ollama_url":"http://localhost:11434"}' > ~/.config/devforge/config.json
+```
+
+### Image tools not working
+
+The `dpf` (DevPixelForge) binary must be accessible:
+
+```bash
+# Check if dpf exists
+ls -la bin/dpf
+
+# If using Homebrew, ensure the binary is in PATH
+export PATH="$(brew --prefix)/bin:$PATH"
 ```
