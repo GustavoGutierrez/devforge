@@ -32,12 +32,8 @@ class Devforge < Formula
     dpf_src = %w[dpf dpf-dpf-linux-amd64 dpf-dpf-macos-arm64].find { |f| File.exist?(f) }
     raise "dpf binary not found in bundle (expected: dpf, dpf-dpf-linux-amd64, or dpf-dpf-macos-arm64)" unless dpf_src
 
-    libexec.install "devforge", "devforge-mcp"
-    libexec.install dpf_src => "dpf"
-
-    (bin/"devforge").write_env_script libexec/"devforge"
-    (bin/"devforge-mcp").write_env_script libexec/"devforge-mcp"
-    bin.install_symlink libexec/"dpf"
+    bin.install "devforge", "devforge-mcp"
+    bin.install dpf_src => "dpf"
   end
 
   def post_install

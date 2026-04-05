@@ -1,7 +1,7 @@
 # DevForge MCP — Technical Reference & Usage Guide
 
 **Document type:** Technical Reference  
-**Version:** 2.1.0  
+**Version:** 2.1.1  
 **Date:** 2026-04-05  
 **Scope:** Developer tooling integration via Model Context Protocol  
 **Author:** Ing. Gustavo Gutiérrez — Bogotá, Colombia
