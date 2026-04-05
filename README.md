@@ -2,7 +2,7 @@
   <img src="devforge.png" width="1024" height="340" alt="DevForge MCP" />
 </p>
 
-[![Version](https://img.shields.io/badge/version-2.1.2-blue.svg)](https://github.com/GustavoGutierrez/devforge)
+[![Version](https://img.shields.io/badge/version-2.1.3-blue.svg)](https://github.com/GustavoGutierrez/devforge)
 [![License](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](LICENSE)
 [![Go](https://img.shields.io/badge/Go-1.24+-00ADD8.svg?logo=go&logoColor=white)](https://golang.org)
 [![MCP](https://img.shields.io/badge/MCP-stdio-8B5CF6.svg?logo=modelcontextprotocol&logoColor=white)](https://modelcontextprotocol.io)
@@ -28,6 +28,8 @@ DevForge is a Go-powered MCP server and CLI/TUI that brings 70+ stateless develo
 - [Configuration](#️-configuration)
 - [Release Assets](#-release-assets)
 - [Documentation](#-documentation)
+- [Powered By DevPixelForge](#-powered-by-devpixelforge)
+- [Contributing](#-contributing)
 - [License](#license)
 
 ---
@@ -40,7 +42,7 @@ DevForge is composed of three standalone binaries that can be used independently
 |--------|------|
 | `devforge-mcp` | MCP stdio server consumed by AI clients (Claude Desktop, Cursor, and any MCP-compatible client). Exposes all tools over the Model Context Protocol. |
 | `devforge` | Interactive CLI/TUI powered by [Bubble Tea](https://github.com/charmbracelet/bubbletea). Provides the same tool surface from the terminal with an ergonomic interface. |
-| `dpf` (DevPixelForge) | Media processing runtime for image, video, audio, and document tools. Video/audio tools call [FFmpeg](https://ffmpeg.org) as a subprocess — install it separately only if you need those tools. |
+| [`dpf` (DevPixelForge)](https://github.com/GustavoGutierrez/devpixelforge) | Media processing runtime for image, video, audio, and document tools. Video/audio tools call [FFmpeg](https://ffmpeg.org) as a subprocess — install it separately only if you need those tools. |
 
 All three binaries are stateless — no database, no embeddings, no persistent state.
 
@@ -181,6 +183,44 @@ Each archive contains `devforge`, `devforge-mcp`, and `dpf`. The Homebrew formul
 | [docs/overview.md](docs/overview.md) | Architecture overview |
 | [docs/tools/](docs/tools/) | Per-tool documentation |
 | [packaging/homebrew/README.md](packaging/homebrew/README.md) | Homebrew packaging notes |
+
+---
+
+## ⚡ Powered By DevPixelForge
+
+DevForge's media pipeline — image, video, audio, and document processing — is powered by **[DevPixelForge (dpf)](https://github.com/GustavoGutierrez/devpixelforge)**, a high-performance multimedia processing engine written in Rust with a Go client for seamless integration.
+
+> **"Transform pixels at the speed of Rust."**
+
+[![DevPixelForge](https://img.shields.io/badge/DevPixelForge-dpf-orange.svg?logo=rust&logoColor=white)](https://github.com/GustavoGutierrez/devpixelforge)
+
+`dpf` is bundled with every DevForge release — no separate installation required. It handles image optimization, format conversion, PDF generation, and more through a streaming subprocess protocol that keeps the Go server stateless and dependency-free at the OS level.
+
+---
+
+## 🤝 Contributing
+
+DevForge is an open project and contributions are welcome.
+
+The aim is to give AI coding agents and professional developers a **token-efficient, deterministic utility belt** — tools that return precise, structured results instead of forcing agents to write ad-hoc code for common tasks. Every new tool reduces hallucination surface, cuts token usage, and makes agent-generated code more reliable.
+
+**We are particularly interested in contributions that:**
+
+- Add new stateless tools useful for everyday frontend and backend web development
+- Improve token efficiency in AI agent workflows — less prompt engineering, more reliable outputs
+- Replace non-deterministic LLM reasoning with precise, auditable utility functions (hashing, formatting, validation, transformation)
+- Cover common patterns that professional developers repeat daily: SQL formatting, JWT handling, log parsing, image optimization, environment validation, and similar
+- Improve the CLI/TUI experience for developers who prefer working outside an AI client
+
+If you use DevForge in your agent setup and notice a gap — a tool you keep writing by hand — open an issue or submit a PR. The best tools come from real workflows.
+
+### Principal Contributor
+
+<a href="https://github.com/GustavoGutierrez">
+  <img src="https://avatars.githubusercontent.com/u/3159203?v=4" width="64" alt="Gustavo Gutierrez" />
+</a>
+
+**[Gustavo Gutierrez](https://github.com/GustavoGutierrez)** — Author and principal maintainer of DevForge MCP and [DevPixelForge](https://github.com/GustavoGutierrez/devpixelforge).
 
 ---
 
