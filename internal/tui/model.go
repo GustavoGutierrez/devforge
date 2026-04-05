@@ -2,8 +2,6 @@
 package tui
 
 import (
-	"database/sql"
-
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
@@ -16,8 +14,6 @@ type View int
 
 const (
 	ViewHome View = iota
-	ViewBrowsePatterns
-	ViewBrowseArchitectures
 	ViewAnalyzeLayout
 	ViewGenerateLayout
 	ViewColorPalettes
@@ -39,7 +35,6 @@ const (
 	ViewCodeTools
 	ViewSettings
 	ViewMCPSetup
-	ViewAddRecord
 	ViewAbout
 )
 
@@ -54,37 +49,33 @@ type Model struct {
 	version     string
 
 	// Shared dependencies
-	db     *sql.DB
 	config *config.Config
 	srv    *tools.Server
 
 	// Sub-models
-	home                homeModel
-	browsePatterns      browsePatternsModel
-	browseArchitectures browseArchitecturesModel
-	analyzeLayout       analyzeLayoutModel
-	generateLayout      generateLayoutModel
-	generateImages      generateImagesModel
-	optimizeImages      optimizeImagesModel
-	generateFavicon     generateFaviconModel
-	video               videoModel
-	audio               audioModel
-	ui2md               ui2mdModel
-	markdownToPDF       markdownToPDFModel
-	colorPalettes       colorPalettesModel
-	settings            settingsModel
-	mcpSetup            mcpSetupModel
-	addRecord           addRecordModel
-	about               aboutModel
-	textEnc             textEncModel
-	dataFmt             dataFmtModel
-	cryptoutil          cryptoutilModel
-	httpTools           httpToolsModel
-	dateTime            dateTimeModel
-	fileTools           fileToolsModel
-	frontendTools       frontendToolsModel
-	backendTools        backendToolsModel
-	codeTools           codeToolsModel
+	home            homeModel
+	analyzeLayout   analyzeLayoutModel
+	generateLayout  generateLayoutModel
+	generateImages  generateImagesModel
+	optimizeImages  optimizeImagesModel
+	generateFavicon generateFaviconModel
+	video           videoModel
+	audio           audioModel
+	ui2md           ui2mdModel
+	markdownToPDF   markdownToPDFModel
+	colorPalettes   colorPalettesModel
+	settings        settingsModel
+	mcpSetup        mcpSetupModel
+	about           aboutModel
+	textEnc         textEncModel
+	dataFmt         dataFmtModel
+	cryptoutil      cryptoutilModel
+	httpTools       httpToolsModel
+	dateTime        dateTimeModel
+	fileTools       fileToolsModel
+	frontendTools   frontendToolsModel
+	backendTools    backendToolsModel
+	codeTools       codeToolsModel
 
 	// Detected stack
 	detectedFramework string
@@ -92,10 +83,9 @@ type Model struct {
 }
 
 // New creates the root model with all dependencies.
-func New(database *sql.DB, cfg *config.Config, srv *tools.Server, framework, cssMode, ver string) Model {
+func New(cfg *config.Config, srv *tools.Server, framework, cssMode, ver string) Model {
 	m := Model{
 		currentView:       ViewHome,
-		db:                database,
 		config:            cfg,
 		srv:               srv,
 		version:           ver,
@@ -103,8 +93,6 @@ func New(database *sql.DB, cfg *config.Config, srv *tools.Server, framework, css
 		detectedCSSMode:   cssMode,
 	}
 	m.home = newHomeModel(ver)
-	m.browsePatterns = newBrowsePatternsModel(srv)
-	m.browseArchitectures = newBrowseArchitecturesModel(srv)
 	m.analyzeLayout = newAnalyzeLayoutModel(srv, framework, cssMode)
 	m.generateLayout = newGenerateLayoutModel(srv, framework, cssMode)
 	m.generateImages = newGenerateImagesModel(srv, cfg)
@@ -117,7 +105,6 @@ func New(database *sql.DB, cfg *config.Config, srv *tools.Server, framework, css
 	m.colorPalettes = newColorPalettesModel(srv)
 	m.settings = newSettingsModel(cfg)
 	m.mcpSetup = newMCPSetupModel()
-	m.addRecord = newAddRecordModel(srv)
 	m.about = newAboutModel(ver)
 	m.textEnc = newTextEncModel(srv)
 	m.dataFmt = newDataFmtModel(srv)
@@ -163,24 +150,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.home.selected = -1
 			m.currentView = view
 			return m, nil
-		}
-		return m, cmd
-
-	case ViewBrowsePatterns:
-		updated, cmd := m.browsePatterns.Update(msg)
-		m.browsePatterns = updated
-		if m.browsePatterns.goHome {
-			m.browsePatterns.goHome = false
-			m.currentView = ViewHome
-		}
-		return m, cmd
-
-	case ViewBrowseArchitectures:
-		updated, cmd := m.browseArchitectures.Update(msg)
-		m.browseArchitectures = updated
-		if m.browseArchitectures.goHome {
-			m.browseArchitectures.goHome = false
-			m.currentView = ViewHome
 		}
 		return m, cmd
 
@@ -305,15 +274,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, cmd
 
-	case ViewAddRecord:
-		updated, cmd := m.addRecord.Update(msg)
-		m.addRecord = updated
-		if m.addRecord.goHome {
-			m.addRecord = newAddRecordModel(m.srv)
-			m.currentView = ViewHome
-		}
-		return m, cmd
-
 	case ViewAbout:
 		updated, cmd := m.about.Update(msg)
 		m.about = updated
@@ -409,10 +369,6 @@ func (m Model) View() string {
 	switch m.currentView {
 	case ViewHome:
 		return m.home.View()
-	case ViewBrowsePatterns:
-		return m.browsePatterns.View()
-	case ViewBrowseArchitectures:
-		return m.browseArchitectures.View()
 	case ViewAnalyzeLayout:
 		return m.analyzeLayout.View()
 	case ViewGenerateLayout:
@@ -437,8 +393,6 @@ func (m Model) View() string {
 		return m.settings.View()
 	case ViewMCPSetup:
 		return m.mcpSetup.View()
-	case ViewAddRecord:
-		return m.addRecord.View()
 	case ViewAbout:
 		return m.about.View()
 	case ViewTextEnc:
@@ -467,54 +421,48 @@ func (m Model) View() string {
 func (m Model) homeItemToView(idx int) View {
 	switch idx {
 	case 0:
-		return ViewBrowsePatterns
-	case 1:
-		return ViewBrowseArchitectures
-	case 2:
 		return ViewAnalyzeLayout
-	case 3:
+	case 1:
 		return ViewGenerateLayout
-	case 4:
+	case 2:
 		return ViewColorPalettes
-	case 5:
+	case 3:
 		return ViewGenerateImages
-	case 6:
+	case 4:
 		return ViewOptimizeImages
-	case 7:
+	case 5:
 		return ViewGenerateFavicon
-	case 8:
+	case 6:
 		return ViewVideo
-	case 9:
+	case 7:
 		return ViewAudio
-	case 10:
+	case 8:
 		return ViewUI2MD
-	case 11:
+	case 9:
 		return ViewMarkdownToPDF
-	case 12:
+	case 10:
 		return ViewTextEnc
-	case 13:
+	case 11:
 		return ViewDataFmt
-	case 14:
+	case 12:
 		return ViewCryptoutil
-	case 15:
+	case 13:
 		return ViewHTTPTools
-	case 16:
+	case 14:
 		return ViewDateTime
-	case 17:
+	case 15:
 		return ViewFileTools
-	case 18:
+	case 16:
 		return ViewFrontendTools
-	case 19:
+	case 17:
 		return ViewBackendTools
-	case 20:
+	case 18:
 		return ViewCodeTools
-	case 21:
+	case 19:
 		return ViewSettings
-	case 22:
-		return ViewAddRecord
-	case 23:
+	case 20:
 		return ViewMCPSetup
-	case 24:
+	case 21:
 		return ViewAbout
 	}
 	return ViewHome

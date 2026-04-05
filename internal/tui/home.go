@@ -25,8 +25,6 @@ type menuEntry struct {
 
 var menuEntries = []menuEntry{
 	{label: "── Design & Layout", isSection: true},
-	{label: "Browse patterns"},
-	{label: "Browse architectures"},
 	{label: "Analyze layout file"},
 	{label: "Generate layout"},
 	{label: "Explore color palettes"},
@@ -50,7 +48,6 @@ var menuEntries = []menuEntry{
 	{label: "Code Utilities"},
 	{label: "── System", isSection: true},
 	{label: "Settings"},
-	{label: "Add Record"},
 	{label: "Setup MCP Clients"},
 	{label: "About"},
 	{label: "Quit"},
@@ -175,7 +172,7 @@ func (m homeModel) View() string {
 	b.WriteString(logoStyle.Render(asciiLogo) + "\n\n")
 
 	b.WriteString(dimStyle.Render("  AI-powered design & developer toolkit") + "\n")
-	b.WriteString(dimStyle.Render("  Design · Layout · Media · Cryptography · HTTP · Code · 60+ tools") + "\n")
+	b.WriteString(dimStyle.Render("  Design · Layout · Media · Cryptography · HTTP · Code · utility-first tools") + "\n")
 
 	versionLine := lipgloss.NewStyle().Foreground(lipgloss.Color("2")).Render(fmt.Sprintf("  v%s", m.version))
 	if m.latestVersion != "" && m.latestVersion != m.version {

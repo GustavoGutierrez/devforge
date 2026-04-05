@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"dev-forge-mcp/internal/config"
-	"dev-forge-mcp/internal/testutil"
 	"dev-forge-mcp/internal/tools"
 )
 
@@ -17,8 +16,7 @@ func TestConfigureGemini_WritesConfig(t *testing.T) {
 	cfgPath := filepath.Join(dir, "config.json")
 	t.Setenv("DEV_FORGE_CONFIG", cfgPath)
 
-	database := testutil.NewTestDB(t)
-	srv := &tools.Server{DB: database}
+	srv := &tools.Server{}
 
 	var hotReloaded string
 	result := srv.ConfigureGemini(context.Background(),
@@ -57,8 +55,7 @@ func TestConfigureGemini_WritesWithCorrectPermissions(t *testing.T) {
 	cfgPath := filepath.Join(dir, "config.json")
 	t.Setenv("DEV_FORGE_CONFIG", cfgPath)
 
-	database := testutil.NewTestDB(t)
-	srv := &tools.Server{DB: database}
+	srv := &tools.Server{}
 
 	srv.ConfigureGemini(context.Background(),
 		tools.ConfigureGeminiInput{APIKey: "perm-test-key"},
@@ -75,8 +72,7 @@ func TestConfigureGemini_WritesWithCorrectPermissions(t *testing.T) {
 }
 
 func TestConfigureGemini_EmptyAPIKey_ReturnsError(t *testing.T) {
-	database := testutil.NewTestDB(t)
-	srv := &tools.Server{DB: database}
+	srv := &tools.Server{}
 
 	result := srv.ConfigureGemini(context.Background(),
 		tools.ConfigureGeminiInput{APIKey: ""},

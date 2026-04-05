@@ -42,7 +42,6 @@ func (m aboutModel) View() string {
 	}
 	shareDir := home + "/.local/share/devforge/current"
 	binDir := home + "/.local/bin"
-	dbPath := shareDir + "/devforge.db"
 	cfgPath := home + "/.config/devforge/config.json"
 
 	var b strings.Builder
@@ -57,21 +56,12 @@ func (m aboutModel) View() string {
 	b.WriteString(dimStyle.Render(fmt.Sprintf("v%s", m.version)))
 	b.WriteString("\n\n")
 
-	b.WriteString(normalStyle.Render("DevForge MCP is an MCP server built in Go that acts as the core acceleration"))
+	b.WriteString(normalStyle.Render("DevForge MCP is a Go-based utility toolkit exposed through MCP and a local TUI."))
 	b.WriteString("\n")
-	b.WriteString(normalStyle.Render("layer for the software development lifecycle. It integrates an ecosystem of"))
+	b.WriteString(normalStyle.Render("It focuses on stateless developer tools for layout analysis, media processing,"))
 	b.WriteString("\n")
-	b.WriteString(normalStyle.Render("tools, utilities, skills, and specialized sub-agents that work together to"))
+	b.WriteString(normalStyle.Render("data conversion, crypto, HTTP, files, frontend/backend helpers, and code work."))
 	b.WriteString("\n")
-	b.WriteString(normalStyle.Render("reduce friction at every phase of development — from architecture design to"))
-	b.WriteString("\n")
-	b.WriteString(normalStyle.Render("the delivery of sophisticated, production-ready interfaces."))
-	b.WriteString("\n\n")
-	b.WriteString(normalStyle.Render("More than a code generator, DevForge MCP is a cross-stack intelligence layer"))
-	b.WriteString("\n")
-	b.WriteString(normalStyle.Render("that guarantees structural consistency, replicable quality, and modern designs"))
-	b.WriteString("\n")
-	b.WriteString(normalStyle.Render("across all projects, regardless of the technology layer."))
 	b.WriteString("\n\n")
 
 	b.WriteString(titleStyle.Render("CONFIGURATION"))
@@ -89,9 +79,6 @@ func (m aboutModel) View() string {
 	b.WriteString("\n")
 	b.WriteString(normalStyle.Render("  Symlinks  : "))
 	b.WriteString(dimStyle.Render(binDir + "/  (devforge, devforge-mcp, dpf)"))
-	b.WriteString("\n")
-	b.WriteString(normalStyle.Render("  Database  : "))
-	b.WriteString(dimStyle.Render(dbPath))
 	b.WriteString("\n")
 	b.WriteString(normalStyle.Render("  Config    : "))
 	b.WriteString(dimStyle.Render(cfgPath))

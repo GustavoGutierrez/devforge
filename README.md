@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="devforge.png" width="300" alt="DevForge MCP" />
+  <img src="devforge.png" width="1024" height="340" alt="DevForge MCP" />
 </p>
 
 [![Version](https://img.shields.io/badge/version-1.1.6-blue.svg)](https://github.com/GustavoGutierrez/devforge)
@@ -9,81 +9,62 @@
 [![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20macOS-1e1e2e.svg?logo=linux&logoColor=white)](https://github.com/GustavoGutierrez/devforge)
 [![CGO](https://img.shields.io/badge/CGO-required-orange.svg)](https://github.com/GustavoGutierrez/devforge)
 
+
 # DevForge MCP
 
-**"One forge for every stage of your dev workflow."**
+DevForge is a Go-powered MCP server and CLI/TUI that brings 70+ stateless developer tools directly into AI agents and terminals. It covers media processing, layout analysis, design tokens, data conversion, cryptography, HTTP, file operations, frontend/backend helpers, and code formatting — all with zero database dependencies.
 
-DevForge MCP is a Go-based MCP server that acts as a transversal intelligence layer and utility toolkit across the software development lifecycle. It exposes a rich set of tools — for code, architecture, design, media processing, and documentation — through the MCP stdio transport, making it accessible to any MCP-compatible AI client.
+---
 
-Built around a SQLite-backed pattern store with FTS5 search and optional vector embeddings, it provides specialized skills and sub-agents that work together to reduce friction at every phase: from initial architecture decisions to production-ready interfaces and optimized media assets.
+## 📋 Table of Contents
 
-> **Multimedia engine:** All image, video, and audio processing is powered by [DevPixelForge](https://github.com/GustavoGutierrez/devpixelforge), a Rust-based processing engine that ships as a pre-built binary alongside DevForge.
+- [Architecture Overview](#-architecture-overview)
+- [Tool Surface](#-tool-surface)
+  - [Design & Media Tools](#design--media-tools)
+  - [Developer Utilities (48 Tools)](#developer-utilities-48-tools)
+- [Installation](#-installation)
+  - [Homebrew](#homebrew)
+  - [From Source](#from-source)
+- [MCP Client Setup](#-mcp-client-setup)
+- [Configuration](#️-configuration)
+- [Release Assets](#-release-assets)
+- [Documentation](#-documentation)
+- [License](#license)
 
-## Key Capabilities
+---
 
-- **Multimedia optimization** — Compress and convert images, video, and audio for the web using the DevPixelForge Rust engine (with FFmpeg).
-- **Design system management** — Store, search, and retrieve UI patterns, design tokens, color palettes, and architecture diagrams.
-- **Layout analysis & generation** — Audit existing layouts and generate new ones adapted to any supported frontend stack.
-- **Developer utilities** — 48 stateless tools covering text encoding, data format conversion, cryptography, HTTP, date/time, file operations, frontend math, backend helpers, and code formatting — all callable by AI agents or from the CLI.
-- **MCP tool surface** — Works as an MCP server so any AI client (Claude, OpenCode, Copilot, etc.) can invoke its tools via stdio.
-- **CLI/TUI companion** — A Bubble Tea-based terminal interface for browsing patterns, launching audits, and configuring integrations without leaving the terminal.
-- **Specialized skills** — Extends capabilities through configurable skills and sub-agents for frontend, backend, architecture, documentation, and QA.
-- **Cross-stack** — A common tool for frontend, backend, infrastructure, and automation.
+## 🔧 Architecture Overview
 
-## Current Frontend Stack Support
+DevForge is composed of three standalone binaries that can be used independently or together:
 
-The UI and design tools adapt their output to the declared stack:
+| Binary | Role |
+|--------|------|
+| `devforge-mcp` | MCP stdio server consumed by AI clients (Claude Desktop, Cursor, and any MCP-compatible client). Exposes all tools over the Model Context Protocol. |
+| `devforge` | Interactive CLI/TUI powered by [Bubble Tea](https://github.com/charmbracelet/bubbletea). Provides the same tool surface from the terminal with an ergonomic interface. |
+| `dpf` (DevPixelForge) | Media processing runtime for image, video, audio, and document tools. Requires [FFmpeg](https://ffmpeg.org) available in `\$PATH`. |
 
-- Vanilla JS/TS + modern CSS SPA (Vite 8).
-- Astro, Next.js, SvelteKit, Nuxt.js.
-- Tailwind CSS v4+ with the official Vite plugin:
-  - Importing `@import "tailwindcss";` in a single CSS file.
-  - Design tokens in CSS instead of `tailwind.config.js`.
+All three binaries are stateless — no database, no embeddings, no persistent state.
 
-## Components
+---
 
-- `cmd/devforge-mcp/`
-  - Go MCP server with SQLite/FTS5, optionally libSQL.
-  - Current tools:
-    - **UI/Design**: `analyze_layout`, `suggest_layout`, `manage_tokens`, `store_pattern`, `list_patterns`, `suggest_color_palettes`
-    - **Images**: `optimize_images`, `generate_favicon`, `generate_ui_image` (requires Gemini API key)
-    - **Video**: `video_transcode`, `video_resize`, `video_trim`, `video_thumbnail`, `video_profile`
-    - **Audio**: `audio_transcode`, `audio_trim`, `audio_normalize`, `audio_silence_trim`
-    - **Config**: `configure_gemini`, `ui2md`
-    - **Text & Encoding**: `text_escape`, `text_slug`, `text_uuid`, `text_base64`, `text_url_encode`, `text_normalize`, `text_case`
-    - **Data Format**: `data_json_format`, `data_yaml_convert`, `data_csv_convert`, `data_jsonpath`, `data_schema_validate`, `data_diff`
-    - **Security & Cryptography**: `crypto_hash`, `crypto_hmac`, `crypto_jwt`, `crypto_password`, `crypto_keygen`, `crypto_random`, `crypto_mask`
-    - **HTTP & Networking**: `http_request`, `http_curl_convert`, `http_webhook_replay`, `http_signed_url`, `http_url_parse`
-    - **Date & Time**: `time_convert`, `time_diff`, `time_cron`, `time_date_range`
-    - **File & Archive**: `file_checksum`, `file_archive`, `file_diff`, `file_line_endings`, `file_hex_view`
-    - **Frontend Utilities**: `frontend_color`, `frontend_css_unit`, `frontend_breakpoint`, `frontend_regex`, `frontend_locale_format`, `frontend_icu_format`
-    - **Backend Utilities**: `backend_sql_format`, `backend_conn_string`, `backend_log_parse`, `backend_env_inspect`, `backend_mq_payload`
-    - **Code Utilities**: `code_format`, `code_metrics`, `code_template`
+## 🛠️ Tool Surface
 
-- `cmd/devforge/`
-  - Go CLI/TUI built with Bubble Tea for:
-    - Browsing patterns and architectures.
-    - Launching layout audits.
-    - Generating layouts, images, and favicons.
-    - Processing video and audio.
-    - Exploring color palettes.
-    - Configuring integrations (Gemini API key, etc.) from the Settings view.
+### Design & Media Tools
 
-- `db/devforge.db`
-  - SQLite with tables for:
-    - `patterns`, `architectures`, `tokens`, `audits`, `assets`, `palettes`.
-  - FTS5 virtual tables for efficient full-text search.
+| Group | Tools | Description |
+|-------|-------|-------------|
+| **Design / UI** | `analyze_layout`, `suggest_layout`, `manage_tokens`, `suggest_color_palettes` | Layout analysis, design token planning, color palette generation |
+| **Image Processing** | `optimize_images`, `generate_favicon`, `generate_ui_image`, `ui2md`, `image_resize`, `image_convert`, `image_crop`, `image_watermark`, `image_srcset`, `image_quality`, `image_placeholder`, `markdown_to_pdf` | Optimize, resize, convert, crop, watermark, generate favicons and UI images, export Markdown to PDF |
+| **Video** | `video_transcode`, `video_trim`, `video_thumbnail` | Transcode, trim, extract thumbnails |
+| **Audio** | `audio_normalize`, `audio_transcode`, `audio_trim` | Normalize, transcode, trim audio |
 
-- `internal/dpf/`
-  - Go bridge to the DevPixelForge Rust multimedia processing engine.
-  - Binary: `bin/dpf`.
-  - Supports: images (resize, optimize, convert, favicon), video (transcode, resize, trim, thumbnail, profile), audio (transcode, trim, normalize, silence_trim).
-  - Requires FFmpeg for video/audio operations.
-  - See [`docs/dpf-integration-guide.md`](docs/dpf-integration-guide.md).
+> Media tools require `dpf` and FFmpeg. See [Installation](#-installation) for setup details.
 
-## Developer Utilities (48 Tools)
+---
 
-Stateless, deterministic tools for everyday developer tasks — callable from AI agents via MCP or from the CLI.
+### Developer Utilities (48 Tools)
+
+> Stateless, deterministic tools for everyday developer tasks — callable from AI agents via MCP or from the CLI.
 
 | Group | Tools | Description |
 |-------|-------|-------------|
@@ -99,102 +80,104 @@ Stateless, deterministic tools for everyday developer tasks — callable from AI
 
 All 48 tools are documented in [`docs/tools/`](docs/tools/).
 
-## Configuration
+---
 
-Shared config file between the MCP server and the CLI:
+## 📦 Installation
 
-```
-~/.config/devforge/config.json
-```
+### Homebrew
 
-Override with the `DEV_FORGE_CONFIG` environment variable.
-
-## Installation
-
-### Via Homebrew (Linux amd64 first)
-
-The canonical packaging model is now a dedicated tap repository:
-
-- source repo: `GustavoGutierrez/devforge`
-- tap repo: `GustavoGutierrez/homebrew-devforge`
-- user command: `brew tap GustavoGutierrez/devforge`
-
-Install with:
+Supported targets: **Linux amd64** and **macOS arm64**.
 
 ```bash
 brew tap GustavoGutierrez/devforge
 brew install GustavoGutierrez/devforge/devforge
 ```
 
-The Homebrew bundle installs all required runtime artifacts into `libexec`:
-
-- `devforge`
-- `devforge-mcp`
-- `dpf`
-- `devforge.db`
-
-> **Status:** Linux amd64 is the supported Homebrew target today. macOS arm64 is planned future work.
-
-See [packaging/homebrew/README.md](packaging/homebrew/README.md) for tap details.
+This installs all three binaries: `devforge`, `devforge-mcp`, and `dpf`.
 
 ### From Source
 
-Build from source with Go 1.24+:
-
 ```bash
-# Clone the repository
 git clone https://github.com/GustavoGutierrez/devforge.git
 cd devforge
-
-# Build all components (requires CGO)
-CGO_ENABLED=1 go build ./...
-
-# Ensure the media processing binary is executable
+go build ./...
 chmod +x bin/dpf
-
-# Run the MCP server
 ./devforge-mcp
-
-# Or run the CLI/TUI
-./devforge
 ```
 
-For detailed setup instructions, see [docs/install.md](docs/install.md).
+> Requires Go 1.24+. For media tools, FFmpeg must be available in `\$PATH`.
 
-## Updating
+Refer to [docs/install.md](docs/install.md) for full setup and MCP client configuration.
 
-### Via Homebrew
+---
 
-```bash
-brew update
-brew upgrade devforge
+## ⚡ MCP Client Setup
+
+Add the following to your MCP client configuration (e.g. `claude_desktop_config.json`, Cursor settings, or equivalent):
+
+```json
+{
+  "mcpServers": {
+    "devforge": {
+      "command": "/path/to/devforge-mcp",
+      "args": [],
+      "env": {}
+    }
+  }
+}
 ```
 
-### From Source
+> Works with Claude Desktop, Cursor, and any MCP-compatible client using the stdio transport.
 
-```bash
-git pull origin main
-CGO_ENABLED=1 go build ./...
-chmod +x bin/dpf
+See [docs/mcp-connect.md](docs/mcp-connect.md) for platform-specific instructions and tips.
+
+---
+
+## ⚙️ Configuration
+
+DevForge reads its configuration from `~/.config/devforge/config.json`. You can override the path by setting the `DEV_FORGE_CONFIG` environment variable.
+
+```json
+{
+  "gemini_api_key": "",
+  "image_model": "gemini-2.5-flash-image"
+}
 ```
 
-## System Requirements
+| Field | Required | Default | Description |
+|-------|----------|---------|-------------|
+| `gemini_api_key` | For AI tools only | — | Required for `generate_ui_image` and `suggest_color_palettes`. All other tools work without a key. |
+| `image_model` | No | `gemini-2.5-flash-image` | Gemini model used for image generation. |
 
-- **Go 1.24+** with CGO enabled (`CGO_ENABLED=1`)
-- **FFmpeg 6.0+** (for video/audio operations)
-- **Rust toolchain** (only if recompiling the `dpf` binary from [DevPixelForge](https://github.com/GustavoGutierrez/devpixelforge))
-- **Linux**: Ubuntu 22.04+ or compatible glibc-based distro for the published Homebrew bundle
-- **macOS**: source builds supported; Homebrew arm64 bundle is planned future work
+> All non-AI tools are fully key-free and work offline.
 
-## Documentation
+---
 
-| Doc | Description |
-|-----|-------------|
-| [docs/install.md](docs/install.md) | Full installation guide: build, install, configure, run |
-| [docs/mcp-connect.md](docs/mcp-connect.md) | Connect DevForge to VS Code, Claude Desktop, Claude Code, OpenCode |
-| [docs/cli-tui.md](docs/cli-tui.md) | CLI/TUI usage guide |
-| [docs/overview.md](docs/overview.md) | High-level project overview |
-| [docs/schema.md](docs/schema.md) | Database schema reference |
-| [internal/dpf/INTEGRATION.md](internal/dpf/INTEGRATION.md) | How to integrate DevPixelForge into any Go project |
-| [scripts/README.md](scripts/README.md) | Script reference for install, seed, release packaging, and setup |
-| [packaging/homebrew/README.md](packaging/homebrew/README.md) | Dedicated Homebrew tap packaging model |
+## 🚀 Release Assets
+
+Tagged releases publish the following artifacts:
+
+- `devforge_<version>_linux_amd64.tar.gz`
+- `devforge_<version>_darwin_arm64.tar.gz`
+- `checksums.txt`
+
+Each archive contains `devforge`, `devforge-mcp`, and `dpf`. The Homebrew formula is generated from the published checksums.
+
+---
+
+## 📚 Documentation
+
+| Document | Description |
+|----------|-------------|
+| [docs/install.md](docs/install.md) | Installation & platform notes |
+| [docs/cli-tui.md](docs/cli-tui.md) | CLI/TUI reference |
+| [docs/mcp-connect.md](docs/mcp-connect.md) | MCP client connection guide |
+| [docs/overview.md](docs/overview.md) | Architecture overview |
+| [docs/tools/](docs/tools/) | Per-tool documentation |
+| [packaging/homebrew/README.md](packaging/homebrew/README.md) | Homebrew packaging notes |
+
+---
+
+## License
+
+DevForge MCP is released under the [GPL-3.0 License](LICENSE).

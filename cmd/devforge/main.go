@@ -11,7 +11,6 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"dev-forge-mcp/internal/config"
-	"dev-forge-mcp/internal/db"
 	"dev-forge-mcp/internal/dpf"
 	"dev-forge-mcp/internal/tools"
 	"dev-forge-mcp/internal/tui"
@@ -24,27 +23,13 @@ func main() {
 	if err != nil {
 		log.Printf("warning: could not load config: %v", err)
 		cfg = &config.Config{
-			OllamaURL:      "http://localhost:11434",
-			EmbeddingModel: "nomic-embed-text",
+			ImageModel: "gemini-2.5-flash-image",
 		}
 	}
 
-	// Open DB
 	exeDir, err := executableDir()
 	if err != nil {
 		log.Fatalf("failed to resolve executable directory: %v", err)
-	}
-	dbPath := "file:" + filepath.Join(exeDir, "devforge.db")
-	database, err := db.Open(dbPath)
-	if err != nil {
-		log.Fatalf("failed to open database: %v", err)
-	}
-	defer database.Close()
-
-	// Initialize embedding client (optional)
-	var embedder *db.EmbeddingClient
-	if cfg.OllamaURL != "" && db.CheckAvailability(cfg.OllamaURL) {
-		embedder = db.NewEmbeddingClient(cfg.OllamaURL, cfg.EmbeddingModel)
 	}
 
 	// Initialize dpf (DevPixelForge) (optional, non-fatal)
@@ -67,16 +52,14 @@ func main() {
 
 	// Build tools server
 	srv := &tools.Server{
-		DB:       database,
-		DPF:      sc,
-		Embedder: embedder,
+		DPF: sc,
 	}
 
 	// Auto-detect stack
 	framework, cssMode := detectStack()
 
 	// Launch TUI
-	m := tui.New(database, cfg, srv, framework, cssMode, version.Current)
+	m := tui.New(cfg, srv, framework, cssMode, version.Current)
 	p := tea.NewProgram(m, tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
 		log.Fatalf("TUI error: %v", err)

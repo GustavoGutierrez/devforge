@@ -2,10 +2,7 @@ package tools
 
 import (
 	"context"
-	"encoding/json"
 	"strings"
-
-	"github.com/google/uuid"
 )
 
 // AnalyzeLayoutInput is the input schema for the analyze_layout tool.
@@ -24,8 +21,8 @@ type StackMeta struct {
 
 // LayoutIssue represents a single issue found in the layout analysis.
 type LayoutIssue struct {
-	Severity    string `json:"severity"`    // error | warning | suggestion
-	Category    string `json:"category"`    // spacing, typography, accessibility, etc.
+	Severity    string `json:"severity"` // error | warning | suggestion
+	Category    string `json:"category"` // spacing, typography, accessibility, etc.
 	Description string `json:"description"`
 	Suggestion  string `json:"suggestion"`
 }
@@ -58,19 +55,6 @@ func (s *Server) AnalyzeLayout(ctx context.Context, input AnalyzeLayoutInput) st
 		Summary: summary,
 		Issues:  issues,
 		Score:   score,
-	}
-
-	// Store audit in DB
-	if s.DB != nil {
-		reportJSON, _ := json.Marshal(result)
-		s.DB.ExecContext(ctx,
-			`INSERT INTO audits (id, page_type, framework, css_mode, report_json) VALUES (?, ?, ?, ?, ?)`,
-			uuid.New().String(),
-			input.PageType,
-			input.Stack.Framework,
-			input.Stack.CSSMode,
-			string(reportJSON),
-		)
 	}
 
 	return mustJSON(result)

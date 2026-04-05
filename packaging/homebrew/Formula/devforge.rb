@@ -13,11 +13,27 @@ class Devforge < Formula
     sha256 "__LINUX_AMD64_SHA256__"
   end
 
-  # Future work: publish a darwin/arm64 bundle and add an `on_macos` block.
+  on_macos do
+    depends_on arch: :arm64
+
+    url "https://github.com/GustavoGutierrez/devforge/releases/download/v#{version}/devforge_#{version}_darwin_arm64.tar.gz"
+    sha256 "__DARWIN_ARM64_SHA256__"
+  end
+
   depends_on "ffmpeg"
 
   def install
-    libexec.install "devforge", "devforge-mcp", "dpf", "devforge.db"
+    # dpf is bundled as a pre-built binary from DevPixelForge releases.
+    # The bundle build step downloads dpf and renames it to "dpf" before packaging.
+    # DevPixelForge release archives use platform-specific binary names:
+    #   dpf-linux-amd64.tar.gz  → binary inside is: dpf-dpf-linux-amd64
+    #   dpf-macos-arm64.tar.gz  → binary inside is: dpf-dpf-macos-arm64
+    # We handle all known names defensively in case the bundle ever ships the original name.
+    dpf_src = %w[dpf dpf-dpf-linux-amd64 dpf-dpf-macos-arm64].find { |f| File.exist?(f) }
+    raise "dpf binary not found in bundle (expected: dpf, dpf-dpf-linux-amd64, or dpf-dpf-macos-arm64)" unless dpf_src
+
+    libexec.install "devforge", "devforge-mcp"
+    libexec.install dpf_src => "dpf"
 
     (bin/"devforge").write_env_script libexec/"devforge"
     (bin/"devforge-mcp").write_env_script libexec/"devforge-mcp"
@@ -33,8 +49,6 @@ class Devforge < Formula
     config_file.write <<~JSON
       {
         "gemini_api_key": "",
-        "ollama_url": "http://localhost:11434",
-        "embedding_model": "nomic-embed-text",
         "image_model": "gemini-2.5-flash-image"
       }
     JSON
@@ -43,22 +57,17 @@ class Devforge < Formula
 
   def caveats
     <<~EOS
-      DevForge installs a Linux runtime bundle with:
+      DevForge installs a utility-focused runtime bundle with:
 
         - devforge       (CLI/TUI)
         - devforge-mcp   (MCP stdio server)
         - dpf            (DevPixelForge media engine)
-        - devforge.db    (seeded runtime database)
 
       Config file: ~/.config/devforge/config.json
-
-      The Homebrew formula is Linux amd64 first.
-      macOS arm64 support is planned in a future release.
     EOS
   end
 
   test do
-    assert_predicate libexec/"devforge.db", :exist?
     assert_predicate bin/"devforge", :executable?
     assert_predicate bin/"devforge-mcp", :executable?
     assert_predicate bin/"dpf", :executable?

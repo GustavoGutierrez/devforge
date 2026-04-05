@@ -85,6 +85,10 @@ download_dpf() {
     local output_path="$2"
     local platform_key="${TARGET_OS}/${TARGET_ARCH}"
     local archive_name=""
+    # Known binary name inside the DevPixelForge release archive:
+    #   dpf-linux-amd64.tar.gz  → binary is named: dpf-dpf-linux-amd64
+    #   dpf-macos-arm64.tar.gz  → binary is named: dpf-dpf-macos-arm64
+    local dpf_binary_name=""
     local url=""
     local tmp_dir=""
     local archive_path=""
@@ -92,9 +96,11 @@ download_dpf() {
     case "$platform_key" in
         linux/amd64)
             archive_name="dpf-linux-amd64.tar.gz"
+            dpf_binary_name="dpf-dpf-linux-amd64"
             ;;
         darwin/arm64)
             archive_name="dpf-macos-arm64.tar.gz"
+            dpf_binary_name="dpf-dpf-macos-arm64"
             ;;
         *)
             error "Unsupported target combination: ${platform_key}"
@@ -124,9 +130,16 @@ download_dpf() {
 
     tar -xzf "${archive_path}" -C "${tmp_dir}"
 
+    # Search order: known DevPixelForge binary name first, then generic dpf fallbacks.
+    # DevPixelForge archives produce a binary named dpf-dpf-{platform} (e.g. dpf-dpf-linux-amd64).
     shopt -s nullglob
     candidates=()
-    for candidate in "${tmp_dir}/dpf" "${tmp_dir}"/dpf-* "${tmp_dir}"/*/dpf "${tmp_dir}"/*/dpf-*; do
+    for candidate in \
+        "${tmp_dir}/${dpf_binary_name}" \
+        "${tmp_dir}/dpf" \
+        "${tmp_dir}"/dpf-* \
+        "${tmp_dir}"/*/dpf \
+        "${tmp_dir}"/*/dpf-*; do
         if [ -f "${candidate}" ]; then
             candidates+=("${candidate}")
         fi
@@ -135,9 +148,11 @@ download_dpf() {
 
     if [ "${#candidates[@]}" -eq 0 ]; then
         error "Downloaded archive did not contain a dpf binary."
+        error "Expected binary name: ${dpf_binary_name}"
         exit 1
     fi
 
+    info "Found binary: ${candidates[0]} → renaming to dpf"
     mv "${candidates[0]}" "${output_path}"
     chmod +x "${output_path}"
     info "Installed: ${output_path}"

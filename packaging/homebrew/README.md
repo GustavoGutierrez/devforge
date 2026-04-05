@@ -13,9 +13,6 @@ Homebrew maps `brew tap <owner>/<name>` to `<owner>/homebrew-<name>`, so
 ## Supported Homebrew targets
 
 - Linux amd64
-
-Planned future work:
-
 - macOS arm64
 
 Windows remains out of scope for Homebrew.
@@ -41,7 +38,6 @@ The Homebrew formula installs a runtime bundle into `libexec` containing:
 - `devforge`
 - `devforge-mcp`
 - `dpf`
-- `devforge.db`
 
 The formula exposes wrappers for `devforge` and `devforge-mcp`, plus a `dpf`
 symlink, so the binaries can resolve their colocated runtime files reliably.
@@ -50,8 +46,8 @@ symlink, so the binaries can resolve their colocated runtime files reliably.
 
 On every tagged release (`v*`), `.github/workflows/release.yml`:
 
-1. Builds the Linux runtime bundle from the source repository
-2. Uploads `devforge_<version>_linux_amd64.tar.gz` and `checksums.txt`
+1. Builds Linux amd64 and macOS arm64 runtime bundles from the source repository
+2. Uploads `devforge_<version>_linux_amd64.tar.gz`, `devforge_<version>_darwin_arm64.tar.gz`, and `checksums.txt`
 3. Renders `packaging/homebrew/Formula/devforge.rb`
 4. Publishes the formula plus tap docs to `GustavoGutierrez/homebrew-devforge`
 

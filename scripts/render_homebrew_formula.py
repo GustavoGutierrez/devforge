@@ -29,13 +29,18 @@ def main() -> None:
 
     checksums = load_checksums(checksums_path)
     linux_asset = f"devforge_{args.version}_linux_amd64.tar.gz"
+    darwin_asset = f"devforge_{args.version}_darwin_arm64.tar.gz"
     linux_sha = checksums.get(linux_asset)
+    darwin_sha = checksums.get(darwin_asset)
     if not linux_sha:
         raise SystemExit(f"Missing checksum for {linux_asset} in {checksums_path}")
+    if not darwin_sha:
+        raise SystemExit(f"Missing checksum for {darwin_asset} in {checksums_path}")
 
     rendered = template_path.read_text(encoding="utf-8")
     rendered = rendered.replace("__VERSION__", args.version)
     rendered = rendered.replace("__LINUX_AMD64_SHA256__", linux_sha)
+    rendered = rendered.replace("__DARWIN_ARM64_SHA256__", darwin_sha)
 
     output_path.write_text(rendered, encoding="utf-8")
 

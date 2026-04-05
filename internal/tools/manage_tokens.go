@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
-
-	"github.com/google/uuid"
 )
 
 // ManageTokensInput is the input schema for the manage_tokens tool.
@@ -49,26 +47,7 @@ func (s *Server) ManageTokens(ctx context.Context, input ManageTokensInput) stri
 }
 
 func (s *Server) readTokens(ctx context.Context, input ManageTokensInput) string {
-	currentTokens := make(map[string]string)
-
-	if s.DB != nil {
-		query := `SELECT key, value FROM tokens WHERE (? = 'all' OR scope = ?) AND (? = '' OR css_mode = ?) ORDER BY scope, key`
-		rows, err := s.DB.QueryContext(ctx, query, input.Scope, input.Scope, input.CSSMode, input.CSSMode)
-		if err == nil {
-			defer rows.Close()
-			for rows.Next() {
-				var k, v string
-				if rows.Scan(&k, &v) == nil {
-					currentTokens[k] = v
-				}
-			}
-		}
-	}
-
-	// Provide defaults if no tokens found in DB
-	if len(currentTokens) == 0 {
-		currentTokens = defaultTokens(input.Scope)
-	}
+	currentTokens := defaultTokens(input.Scope)
 
 	instructions := buildReadInstructions(input.CSSMode, currentTokens)
 
@@ -85,19 +64,6 @@ func (s *Server) planTokenUpdate(ctx context.Context, input ManageTokensInput) s
 	}
 
 	currentTokens := defaultTokens(input.Scope)
-	if s.DB != nil {
-		query := `SELECT key, value FROM tokens WHERE (? = 'all' OR scope = ?) AND (? = '' OR css_mode = ?)`
-		rows, err := s.DB.QueryContext(ctx, query, input.Scope, input.Scope, input.CSSMode, input.CSSMode)
-		if err == nil {
-			defer rows.Close()
-			for rows.Next() {
-				var k, v string
-				if rows.Scan(&k, &v) == nil {
-					currentTokens[k] = v
-				}
-			}
-		}
-	}
 
 	diff := buildDiff(currentTokens, input.Proposal)
 	instructions := buildUpdateInstructions(input.CSSMode, input.Proposal)
@@ -115,36 +81,8 @@ func (s *Server) applyTokenUpdate(ctx context.Context, input ManageTokensInput) 
 	}
 
 	currentTokens := defaultTokens(input.Scope)
-	if s.DB != nil {
-		query := `SELECT key, value FROM tokens WHERE (? = 'all' OR scope = ?) AND (? = '' OR css_mode = ?)`
-		rows, err := s.DB.QueryContext(ctx, query, input.Scope, input.Scope, input.CSSMode, input.CSSMode)
-		if err == nil {
-			defer rows.Close()
-			for rows.Next() {
-				var k, v string
-				if rows.Scan(&k, &v) == nil {
-					currentTokens[k] = v
-				}
-			}
-		}
-	}
 
 	diff := buildDiff(currentTokens, input.Proposal)
-
-	// Persist to DB
-	if s.DB != nil {
-		for k, v := range input.Proposal {
-			vStr := fmt.Sprintf("%v", v)
-			var count int
-			s.DB.QueryRowContext(ctx, `SELECT COUNT(*) FROM tokens WHERE key = ? AND css_mode = ?`, k, input.CSSMode).Scan(&count)
-			if count > 0 {
-				s.DB.ExecContext(ctx, `UPDATE tokens SET value = ? WHERE key = ? AND css_mode = ?`, vStr, k, input.CSSMode)
-			} else {
-				s.DB.ExecContext(ctx, `INSERT INTO tokens (id, css_mode, scope, key, value) VALUES (?, ?, ?, ?, ?)`,
-					uuid.New().String(), input.CSSMode, input.Scope, k, vStr)
-			}
-		}
-	}
 
 	// Merge proposal into currentTokens for output
 	for k, v := range input.Proposal {

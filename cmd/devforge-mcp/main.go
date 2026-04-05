@@ -4,11 +4,8 @@ package main
 
 import (
 	"context"
-	"database/sql"
-	"encoding/binary"
 	"encoding/json"
 	"log"
-	"math"
 	"os"
 	"path/filepath"
 	"sync"
@@ -17,7 +14,6 @@ import (
 	mcpserver "github.com/mark3labs/mcp-go/server"
 
 	"dev-forge-mcp/internal/config"
-	"dev-forge-mcp/internal/db"
 	"dev-forge-mcp/internal/dpf"
 	"dev-forge-mcp/internal/tools"
 )
@@ -54,8 +50,7 @@ func main() {
 	if err != nil {
 		log.Printf("warning: could not load config: %v", err)
 		cfg = &config.Config{
-			OllamaURL:      "http://localhost:11434",
-			EmbeddingModel: "nomic-embed-text",
+			ImageModel: "gemini-2.5-flash-image",
 		}
 	}
 
@@ -65,24 +60,7 @@ func main() {
 		log.Fatalf("failed to resolve executable directory: %v", err)
 	}
 
-	// 2. Open DB
-	dbPath := "file:" + filepath.Join(exeDir, "devforge.db")
-	database, err := db.Open(dbPath)
-	if err != nil {
-		log.Fatalf("failed to open database: %v", err)
-	}
-	defer database.Close()
-
-	// 3. Initialize embedding client (test availability with 1s timeout)
-	var embedder *db.EmbeddingClient
-	if cfg.OllamaURL != "" && db.CheckAvailability(cfg.OllamaURL) {
-		embedder = db.NewEmbeddingClient(cfg.OllamaURL, cfg.EmbeddingModel)
-		log.Printf("ollama available at %s, embedding enabled", cfg.OllamaURL)
-	} else {
-		log.Printf("ollama not available — embedding disabled, falling back to FTS5")
-	}
-
-	// 4. Initialize StreamClient for dpf (DevPixelForge)
+	// 2. Initialize StreamClient for dpf (DevPixelForge)
 	var sc *dpf.StreamClient
 	dpfPath, err := dpf.ResolveBinaryPath(exeDir)
 	if err != nil {
@@ -101,30 +79,23 @@ func main() {
 		defer sc.Close()
 	}
 
-	// 5. Build app state
+	// 3. Build app state
 	app := &mcpApp{
 		srv: &tools.Server{
-			DB:       database,
-			DPF:      sc,
-			Embedder: embedder,
+			DPF: sc,
 		},
 		geminiKey:  cfg.GeminiAPIKey,
 		imageModel: cfg.ImageModel,
 	}
 
-	// 6. Launch embedding backfill if Ollama available
-	if embedder != nil {
-		go backfillEmbeddings(database, embedder)
-	}
-
-	// 7. Build MCP server and register all tools
+	// 4. Build MCP server and register all tools
 	s := mcpserver.NewMCPServer("devforge", "1.1.6",
 		mcpserver.WithToolCapabilities(true),
 	)
 
 	registerTools(s, app)
 
-	// 8. Serve via stdio transport
+	// 5. Serve via stdio transport
 	if err := mcpserver.ServeStdio(s); err != nil {
 		log.Fatalf("mcp server error: %v", err)
 	}
@@ -218,54 +189,6 @@ func registerTools(s *mcpserver.MCPServer, app *mcpApp) {
 			}
 		}
 		return mcp.NewToolResultText(app.srv.ManageTokens(ctx, input)), nil
-	})
-
-	// ── store_pattern ───────────────────────────────────────────
-	s.AddTool(mcp.NewTool("store_pattern",
-		mcp.WithDescription("Persist a UI layout pattern to the database."),
-		mcp.WithString("name", mcp.Required(), mcp.Description("Pattern name")),
-		mcp.WithString("framework", mcp.Required(), mcp.Description("Framework: spa-vite | astro | next | sveltekit | nuxt | vanilla")),
-		mcp.WithString("css_mode", mcp.Required(), mcp.Description("tailwind-v4 | plain-css")),
-		mcp.WithString("snippet", mcp.Required(), mcp.Description("HTML/JSX snippet")),
-		mcp.WithString("category", mcp.Description("landing | dashboard | form | component | other")),
-		mcp.WithString("domain", mcp.Description("frontend | backend | fullstack | devops | any")),
-		mcp.WithString("tags", mcp.Description("Comma-separated tags")),
-		mcp.WithString("css_snippet", mcp.Description("Optional CSS snippet")),
-		mcp.WithString("description", mcp.Description("Pattern description")),
-	), func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		input := tools.StorePatternInput{
-			Name:        mcp.ParseString(req, "name", ""),
-			Framework:   mcp.ParseString(req, "framework", ""),
-			CSSMode:     mcp.ParseString(req, "css_mode", ""),
-			Snippet:     mcp.ParseString(req, "snippet", ""),
-			Category:    mcp.ParseString(req, "category", ""),
-			Domain:      mcp.ParseString(req, "domain", ""),
-			Tags:        mcp.ParseString(req, "tags", ""),
-			CSSSnippet:  mcp.ParseString(req, "css_snippet", ""),
-			Description: mcp.ParseString(req, "description", ""),
-		}
-		return mcp.NewToolResultText(app.srv.StorePattern(ctx, input)), nil
-	})
-
-	// ── list_patterns ───────────────────────────────────────────
-	s.AddTool(mcp.NewTool("list_patterns",
-		mcp.WithDescription("Query stored patterns with optional filters, full-text search, and semantic similarity."),
-		mcp.WithString("domain", mcp.Description("frontend | backend | fullstack | devops | any")),
-		mcp.WithString("css_mode", mcp.Description("tailwind-v4 | plain-css")),
-		mcp.WithString("framework", mcp.Description("Framework filter")),
-		mcp.WithString("query", mcp.Description("Keyword or natural language query")),
-		mcp.WithString("mode", mcp.Description("fts | semantic | filter (default: auto)")),
-		mcp.WithNumber("limit", mcp.Description("Max results (default 20)")),
-	), func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		input := tools.ListPatternsInput{
-			Domain:    mcp.ParseString(req, "domain", ""),
-			CSSMode:   mcp.ParseString(req, "css_mode", ""),
-			Framework: mcp.ParseString(req, "framework", ""),
-			Query:     mcp.ParseString(req, "query", ""),
-			Mode:      mcp.ParseString(req, "mode", ""),
-			Limit:     mcp.ParseInt(req, "limit", 20),
-		}
-		return mcp.NewToolResultText(app.srv.ListPatterns(ctx, input)), nil
 	})
 
 	// ── generate_ui_image ────────────────────────────────────────
@@ -923,56 +846,6 @@ func registerTools(s *mcpserver.MCPServer, app *mcpApp) {
 		}
 		return mcp.NewToolResultText(app.srv.AudioSilenceTrim(ctx, input)), nil
 	})
-}
-
-// backfillEmbeddings populates NULL embeddings for patterns and architectures in background.
-func backfillEmbeddings(database *sql.DB, embedder *db.EmbeddingClient) {
-	tables := []struct {
-		table string
-		text  string
-	}{
-		{"patterns", "name || ' ' || COALESCE(description,'') || ' ' || COALESCE(tags,'')"},
-		{"architectures", "name || ' ' || COALESCE(description,'') || ' ' || COALESCE(tags,'')"},
-	}
-
-	sem := make(chan struct{}, 4) // max 4 parallel
-
-	for _, t := range tables {
-		rows, err := database.Query(
-			"SELECT id, " + t.text + " AS text FROM " + t.table + " WHERE embedding IS NULL LIMIT 100",
-		)
-		if err != nil {
-			continue
-		}
-		type row struct{ id, text string }
-		var pending []row
-		for rows.Next() {
-			var r row
-			if rows.Scan(&r.id, &r.text) == nil {
-				pending = append(pending, r)
-			}
-		}
-		rows.Close()
-
-		for _, r := range pending {
-			r := r
-			tbl := t.table
-			sem <- struct{}{}
-			go func() {
-				defer func() { <-sem }()
-				vec, err := embedder.Embed(context.Background(), r.text)
-				if err != nil || vec == nil {
-					return
-				}
-				// Encode float32 slice to little-endian bytes
-				buf := make([]byte, len(vec)*4)
-				for i, f := range vec {
-					binary.LittleEndian.PutUint32(buf[i*4:], math.Float32bits(f))
-				}
-				database.Exec("UPDATE "+tbl+" SET embedding = ? WHERE id = ?", buf, r.id)
-			}()
-		}
-	}
 }
 
 // argsMap safely extracts the arguments map from a CallToolRequest.

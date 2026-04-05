@@ -5,13 +5,11 @@ import (
 	"encoding/json"
 	"testing"
 
-	"dev-forge-mcp/internal/testutil"
 	"dev-forge-mcp/internal/tools"
 )
 
 func TestManageTokens_ReadMode_ReturnsCurrentTokens(t *testing.T) {
-	database := testutil.NewTestDB(t)
-	srv := &tools.Server{DB: database}
+	srv := &tools.Server{}
 
 	input := tools.ManageTokensInput{
 		Mode:    "read",
@@ -32,9 +30,8 @@ func TestManageTokens_ReadMode_ReturnsCurrentTokens(t *testing.T) {
 	}
 }
 
-func TestManageTokens_ApplyUpdate_WritesToDB(t *testing.T) {
-	database := testutil.NewTestDB(t)
-	srv := &tools.Server{DB: database}
+func TestManageTokens_ApplyUpdate_MergesProposalIntoOutput(t *testing.T) {
+	srv := &tools.Server{}
 
 	input := tools.ManageTokensInput{
 		Mode:    "apply-update",
@@ -51,17 +48,13 @@ func TestManageTokens_ApplyUpdate_WritesToDB(t *testing.T) {
 		t.Fatalf("invalid JSON: %v", err)
 	}
 
-	// Check that the token is in the DB
-	var count int
-	database.QueryRow(`SELECT COUNT(*) FROM tokens WHERE key = '--color-primary'`).Scan(&count)
-	if count == 0 {
-		t.Error("expected token record in DB after apply-update")
+	if out.CurrentTokens["--color-primary"] != "#ff0000" {
+		t.Errorf("expected merged token value, got %q", out.CurrentTokens["--color-primary"])
 	}
 }
 
-func TestManageTokens_PlanUpdate_DoesNotWriteToDB(t *testing.T) {
-	database := testutil.NewTestDB(t)
-	srv := &tools.Server{DB: database}
+func TestManageTokens_PlanUpdate_ReturnsDiffOnly(t *testing.T) {
+	srv := &tools.Server{}
 
 	input := tools.ManageTokensInput{
 		Mode:    "plan-update",
@@ -78,20 +71,13 @@ func TestManageTokens_PlanUpdate_DoesNotWriteToDB(t *testing.T) {
 		t.Fatalf("invalid JSON: %v", err)
 	}
 
-	// No record should be in DB for plan-update
-	var count int
-	database.QueryRow(`SELECT COUNT(*) FROM tokens WHERE key = '--color-accent'`).Scan(&count)
-	if count != 0 {
-		t.Error("plan-update should not write to DB")
-	}
 	if len(out.Diff) == 0 {
 		t.Error("expected non-empty diff for plan-update")
 	}
 }
 
 func TestManageTokens_InvalidMode_ReturnsError(t *testing.T) {
-	database := testutil.NewTestDB(t)
-	srv := &tools.Server{DB: database}
+	srv := &tools.Server{}
 
 	input := tools.ManageTokensInput{
 		Mode:    "invalid-mode",
@@ -110,8 +96,7 @@ func TestManageTokens_InvalidMode_ReturnsError(t *testing.T) {
 }
 
 func TestManageTokens_Tailwind_InstructionsContainAtTheme(t *testing.T) {
-	database := testutil.NewTestDB(t)
-	srv := &tools.Server{DB: database}
+	srv := &tools.Server{}
 
 	input := tools.ManageTokensInput{
 		Mode:    "read",

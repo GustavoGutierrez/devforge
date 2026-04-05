@@ -11,10 +11,8 @@ import (
 
 // Config holds all user-configurable settings for devforge.
 type Config struct {
-	GeminiAPIKey   string `json:"gemini_api_key"`
-	OllamaURL      string `json:"ollama_url"`      // default: http://localhost:11434
-	EmbeddingModel string `json:"embedding_model"` // default: nomic-embed-text (768-dim)
-	ImageModel     string `json:"image_model"`     // default: gemini-2.5-flash-image
+	GeminiAPIKey string `json:"gemini_api_key"`
+	ImageModel   string `json:"image_model"` // default: gemini-2.5-flash-image
 }
 
 // Path resolves the config file path from the environment or the default location.
@@ -58,29 +56,19 @@ func Load() (*Config, error) {
 	if err != nil {
 		if os.IsNotExist(err) {
 			return &Config{
-				OllamaURL:      "http://localhost:11434",
-				EmbeddingModel: "nomic-embed-text",
-				ImageModel:     "gemini-2.5-flash-image",
+				ImageModel: "gemini-2.5-flash-image",
 			}, nil
 		}
 		return nil, err
 	}
 
 	cfg := &Config{
-		OllamaURL:      "http://localhost:11434",
-		EmbeddingModel: "nomic-embed-text",
-		ImageModel:     "gemini-2.5-flash-image",
+		ImageModel: "gemini-2.5-flash-image",
 	}
 	if err := json.Unmarshal(data, cfg); err != nil {
 		return nil, err
 	}
 	// Apply defaults for empty fields
-	if cfg.OllamaURL == "" {
-		cfg.OllamaURL = "http://localhost:11434"
-	}
-	if cfg.EmbeddingModel == "" {
-		cfg.EmbeddingModel = "nomic-embed-text"
-	}
 	if cfg.ImageModel == "" {
 		cfg.ImageModel = "gemini-2.5-flash-image"
 	}

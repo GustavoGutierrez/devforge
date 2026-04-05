@@ -19,13 +19,12 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  release:
-    name: Build and publish release assets
+  prepare:
+    name: Resolve release metadata and validate
     runs-on: ubuntu-22.04
     outputs:
       tag: ${{ steps.meta.outputs.tag }}
       version: ${{ steps.meta.outputs.version }}
-      archive_name: ${{ steps.bundle.outputs.archive_name }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -74,36 +73,26 @@ jobs:
           set -euo pipefail
 
           test "$(tr -d '[:space:]' < VERSION)" = "${{ steps.meta.outputs.version }}"
-          bash scripts/install-dpf.sh --os linux --arch amd64
-          test -x bin/dpf
-          CGO_ENABLED=1 go test ./...
+          go test ./...
           ruby -c packaging/homebrew/Formula/devforge.rb
 
-      - name: Remove existing release assets for reruns
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ steps.meta.outputs.tag }}
-          VERSION: ${{ steps.meta.outputs.version }}
-        shell: bash
-        run: |
-          set -euo pipefail
+  build-linux-amd64:
+    name: Build Linux amd64 bundle
+    runs-on: ubuntu-22.04
+    needs: prepare
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-          if ! gh release view "$TAG" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
-            echo "Release $TAG does not exist yet; nothing to clean up."
-            exit 0
-          fi
-
-          for asset in \
-            "checksums.txt" \
-            "devforge_${VERSION}_linux_amd64.tar.gz"
-          do
-            gh release delete-asset "$TAG" "$asset" --repo "${GITHUB_REPOSITORY}" --yes || true
-          done
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
 
       - name: Build Linux runtime bundle
-        id: bundle
         env:
-          VERSION: ${{ steps.meta.outputs.version }}
+          VERSION: ${{ needs.prepare.outputs.version }}
           OUTPUT_DIR: ${{ runner.temp }}/release
         shell: bash
         run: |
@@ -115,25 +104,105 @@ jobs:
             --target-arch amd64 \
             --output-dir "$OUTPUT_DIR"
 
-          ARCHIVE_NAME="devforge_${VERSION}_linux_amd64.tar.gz"
-          echo "archive_name=$ARCHIVE_NAME" >> "$GITHUB_OUTPUT"
+      - name: Upload Linux bundle artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: devforge-linux-amd64
+          path: ${{ runner.temp }}/release/devforge_${{ needs.prepare.outputs.version }}_linux_amd64.tar.gz
 
-      - name: Generate checksums
+  build-darwin-arm64:
+    name: Build macOS arm64 bundle
+    runs-on: macos-14
+    needs: prepare
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Build macOS runtime bundle
         env:
-          VERSION: ${{ steps.meta.outputs.version }}
+          VERSION: ${{ needs.prepare.outputs.version }}
           OUTPUT_DIR: ${{ runner.temp }}/release
         shell: bash
         run: |
           set -euo pipefail
 
+          bash scripts/package_release_bundle.sh \
+            --version "$VERSION" \
+            --target-os darwin \
+            --target-arch arm64 \
+            --output-dir "$OUTPUT_DIR"
+
+      - name: Upload macOS bundle artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: devforge-darwin-arm64
+          path: ${{ runner.temp }}/release/devforge_${{ needs.prepare.outputs.version }}_darwin_arm64.tar.gz
+
+  release:
+    name: Publish GitHub release assets
+    runs-on: ubuntu-22.04
+    needs:
+      - prepare
+      - build-linux-amd64
+      - build-darwin-arm64
+    outputs:
+      tag: ${{ needs.prepare.outputs.tag }}
+      version: ${{ needs.prepare.outputs.version }}
+    steps:
+      - name: Download bundled artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ${{ runner.temp }}/artifacts
+
+      - name: Collect release files
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+          OUTPUT_DIR: ${{ runner.temp }}/release
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mkdir -p "$OUTPUT_DIR"
+          cp "${{ runner.temp }}/artifacts/devforge-linux-amd64/devforge_${VERSION}_linux_amd64.tar.gz" "$OUTPUT_DIR/"
+          cp "${{ runner.temp }}/artifacts/devforge-darwin-arm64/devforge_${VERSION}_darwin_arm64.tar.gz" "$OUTPUT_DIR/"
           cd "$OUTPUT_DIR"
-          sha256sum "devforge_${VERSION}_linux_amd64.tar.gz" > checksums.txt
+          sha256sum \
+            "devforge_${VERSION}_linux_amd64.tar.gz" \
+            "devforge_${VERSION}_darwin_arm64.tar.gz" \
+            > checksums.txt
+
+      - name: Remove existing release assets for reruns
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if ! gh release view "$TAG" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
+            echo "Release $TAG does not exist yet; nothing to clean up."
+            exit 0
+          fi
+
+          for asset in \
+            "checksums.txt" \
+            "devforge_${VERSION}_linux_amd64.tar.gz" \
+            "devforge_${VERSION}_darwin_arm64.tar.gz"
+          do
+            gh release delete-asset "$TAG" "$asset" --repo "${GITHUB_REPOSITORY}" --yes || true
+          done
 
       - name: Create release if needed
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ steps.meta.outputs.tag }}
-          VERSION: ${{ steps.meta.outputs.version }}
+          TAG: ${{ needs.prepare.outputs.tag }}
         shell: bash
         run: |
           set -euo pipefail
@@ -146,19 +215,20 @@ jobs:
           gh release create "$TAG" \
             --repo "${GITHUB_REPOSITORY}" \
             --title "DevForge $TAG" \
-            --notes "Automated Linux-first release bundle for DevForge $TAG."
+            --notes "Automated DevForge release bundle for Linux amd64 and macOS arm64."
 
       - name: Upload release assets
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ steps.meta.outputs.tag }}
+          TAG: ${{ needs.prepare.outputs.tag }}
           OUTPUT_DIR: ${{ runner.temp }}/release
         shell: bash
         run: |
           set -euo pipefail
 
           gh release upload "$TAG" \
-            "$OUTPUT_DIR/${{ steps.bundle.outputs.archive_name }}" \
+            "$OUTPUT_DIR/devforge_${{ needs.prepare.outputs.version }}_linux_amd64.tar.gz" \
+            "$OUTPUT_DIR/devforge_${{ needs.prepare.outputs.version }}_darwin_arm64.tar.gz" \
             "$OUTPUT_DIR/checksums.txt" \
             --clobber \
             --repo "${GITHUB_REPOSITORY}"

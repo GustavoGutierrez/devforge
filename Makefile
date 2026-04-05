@@ -1,5 +1,4 @@
-# Makefile — devforge-mcp
-# Requires: CGO_ENABLED=1 (libsql / go-sqlite3)
+# Makefile — devforge
 # Usage: make help
 
 # ── Variables ──────────────────────────────────────────────────────────────────
@@ -9,47 +8,24 @@ DIST_DIR     := dist
 BIN_DIR      := bin
 VERSION      := $(shell cat VERSION 2>/dev/null | tr -d '[:space:]' || echo "0.0.0")
 
-# DB path used by the app at runtime (relative to project root).
-# The canonical distribution DB lives inside dist/ so the binary and DB ship together.
-DB_PATH      := $(DIST_DIR)/devforge.db
-
-# Seeds directory
-SEEDS_DIR    := db/seeds
-
-# Ollama settings — override on the command line:
-#   make db-embeddings OLLAMA_URL=http://myhost:11434 OLLAMA_MODEL=mxbai-embed-large
-OLLAMA_URL   := http://localhost:11434
-OLLAMA_MODEL := nomic-embed-text
-
 # Install destination
 INSTALL_DIR  := $(HOME)/.local/bin
 
 # Go build flags
-GO_BUILD     := CGO_ENABLED=1 go build
-GO_RUN       := CGO_ENABLED=1 go run
-GO_TEST      := CGO_ENABLED=1 go test
+GO_BUILD     := go build
+GO_TEST      := go test
 
-# Helper scripts (Go programs, run directly via go run — no pre-compilation needed)
-INIT_RUNNER  := ./scripts/init_db_runner
-SEED_RUNNER  := ./scripts/seed_runner
-
-# Legacy seed script (kept for standalone / post-install use)
-SEED_SCRIPT  := scripts/seed.sh
+RELEASE_OUT_DIR := $(DIST_DIR)/release
+FORMULA_TEMPLATE := packaging/homebrew/Formula/devforge.rb
+FORMULA_OUTPUT ?= $(RELEASE_OUT_DIR)/devforge.rb
+CHECKSUMS_FILE ?= $(RELEASE_OUT_DIR)/checksums.txt
 
 .DEFAULT_GOAL := help
 
 # ── Phony targets ──────────────────────────────────────────────────────────────
 .PHONY: build build-mcp build-tui install uninstall dist \
-        db-init db-seed db-bootstrap db-embeddings seed \
         clean test run tui release-bundle render-homebrew-formula \
         install-dpf build-rust build-rust-static help
-
-# ── Seed file list (sorted) ─────────────────────────────────────────────────
-SEED_FILES := $(sort $(wildcard $(SEEDS_DIR)/*.sql))
-RELEASE_OUT_DIR := $(DIST_DIR)/release
-FORMULA_TEMPLATE := packaging/homebrew/Formula/devforge.rb
-FORMULA_OUTPUT ?= $(RELEASE_OUT_DIR)/devforge.rb
-CHECKSUMS_FILE ?= $(RELEASE_OUT_DIR)/checksums.txt
 
 # ── Build ──────────────────────────────────────────────────────────────────────
 
@@ -80,49 +56,17 @@ uninstall:
 
 # ── Distribution package ───────────────────────────────────────────────────────
 
-## dist: Build binaries + initialize and seed the distribution DB (no embeddings)
-dist: build db-bootstrap
+## dist: Build binaries and copy dpf into ./dist/
+dist: build
 	@if [ -f $(BIN_DIR)/dpf ]; then \
 		chmod +x $(BIN_DIR)/dpf; \
 		cp $(BIN_DIR)/dpf $(DIST_DIR)/dpf; \
 	fi
 	@echo "Distribution package ready in $(DIST_DIR)/"
 	@echo "  binary : $(DIST_DIR)/$(BINARY_MCP)"
-	@echo "  database: $(DB_PATH)"
+	@echo "  binary : $(DIST_DIR)/$(BINARY_TUI)"
 
-# ── Database ───────────────────────────────────────────────────────────────────
-
-## db-init: Create/migrate the libSQL DB using the project's own db.Open() / RunMigrations()
-##          Writes to DB_PATH (default: dist/devforge.db). Idempotent.
-db-init:
-	@echo "Initializing database at $(DB_PATH)..."
-	@mkdir -p $(DIST_DIR)
-	$(GO_RUN) $(INIT_RUNNER) -db "$(DB_PATH)"
-
-## db-seed: Apply all db/seeds/*.sql files to DB_PATH in numeric order (idempotent)
-db-seed:
-	@if [ ! -f "$(DB_PATH)" ]; then \
-		echo "Database not found at $(DB_PATH) — run 'make db-init' first"; \
-		exit 1; \
-	fi
-	@echo "Seeding database at $(DB_PATH)..."
-	$(GO_RUN) $(SEED_RUNNER) -db "$(DB_PATH)" $(foreach f,$(SEED_FILES),-sql "$(f)")
-	@echo "Seed complete."
-
-## db-bootstrap: Create/migrate and seed the DB without embeddings
-db-bootstrap: db-init db-seed
-
-## db-embeddings: Generate Ollama embeddings for rows with embedding IS NULL
-db-embeddings:
-	@bash $(SEED_SCRIPT) --embeddings-only \
-		--db "$(DB_PATH)" \
-		--ollama-url "$(OLLAMA_URL)" \
-		--ollama-model "$(OLLAMA_MODEL)"
-
-## seed: Full seed pipeline — db-init + db-seed + db-embeddings (idempotent)
-seed: db-init db-seed db-embeddings
-
-## release-bundle: Build the canonical Linux amd64 release bundle in dist/release/
+## release-bundle: Build the canonical release bundle for the current platform
 release-bundle:
 	@bash scripts/package_release_bundle.sh --version "$(VERSION)" --output-dir "$(RELEASE_OUT_DIR)"
 
@@ -147,7 +91,7 @@ tui: build-tui
 
 # ── Test ───────────────────────────────────────────────────────────────────────
 
-## test: Run all tests with CGO_ENABLED=1 (required for libsql / FTS5)
+## test: Run all tests
 test:
 	$(GO_TEST) ./...
 
@@ -186,12 +130,9 @@ clean:
 
 ## help: Show this help message
 help:
-	@echo "devforge-mcp — available make targets:"
+	@echo "devforge — available make targets:"
 	@echo ""
 	@grep -E '^## ' $(MAKEFILE_LIST) | sed 's/^## /  /' | column -t -s ':'
 	@echo ""
 	@echo "Variables (override on command line):"
-	@echo "  OLLAMA_URL=$(OLLAMA_URL)"
-	@echo "  OLLAMA_MODEL=$(OLLAMA_MODEL)"
-	@echo "  DB_PATH=$(DB_PATH)"
 	@echo "  INSTALL_DIR=$(INSTALL_DIR)"

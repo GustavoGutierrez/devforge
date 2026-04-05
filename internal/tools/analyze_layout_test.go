@@ -5,13 +5,11 @@ import (
 	"encoding/json"
 	"testing"
 
-	"dev-forge-mcp/internal/testutil"
 	"dev-forge-mcp/internal/tools"
 )
 
 func TestAnalyzeLayout_ValidMarkup_ReturnsIssues(t *testing.T) {
-	database := testutil.NewTestDB(t)
-	srv := &tools.Server{DB: database}
+	srv := &tools.Server{}
 
 	markup := `<div><img src="logo.png"><p style="font-size: 14px">Hello</p></div>`
 	input := tools.AnalyzeLayoutInput{
@@ -35,8 +33,7 @@ func TestAnalyzeLayout_ValidMarkup_ReturnsIssues(t *testing.T) {
 }
 
 func TestAnalyzeLayout_MissingAltTag_ReportsError(t *testing.T) {
-	database := testutil.NewTestDB(t)
-	srv := &tools.Server{DB: database}
+	srv := &tools.Server{}
 
 	markup := `<section><img src="banner.png"><h1>Welcome</h1></section>`
 	input := tools.AnalyzeLayoutInput{
@@ -64,8 +61,7 @@ func TestAnalyzeLayout_MissingAltTag_ReportsError(t *testing.T) {
 }
 
 func TestAnalyzeLayout_MissingMarkup_ReturnsError(t *testing.T) {
-	database := testutil.NewTestDB(t)
-	srv := &tools.Server{DB: database}
+	srv := &tools.Server{}
 
 	input := tools.AnalyzeLayoutInput{
 		Markup: "",
@@ -80,23 +76,5 @@ func TestAnalyzeLayout_MissingMarkup_ReturnsError(t *testing.T) {
 	}
 	if _, ok := errOut["error"]; !ok {
 		t.Errorf("expected error response, got: %s", result)
-	}
-}
-
-func TestAnalyzeLayout_StoresAuditInDB(t *testing.T) {
-	database := testutil.NewTestDB(t)
-	srv := &tools.Server{DB: database}
-
-	input := tools.AnalyzeLayoutInput{
-		Markup:   `<main><h1>Hello</h1></main>`,
-		Stack:    tools.StackMeta{CSSMode: "plain-css", Framework: "vanilla"},
-		PageType: "landing",
-	}
-	srv.AnalyzeLayout(context.Background(), input)
-
-	var count int
-	database.QueryRow("SELECT COUNT(*) FROM audits").Scan(&count)
-	if count == 0 {
-		t.Error("expected audit record in DB after analyze_layout")
 	}
 }

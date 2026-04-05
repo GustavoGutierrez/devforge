@@ -97,9 +97,7 @@ func (m settingsModel) save() tea.Cmd {
 		cfg := m.cfg
 		if cfg == nil {
 			cfg = &config.Config{
-				OllamaURL:      "http://localhost:11434",
-				EmbeddingModel: "nomic-embed-text",
-				ImageModel:     "gemini-2.5-flash-image",
+				ImageModel: "gemini-2.5-flash-image",
 			}
 		}
 		cfg.GeminiAPIKey = m.apiKey

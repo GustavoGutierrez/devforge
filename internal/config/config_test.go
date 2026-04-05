@@ -19,12 +19,8 @@ func TestLoad_MissingFile_ReturnsEmptyConfig(t *testing.T) {
 	if cfg == nil {
 		t.Fatal("Load returned nil config")
 	}
-	// Defaults should be applied
-	if cfg.OllamaURL != "http://localhost:11434" {
-		t.Errorf("default OllamaURL wrong: %s", cfg.OllamaURL)
-	}
-	if cfg.EmbeddingModel != "nomic-embed-text" {
-		t.Errorf("default EmbeddingModel wrong: %s", cfg.EmbeddingModel)
+	if cfg.ImageModel != "gemini-2.5-flash-image" {
+		t.Errorf("default ImageModel wrong: %s", cfg.ImageModel)
 	}
 }
 
@@ -34,9 +30,8 @@ func TestSave_WritesWithCorrectPermissions(t *testing.T) {
 	t.Setenv("DEV_FORGE_CONFIG", cfgPath)
 
 	cfg := &config.Config{
-		GeminiAPIKey:   "test-key",
-		OllamaURL:      "http://localhost:11434",
-		EmbeddingModel: "nomic-embed-text",
+		GeminiAPIKey: "test-key",
+		ImageModel:   "gemini-2.5-flash-image",
 	}
 	if err := config.Save(cfg); err != nil {
 		t.Fatalf("Save returned error: %v", err)
@@ -61,9 +56,8 @@ func TestLoad_AfterSave_ReturnsKey(t *testing.T) {
 	t.Setenv("DEV_FORGE_CONFIG", cfgPath)
 
 	cfg := &config.Config{
-		GeminiAPIKey:   "my-gemini-key-123",
-		OllamaURL:      "http://localhost:11434",
-		EmbeddingModel: "nomic-embed-text",
+		GeminiAPIKey: "my-gemini-key-123",
+		ImageModel:   "gemini-2.5-flash-image",
 	}
 	if err := config.Save(cfg); err != nil {
 		t.Fatalf("Save: %v", err)

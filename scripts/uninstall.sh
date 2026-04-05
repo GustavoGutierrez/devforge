@@ -49,58 +49,6 @@ fi
 echo -e "  ${CYN}Config${RST}           ${CONFIG_DIR}/ (asked separately)"
 echo ""
 
-# ── Find database path ─────────────────────────────────────────────────────────
-# Try to locate the DB across all version dirs
-DB_FOUND=""
-for v in "${INSTALLED_VERSIONS[@]}"; do
-    CANDIDATE="${VERSIONS_DIR}/${v}/devforge.db"
-    if [ -f "${CANDIDATE}" ]; then
-        DB_FOUND="${CANDIDATE}"
-        break
-    fi
-done
-
-# If only one version, use it; otherwise use current symlink target
-if [ -z "${DB_FOUND}" ] && [ -L "${SHARE_BASE}/current" ]; then
-    CURRENT_TARGET=$(readlink "${SHARE_BASE}/current")
-    CANDIDATE="${SHARE_BASE}/${CURRENT_TARGET}/devforge.db"
-    [ -f "${CANDIDATE}" ] && DB_FOUND="${CANDIDATE}"
-fi
-
-# ── Database backup prompt ─────────────────────────────────────────────────────
-if [ -n "${DB_FOUND}" ]; then
-    echo -e "${YLW}Database found:${RST}"
-    echo -e "  ${BLD}${DB_FOUND}${RST}"
-    echo ""
-    echo -n "Create a backup before uninstalling? [y/N] "
-    read -r BACKUP_ANSWER
-
-    if [[ "${BACKUP_ANSWER}" =~ ^[Yy]$ ]]; then
-        BACKUP_DEFAULT="${HOME}/devforge-backup-$(date +%Y%m%d-%H%M%S).db"
-        echo -n "Backup path [${BACKUP_DEFAULT}]: "
-        read -r CUSTOM_PATH
-        BACKUP_PATH="${CUSTOM_PATH:-${BACKUP_DEFAULT}}"
-
-        DEST_DIR="$(dirname "${BACKUP_PATH}")"
-        if [ ! -d "${DEST_DIR}" ]; then
-            echo -e "${RED}Error: destination directory '${DEST_DIR}' does not exist.${RST}"
-            exit 1
-        fi
-
-        cp "${DB_FOUND}" "${BACKUP_PATH}"
-        echo ""
-        echo -e "${GRN}✓ Database backed up to:${RST}"
-        echo -e "  ${BLD}${BACKUP_PATH}${RST}"
-        echo ""
-    else
-        echo -e "${YLW}Skipping backup.${RST}"
-        echo ""
-    fi
-else
-    echo -e "${YLW}No database found — nothing to back up.${RST}"
-    echo ""
-fi
-
 # ── Final confirmation ─────────────────────────────────────────────────────────
 echo -n "Proceed with uninstall? [y/N] "
 read -r CONFIRM

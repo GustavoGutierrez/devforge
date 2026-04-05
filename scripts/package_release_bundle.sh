@@ -17,7 +17,6 @@ Builds a DevForge runtime bundle containing:
   - devforge
   - devforge-mcp
   - dpf
-  - devforge.db
 
 Supported target combinations:
   - linux/amd64
@@ -96,26 +95,13 @@ mkdir -p "$OUTPUT_DIR"
 
 pushd "$PROJECT_DIR" >/dev/null
 
-CGO_ENABLED=1 GOOS="${TARGET_OS}" GOARCH="${TARGET_ARCH}" go build -ldflags="-s -w" -o "${RELEASE_ROOT}/devforge-mcp" ./cmd/devforge-mcp/
-CGO_ENABLED=1 GOOS="${TARGET_OS}" GOARCH="${TARGET_ARCH}" go build -ldflags="-s -w" -o "${RELEASE_ROOT}/devforge" ./cmd/devforge/
+GOOS="${TARGET_OS}" GOARCH="${TARGET_ARCH}" go build -ldflags="-s -w" -o "${RELEASE_ROOT}/devforge-mcp" ./cmd/devforge-mcp/
+GOOS="${TARGET_OS}" GOARCH="${TARGET_ARCH}" go build -ldflags="-s -w" -o "${RELEASE_ROOT}/devforge" ./cmd/devforge/
 
 bash scripts/install-dpf.sh \
   --os "${TARGET_OS}" \
   --arch "${TARGET_ARCH}" \
   --output "${RELEASE_ROOT}/dpf"
-
-CGO_ENABLED=1 go run ./scripts/init_db_runner -db "${RELEASE_ROOT}/devforge.db"
-
-SEED_ARGS=()
-for seed_file in db/seeds/*.sql; do
-  if [ -f "$seed_file" ]; then
-    SEED_ARGS+=( -sql "$seed_file" )
-  fi
-done
-
-if [ "${#SEED_ARGS[@]}" -gt 0 ]; then
-  CGO_ENABLED=1 go run ./scripts/seed_runner -db "${RELEASE_ROOT}/devforge.db" "${SEED_ARGS[@]}"
-fi
 
 tar -C "$RELEASE_ROOT" -czf "$ARCHIVE_PATH" .
 

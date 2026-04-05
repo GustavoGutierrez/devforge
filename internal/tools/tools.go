@@ -4,19 +4,15 @@
 package tools
 
 import (
-	"database/sql"
 	"encoding/json"
 	"errors"
 
-	"dev-forge-mcp/internal/db"
 	"dev-forge-mcp/internal/dpf"
 )
 
 // Server holds shared dependencies for all tool handlers.
 type Server struct {
-	DB       *sql.DB
-	DPF      *dpf.StreamClient
-	Embedder *db.EmbeddingClient
+	DPF *dpf.StreamClient
 	// GetConfig returns the current config (hot-reloadable).
 	GetConfig func() interface{ GetGeminiAPIKey() string }
 }
