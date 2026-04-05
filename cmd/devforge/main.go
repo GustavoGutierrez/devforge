@@ -34,7 +34,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to resolve executable directory: %v", err)
 	}
-	dbPath := "file:" + filepath.Join(exeDir, "dev-forge.db")
+	dbPath := "file:" + filepath.Join(exeDir, "devforge.db")
 	database, err := db.Open(dbPath)
 	if err != nil {
 		log.Fatalf("failed to open database: %v", err)
@@ -49,11 +49,19 @@ func main() {
 
 	// Initialize dpf (DevPixelForge) (optional, non-fatal)
 	var sc *dpf.StreamClient
-	dpfPath := filepath.Join(exeDir, "dpf")
-	sc, err = dpf.NewStreamClient(dpfPath)
+	dpfPath, err := dpf.ResolveBinaryPath(exeDir)
 	if err != nil {
+		log.Printf("warning: dpf binary not available: %v", err)
 		sc = nil
 	} else {
+		sc, err = dpf.NewStreamClient(dpfPath)
+	}
+	if err != nil {
+		log.Printf("warning: dpf binary not available at %s: %v", dpfPath, err)
+		log.Printf("optimize_images, generate_favicon, markdown_to_pdf, and media tools will return errors")
+		sc = nil
+	} else {
+		log.Printf("dpf available at %s", dpfPath)
 		defer sc.Close()
 	}
 

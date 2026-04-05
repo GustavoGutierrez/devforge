@@ -5,6 +5,8 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
+
+	"dev-forge-mcp/internal/tools"
 )
 
 const videoToolIntro = `Process video files with various operations like transcoding, resizing, trimming, and thumbnail generation.`
@@ -20,16 +22,14 @@ var videoMenuItems = []string{
 
 type videoModel struct {
 	selectedTool int
-	srv          *Server
+	srv          *tools.Server
 	result       string
 	loading      bool
 	goHome       bool
 	goSettings   bool
 }
 
-type Server struct{}
-
-func newVideoModel(srv *Server) videoModel {
+func newVideoModel(srv *tools.Server) videoModel {
 	return videoModel{selectedTool: 0, srv: srv}
 }
 

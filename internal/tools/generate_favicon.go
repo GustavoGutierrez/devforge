@@ -67,8 +67,8 @@ func (s *Server) GenerateFavicon(ctx context.Context, input GenerateFaviconInput
 	}
 
 	jobResult, err := s.DPF.Execute(job)
-	if err != nil {
-		return errorJSON("dpf error: " + err.Error())
+	if msg := dpfErrorJSON(jobResult, err); msg != "" {
+		return msg
 	}
 
 	var icons []IconOutput

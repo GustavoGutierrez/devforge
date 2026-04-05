@@ -10,6 +10,9 @@ This directory contains shell scripts and Go helpers for installing, configuring
 | `install-dpf.sh` | Download the DevPixelForge pre-built binary from GitHub releases |
 | `uninstall.sh` | Uninstallation with database backup prompt |
 | `setup-mcp-client.sh` | Interactive configurator for VS Code, Claude Desktop, Claude Code, and OpenCode |
+| `package_release_bundle.sh` | Builds the Linux amd64 release bundle with binaries, dpf, and seeded DB |
+| `render_homebrew_formula.py` | Renders the Homebrew formula from the packaging template and checksums.txt |
+| `release-homebrew.sh` | Deprecated legacy script kept only to redirect users to `release.yml` |
 | `link-skills.sh` | Creates symlinks from `.claude/skills/` to `.agents/skills/` |
 | `seed.sh` | Standalone seed script: schema init, SQL seeds, and Ollama embeddings |
 | `init_db_runner/` | Go helper: applies schema migrations to a libSQL database |
@@ -102,6 +105,46 @@ Interactive configurator that adds `devforge-mcp` to various MCP clients. Detect
 **Usage:**
 ```bash
 bash scripts/setup-mcp-client.sh
+```
+
+---
+
+## package_release_bundle.sh
+
+Builds the canonical Linux amd64 release artifact used by GitHub Releases and
+Homebrew.
+
+**Bundle contents:**
+- `devforge`
+- `devforge-mcp`
+- `dpf`
+- `devforge.db`
+
+**Usage:**
+```bash
+bash scripts/package_release_bundle.sh --version 1.1.4
+```
+
+Default output:
+
+```text
+dist/release/devforge_1.1.4_linux_amd64.tar.gz
+```
+
+---
+
+## render_homebrew_formula.py
+
+Renders `packaging/homebrew/Formula/devforge.rb` by replacing the version and
+bundle checksum placeholders from a release `checksums.txt` file.
+
+**Usage:**
+```bash
+python3 scripts/render_homebrew_formula.py \
+  --template packaging/homebrew/Formula/devforge.rb \
+  --version 1.1.4 \
+  --checksums-file dist/release/checksums.txt \
+  --output dist/release/devforge.rb
 ```
 
 ---

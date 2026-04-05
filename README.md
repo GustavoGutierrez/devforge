@@ -2,12 +2,12 @@
   <img src="devforge.png" width="300" alt="DevForge MCP" />
 </p>
 
-[![Version](https://img.shields.io/badge/version-1.1.3-blue.svg)](https://github.com/GustavoGutierrez/devforge-mcp)
+[![Version](https://img.shields.io/badge/version-1.1.4-blue.svg)](https://github.com/GustavoGutierrez/devforge)
 [![License](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](LICENSE)
 [![Go](https://img.shields.io/badge/Go-1.24+-00ADD8.svg?logo=go&logoColor=white)](https://golang.org)
 [![MCP](https://img.shields.io/badge/MCP-stdio-8B5CF6.svg?logo=modelcontextprotocol&logoColor=white)](https://modelcontextprotocol.io)
-[![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20macOS-1e1e2e.svg?logo=linux&logoColor=white)](https://github.com/GustavoGutierrez/devforge-mcp)
-[![CGO](https://img.shields.io/badge/CGO-required-orange.svg)](https://github.com/GustavoGutierrez/devforge-mcp)
+[![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20macOS-1e1e2e.svg?logo=linux&logoColor=white)](https://github.com/GustavoGutierrez/devforge)
+[![CGO](https://img.shields.io/badge/CGO-required-orange.svg)](https://github.com/GustavoGutierrez/devforge)
 
 # DevForge MCP
 
@@ -79,7 +79,7 @@ The UI and design tools adapt their output to the declared stack:
   - Binary: `bin/dpf`.
   - Supports: images (resize, optimize, convert, favicon), video (transcode, resize, trim, thumbnail, profile), audio (transcode, trim, normalize, silence_trim).
   - Requires FFmpeg for video/audio operations.
-  - See [`internal/dpf/INTEGRATION.md`](internal/dpf/INTEGRATION.md).
+  - See [`docs/dpf-integration-guide.md`](docs/dpf-integration-guide.md).
 
 ## Developer Utilities (48 Tools)
 
@@ -111,23 +111,31 @@ Override with the `DEV_FORGE_CONFIG` environment variable.
 
 ## Installation
 
-### Via Homebrew (Linux & macOS)
+### Via Homebrew (Linux amd64 first)
 
-Install all three components — `devforge` (CLI/TUI), `devforge-mcp` (MCP server), and `dpf` (media engine):
+The canonical packaging model is now a dedicated tap repository:
+
+- source repo: `GustavoGutierrez/devforge`
+- tap repo: `GustavoGutierrez/homebrew-devforge`
+- user command: `brew tap GustavoGutierrez/devforge`
+
+Install with:
 
 ```bash
-# Option 1 — Direct URL (recommended, works immediately)
-brew install https://raw.githubusercontent.com/GustavoGutierrez/devforge-mcp/homebrew-tap/Formula/devforge.rb
-
-# Option 2 — Clone the tap first, then install
-# (The repo is named devforge-mcp, not homebrew-devforge, so --custom-remote is required)
-brew tap --custom-remote gustavogutierrez/devforge https://github.com/GustavoGutierrez/devforge-mcp homebrew-tap
-brew install devforge
+brew tap GustavoGutierrez/devforge
+brew install GustavoGutierrez/devforge/devforge
 ```
 
-> **Note:** The `--custom-remote` flag is needed because Homebrew's standard tap convention expects `homebrew-{name}/` directories, but this repo uses `homebrew-tap/` for the formula branch.
+The Homebrew bundle installs all required runtime artifacts into `libexec`:
 
-See the [DevForge Homebrew Tap README](homebrew-tap/README.md) for full post-install setup and troubleshooting.
+- `devforge`
+- `devforge-mcp`
+- `dpf`
+- `devforge.db`
+
+> **Status:** Linux amd64 is the supported Homebrew target today. macOS arm64 is planned future work.
+
+See [packaging/homebrew/README.md](packaging/homebrew/README.md) for tap details.
 
 ### From Source
 
@@ -135,8 +143,8 @@ Build from source with Go 1.24+:
 
 ```bash
 # Clone the repository
-git clone https://github.com/GustavoGutierrez/devforge-mcp.git
-cd devforge-mcp
+git clone https://github.com/GustavoGutierrez/devforge.git
+cd devforge
 
 # Build all components (requires CGO)
 CGO_ENABLED=1 go build ./...
@@ -175,8 +183,8 @@ chmod +x bin/dpf
 - **Go 1.24+** with CGO enabled (`CGO_ENABLED=1`)
 - **FFmpeg 6.0+** (for video/audio operations)
 - **Rust toolchain** (only if recompiling the `dpf` binary from [DevPixelForge](https://github.com/GustavoGutierrez/devpixelforge))
-- **Linux**: Ubuntu 22.04+ (for Homebrew bottles; building from source works on any glibc 2.17+)
-- **macOS**: 12+ (Monterey or later)
+- **Linux**: Ubuntu 22.04+ or compatible glibc-based distro for the published Homebrew bundle
+- **macOS**: source builds supported; Homebrew arm64 bundle is planned future work
 
 ## Documentation
 
@@ -188,4 +196,5 @@ chmod +x bin/dpf
 | [docs/overview.md](docs/overview.md) | High-level project overview |
 | [docs/schema.md](docs/schema.md) | Database schema reference |
 | [internal/dpf/INTEGRATION.md](internal/dpf/INTEGRATION.md) | How to integrate DevPixelForge into any Go project |
-| [scripts/README.md](scripts/README.md) | Script reference for install, seed, and setup |
+| [scripts/README.md](scripts/README.md) | Script reference for install, seed, release packaging, and setup |
+| [packaging/homebrew/README.md](packaging/homebrew/README.md) | Dedicated Homebrew tap packaging model |

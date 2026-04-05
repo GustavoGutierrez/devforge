@@ -5,6 +5,8 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
+
+	"dev-forge-mcp/internal/tools"
 )
 
 const audioToolIntro = `Process audio files with various operations like transcoding, trimming, normalization, and silence removal.`
@@ -19,14 +21,14 @@ var audioMenuItems = []string{
 
 type audioModel struct {
 	selectedTool int
-	srv          *Server
+	srv          *tools.Server
 	result       string
 	loading      bool
 	goHome       bool
 	goSettings   bool
 }
 
-func newAudioModel(srv *Server) audioModel {
+func newAudioModel(srv *tools.Server) audioModel {
 	return audioModel{selectedTool: 0, srv: srv}
 }
 

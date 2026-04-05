@@ -6,6 +6,7 @@ package tools
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 
 	"dev-forge-mcp/internal/db"
 	"dev-forge-mcp/internal/dpf"
@@ -33,4 +34,28 @@ func mustJSON(v interface{}) string {
 		return errorJSON("failed to marshal response: " + err.Error())
 	}
 	return string(b)
+}
+
+func dpfCallError(result *dpf.JobResult, err error) error {
+	if err != nil {
+		return err
+	}
+	if result == nil {
+		return errors.New("dpf returned an empty result")
+	}
+	if result.Success {
+		return nil
+	}
+	if result.Error != "" {
+		return errors.New(result.Error)
+	}
+	return errors.New("dpf operation failed")
+}
+
+func dpfErrorJSON(result *dpf.JobResult, err error) string {
+	callErr := dpfCallError(result, err)
+	if callErr == nil {
+		return ""
+	}
+	return errorJSON("dpf error: " + callErr.Error())
 }

@@ -1,296 +1,152 @@
 ---
 name: publish-release
-description: >
-  Step-by-step workflow for publishing a new DevForge version to GitHub Releases and Homebrew tap.
-  Trigger: When the user asks to release a new version, bump the version, publish to GitHub,
-  push a new release, create a release, "subir versión", "nueva versión", "nuevo release",
-  "publicar versión", or "crear release".
+description: Publish a DevForge GitHub release with the Linux-first runtime bundle and dedicated Homebrew tap synchronization.
 license: Apache-2.0
 metadata:
   author: GustavoGutierrez
-  version: "1.4"
+  version: "2.0"
 ---
 
-## When to Use
+## When to use this skill
 
-Load this skill when:
-- User asks to release a new version, bump version, or publish to GitHub/Homebrew
-- User says "subir versión", "nueva versión", "nuevo release", "publicar versión", or "crear release"
-- User asks to tag a release or increment the version number
+- Publishing a new DevForge version
+- Re-running a failed release for an existing tag
+- Verifying GitHub release assets or the dedicated Homebrew tap after the tap migration
 
----
+## Release source of truth
 
-## Critical Patterns
+- Workflow: `.github/workflows/release.yml`
+- Homebrew formula template: `packaging/homebrew/Formula/devforge.rb`
+- Homebrew tap docs: `packaging/homebrew/README.md`, `packaging/homebrew/RELEASE_PROCESS.md`
+- Release bundle builder: `scripts/package_release_bundle.sh`
+- Homebrew formula renderer: `scripts/render_homebrew_formula.py`
 
-- **`gh release create` uses `--notes`, NOT `--body`** — `--body` is an unknown flag and will crash the CI.
-- **`VERSION` is the single source of truth** — always read it first; never hardcode the version.
-- **`v` prefix required in workflow dispatch** — pass `version=vX.Y.Z`, not `X.Y.Z`.
-- **Use `Edit` tool for Go/Ruby files** — do NOT use bash `sed` for `main.go` or `devforge.rb`.
-- **PR branch must differ from base** — CI pushes to `update-vX.Y.Z`, PR targets `homebrew-tap`. Never push directly to `homebrew-tap`.
-- **`CGO_ENABLED=1` required** — `go build ./...` without it will fail due to `go-sqlite3`.
-- **Release notes must be English Markdown** — no plain text, no other language.
-- **5 files must be updated every release**: `VERSION`, `README.md`, `cmd/devforge-mcp/main.go`, `Formula/devforge.rb`, `internal/version/version.go`.
-- **`Formula/devforge.rb` in `main` needs BOTH `version` AND `sha256` synced after CI.** The CI only updates `homebrew-tap`; the formula on `main` is left with the old sha256 (Step 2 only updates `version`). If not synced, `brew upgrade` will report a checksum mismatch warning. **Run Step 9 immediately after CI completes — the sha256 is available on `update-vX.Y.Z` branch before merging the PR.** Do not wait for users to hit the mismatch error.
+## Packaging model
 
----
+- DevForge ships a Linux-first runtime bundle, not a single binary.
+- The canonical release asset is:
 
-## Semantic Versioning Rules
+  ```text
+  devforge_X.Y.Z_linux_amd64.tar.gz
+  ```
 
-| Change type | Segment | Example |
-|-------------|---------|---------|
-| Breaking change to MCP API, protocol, or config schema | **MAJOR** | `1.x.x → 2.0.0` |
-| New MCP tool, CLI command, dpf job type (backwards-compatible) | **MINOR** | `1.0.x → 1.1.0` |
-| Bug fix, refactor, docs update, dependency update, CI fix | **PATCH** | `1.0.1 → 1.0.2` |
+- That bundle must contain all runtime-critical artifacts:
+  - `devforge`
+  - `devforge-mcp`
+  - `dpf`
+  - `devforge.db`
 
----
+- The Homebrew formula installs those files into `libexec` and exposes wrappers
+  for `devforge` and `devforge-mcp` plus a symlink for `dpf`.
 
-## Files Updated Every Release
+## Dedicated tap decision
 
-| File | What to change |
-|------|---------------|
-| `VERSION` | Plain semver string (no `v` prefix): `1.0.2` |
-| `README.md` | Badge URL: `version-X.Y.Z-blue.svg` |
-| `cmd/devforge-mcp/main.go` | `mcpserver.NewMCPServer("devforge", "X.Y.Z", ...)` |
-| `Formula/devforge.rb` | `version "X.Y.Z"` — **sha256 is updated later in Step 9** |
-| `internal/version/version.go` | `const Current = "X.Y.Z"` — displayed in TUI home, about screen, and update checker |
+- User-facing Homebrew commands are:
 
----
+  ```bash
+  brew tap GustavoGutierrez/devforge
+  brew install GustavoGutierrez/devforge/devforge
+  ```
 
-## Step-by-Step Release Process
+- Homebrew resolves that tap command to the dedicated repository
+  `GustavoGutierrez/homebrew-devforge`.
+- Current Homebrew scope is Linux amd64.
+- macOS arm64 is future work.
+- Windows is out of scope.
 
-### Step 1 — Determine the new version
+## Versioning rules
+
+- Use Semantic Versioning.
+- Tag format must be `vX.Y.Z`.
+- Use:
+  - `PATCH` for fixes, docs, packaging, release automation, and maintenance.
+  - `MINOR` for backward-compatible features.
+  - `MAJOR` for breaking CLI, MCP, config, or workflow changes.
+
+## Standard publish flow
+
+1. Validate locally:
+
+   ```bash
+   CGO_ENABLED=1 go test ./...
+   make release-bundle
+   ruby -c packaging/homebrew/Formula/devforge.rb
+   ```
+
+2. Ensure the dedicated tap repository and credential exist:
+
+   - Tap repository: `GustavoGutierrez/homebrew-devforge`
+   - Required secret in `GustavoGutierrez/devforge`: `HOMEBREW_TAP_SSH_KEY`
+   - That secret must be the private half of a write-enabled deploy key on the tap repo
+
+3. Commit release changes if needed.
+
+4. Create and push the release tag:
+
+   ```bash
+   git tag vX.Y.Z
+   git push origin vX.Y.Z
+   ```
+
+5. Let `.github/workflows/release.yml` publish the GitHub release assets and update the tap.
+
+## Manual rerun flow
+
+Use this only when the tag already exists and the workflow must be rebuilt or retried:
 
 ```bash
-cat VERSION
+gh workflow run release.yml -f tag=vX.Y.Z --repo GustavoGutierrez/devforge
 ```
 
-Apply SemVer rules. Decide the new version (e.g., `1.0.2`).
+Important:
 
----
+- `workflow_dispatch` does not create the tag
+- The tag must already exist remotely
 
-### Step 2 — Update all version references
+## What the workflow does
 
-Use the `Edit` tool for each file:
+For a tagged release, `.github/workflows/release.yml`:
 
-- `VERSION` → plain semver string, no `v` prefix
-- `README.md` → badge `version-OLD-blue.svg` → `version-NEW-blue.svg`
-- `cmd/devforge-mcp/main.go` → version string in `NewMCPServer`
-- `Formula/devforge.rb` → `version "OLD"` → `version "NEW"`
-- `internal/version/version.go` → `const Current = "OLD"` → `const Current = "NEW"`
+1. Verifies `VERSION` matches the tag
+2. Runs `CGO_ENABLED=1 go test ./...`
+3. Builds `devforge`, `devforge-mcp`, `dpf`, and `devforge.db` into a Linux amd64 bundle
+4. Uploads the bundle and `checksums.txt` to the GitHub release
+5. Renders the Homebrew formula from `packaging/homebrew/Formula/devforge.rb`
+6. Pushes the formula and tap docs to `GustavoGutierrez/homebrew-devforge`
 
-> ⚠️ **`internal/version/version.go` is the runtime version source of truth.** If skipped, the TUI home badge, about screen, and update checker will report the old version even after a successful install. This is the most commonly forgotten file.
+## Verification
 
-After editing, **verify all 5 references show the new version** before continuing:
+### Verify GitHub release assets
 
 ```bash
-# Replace X.Y.Z with the new version — all 5 lines must print
-grep -rn "X.Y.Z" VERSION README.md cmd/devforge-mcp/main.go Formula/devforge.rb internal/version/version.go
+gh release view vX.Y.Z --repo GustavoGutierrez/devforge --json assets
 ```
 
-If any file is missing from the output, update it now. **Do not proceed to Step 3 until all 5 appear.**
+Expected assets:
 
----
+- `devforge_X.Y.Z_linux_amd64.tar.gz`
+- `checksums.txt`
 
-### Step 3 — Verify the build compiles clean
+### Verify the dedicated tap repository
 
 ```bash
-CGO_ENABLED=1 go build ./...
+gh repo view GustavoGutierrez/homebrew-devforge
+gh api repos/GustavoGutierrez/homebrew-devforge/contents/Formula/devforge.rb?ref=HEAD
 ```
 
-Fix any errors before continuing.
-
----
-
-### Step 4 — Write the release notes
-
-Use this template (English Markdown only, include only relevant sections):
-
-```markdown
-## What's Changed
-
-### Breaking Changes
-- Description and migration path (MAJOR only)
-
-### New Features
-- Description of new tool/command (MINOR only)
-
-### Bug Fixes
-- Fix description (#issue or short description)
-
-### Improvements
-- Description of improvement
-
-### Refactors
-- Description of refactor
-
-### Dependency Updates
-- Updated X from vA to vB
-
----
-
-**Full Changelog**: https://github.com/GustavoGutierrez/devforge-mcp/compare/vPREV...vNEW
-```
-
----
-
-### Step 5 — Commit and push to main
+### Verify Homebrew installation behavior
 
 ```bash
-git add VERSION README.md cmd/devforge-mcp/main.go Formula/devforge.rb internal/version/version.go
-git commit -m "chore(release): bump version to vX.Y.Z
-
-<one-line summary of what changed>"
-git push origin main
+brew tap GustavoGutierrez/devforge
+brew install GustavoGutierrez/devforge/devforge
+devforge-mcp
+brew info GustavoGutierrez/devforge/devforge
 ```
 
----
+## Failure handling
 
-### Step 6 — Trigger the CI workflow
-
-```bash
-gh workflow run homebrew.yml \
-  -f version=vX.Y.Z \
-  --repo GustavoGutierrez/devforge-mcp
-```
-
----
-
-### Step 7 — Monitor the workflow
-
-```bash
-sleep 5 && gh run list --repo GustavoGutierrez/devforge-mcp --limit 3
-gh run watch <RUN_ID> --repo GustavoGutierrez/devforge-mcp
-```
-
-| Job | What it does |
-|-----|-------------|
-| `prepare-release` | Creates GitHub Release at `vX.Y.Z` |
-| `build-linux` | Builds binaries, packages `.tar.gz`, uploads to release |
-| `update-formula` | Rewrites `Formula/devforge.rb`, pushes `update-vX.Y.Z`, opens PR |
-
----
-
-### Step 8 — Verify the release and PR
-
-```bash
-gh release view vX.Y.Z --repo GustavoGutierrez/devforge-mcp
-gh pr list --repo GustavoGutierrez/devforge-mcp --state open
-```
-
-Expected: release has `devforge-X.Y.Z.linux-amd64.tar.gz`; PR `update-vX.Y.Z → homebrew-tap` is open.
-
----
-
-### Step 9 — Sync sha256 in main branch formula (MANDATORY — do this BEFORE merging the PR)
-
-The CI's `update-formula` job computes the correct sha256 and writes it to the `update-vX.Y.Z` branch. It is available **as soon as the CI workflow completes** — you do not need to wait for the PR to be merged, and you do not need to encounter a `brew install` error to find it.
-
-```bash
-# 1. Fetch and read the sha256 from the CI branch (available right after Step 7)
-git fetch origin
-git show origin/update-vX.Y.Z:Formula/devforge.rb | grep sha256
-```
-
-Copy that value. Then update `Formula/devforge.rb` on `main` using the Edit tool:
-
-```
-Change: sha256 "OLD_HASH"
-To:     sha256 "NEW_HASH_FROM_CI_BRANCH"
-```
-
-Also verify `homebrew-tap` will have an explicit `version "X.Y.Z"` field:
-
-```bash
-git show origin/update-vX.Y.Z:Formula/devforge.rb | grep version
-# If missing, add it manually after merging the PR (checkout homebrew-tap, edit, push)
-```
-
-Commit and push the sha256 fix to main:
-
-```bash
-git add Formula/devforge.rb
-git commit -m "fix(homebrew): sync sha256 for vX.Y.Z bottle in main branch formula"
-git push origin main
-```
-
-> ✅ After this step, `brew install devforge` will pass checksum verification for all users — no mismatch error.
-
----
-
-### Step 10 — Merge the Homebrew PR
-
-```bash
-gh pr merge update-vX.Y.Z --repo GustavoGutierrez/devforge-mcp --merge
-```
-
-Or merge it via the GitHub UI. The sha256 is already synced to `main`, so this step is safe to do at any time.
-
----
-
-## Commands
-
-```bash
-# Read current version
-cat VERSION
-
-# Build check (required before release)
-CGO_ENABLED=1 go build ./...
-
-# Trigger release CI
-gh workflow run homebrew.yml -f version=vX.Y.Z --repo GustavoGutierrez/devforge-mcp
-
-# Monitor runs
-gh run list --repo GustavoGutierrez/devforge-mcp --limit 3
-gh run watch <RUN_ID> --repo GustavoGutierrez/devforge-mcp
-
-# Verify release
-gh release view vX.Y.Z --repo GustavoGutierrez/devforge-mcp
-
-# Verify formula PR
-gh pr list --repo GustavoGutierrez/devforge-mcp --state open
-```
-
----
-
-## Complete Checklist
-
-```
-[ ] Determined correct SemVer segment (MAJOR / MINOR / PATCH)
-[ ] VERSION updated (no v prefix)
-[ ] README.md badge updated
-[ ] cmd/devforge-mcp/main.go version string updated
-[ ] internal/version/version.go const Current updated
-[ ] Formula/devforge.rb version updated (sha256 stays old — synced in Step 9)
-[ ] CGO_ENABLED=1 go build ./... passes clean
-[ ] Release notes written in English Markdown
-[ ] Committed: chore(release): bump version to vX.Y.Z
-[ ] Pushed to main
-[ ] Triggered: gh workflow run homebrew.yml -f version=vX.Y.Z
-[ ] All 3 CI jobs passed (prepare-release, build-linux, update-formula)
-[ ] GitHub Release vX.Y.Z exists with linux-amd64.tar.gz asset
-[ ] Homebrew formula PR opened targeting homebrew-tap branch
-[ ] sha256 read from origin/update-vX.Y.Z and synced to main/Formula/devforge.rb (Step 9)
-[ ] fix(homebrew): sync sha256 commit pushed to main
-[ ] Homebrew formula PR merged (Step 10)
-[ ] version "X.Y.Z" explicit in homebrew-tap/Formula/devforge.rb (verify after merge)
-```
-
----
-
-## Anti-Patterns
-
-| Anti-pattern | Symptom | Fix |
-|---|---|---|
-| Sync sha256 after PR merge instead of before | Users hit `Formula reports different checksum` between CI completion and PR merge | Run Step 9 immediately after Step 7 — sha256 is on `origin/update-vX.Y.Z` before the PR is merged |
-| Wait for `brew install` error to find the sha256 | Unnecessary user-facing failure to discover the hash | `git fetch origin && git show origin/update-vX.Y.Z:Formula/devforge.rb \| grep sha256` — available right after CI |
-| CI drops `version` field from `homebrew-tap` formula | Homebrew must infer version from URL — fragile, may mismatch | After Homebrew PR merges, verify `version "X.Y.Z"` is explicit in `homebrew-tap/Formula/devforge.rb`; add if missing |
-| Hardcode sha256 in Step 2 | Wrong sha256 at release time (binary not yet built) | In Step 2, only update `version`; sha256 is computed by CI and synced in Step 9 |
-| Forget to update `internal/version/version.go` | TUI shows wrong version (old version in home badge, about screen, and update checker) | Always include this file in Step 2 — it's the runtime version source of truth for the CLI/TUI |
-
----
-
-## Resources
-
-- **CI pipeline**: See [.github/workflows/homebrew.yml](../../../.github/workflows/homebrew.yml)
-- **Homebrew formula**: See [Formula/devforge.rb](../../../Formula/devforge.rb)
-- **Release conventions**: See [AGENTS.md](../../../AGENTS.md) — Homebrew Tap section
+- If `go test` fails, fix the code before tagging.
+- If `make release-bundle` fails, verify `bin/dpf` exists and is executable.
+- If the tag does not exist remotely, create or push it before using the rerun flow.
+- If the tap update fails, verify `GustavoGutierrez/homebrew-devforge` exists and `HOMEBREW_TAP_SSH_KEY` is valid.
+- Do not use the legacy `.github/workflows/homebrew.yml` flow; `release.yml` is the canonical release automation.

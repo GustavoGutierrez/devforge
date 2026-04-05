@@ -83,14 +83,21 @@ func main() {
 	}
 
 	// 4. Initialize StreamClient for dpf (DevPixelForge)
-	dpfPath := filepath.Join(exeDir, "dpf")
 	var sc *dpf.StreamClient
-	sc, err = dpf.NewStreamClient(dpfPath)
+	dpfPath, err := dpf.ResolveBinaryPath(exeDir)
 	if err != nil {
-		log.Printf("warning: dpf binary not available at %s: %v", dpfPath, err)
-		log.Printf("optimize_images, generate_favicon, and media tools will return errors")
+		log.Printf("warning: dpf binary not available: %v", err)
+		log.Printf("optimize_images, generate_favicon, markdown_to_pdf, and media tools will return errors")
 		sc = nil
 	} else {
+		sc, err = dpf.NewStreamClient(dpfPath)
+	}
+	if err != nil {
+		log.Printf("warning: dpf binary not available at %s: %v", dpfPath, err)
+		log.Printf("optimize_images, generate_favicon, markdown_to_pdf, and media tools will return errors")
+		sc = nil
+	} else {
+		log.Printf("dpf available at %s", dpfPath)
 		defer sc.Close()
 	}
 
@@ -111,7 +118,7 @@ func main() {
 	}
 
 	// 7. Build MCP server and register all tools
-	s := mcpserver.NewMCPServer("devforge", "1.1.3",
+	s := mcpserver.NewMCPServer("devforge", "1.1.4",
 		mcpserver.WithToolCapabilities(true),
 	)
 
@@ -291,6 +298,57 @@ func registerTools(s *mcpserver.MCPServer, app *mcpApp) {
 			OutputDir: mcp.ParseString(req, "output_dir", ""),
 		}
 		return mcp.NewToolResultText(app.srv.UI2MD(ctx, input, app.getGeminiKey(), app.getImageModel())), nil
+	})
+
+	// ── markdown_to_pdf ─────────────────────────────────────────
+	s.AddTool(mcp.NewTool("markdown_to_pdf",
+		mcp.WithDescription("Convert Markdown to PDF via dpf 0.4.2 using file, inline text, or base64 input."),
+		mcp.WithString("input", mcp.Description("Markdown file path")),
+		mcp.WithString("markdown_text", mcp.Description("Inline UTF-8 Markdown source")),
+		mcp.WithString("markdown_base64", mcp.Description("Base64-encoded UTF-8 Markdown source")),
+		mcp.WithString("output", mcp.Description("Explicit output PDF path")),
+		mcp.WithString("output_dir", mcp.Description("Directory output mode")),
+		mcp.WithString("file_name", mcp.Description("Optional output filename when using output_dir")),
+		mcp.WithBoolean("inline", mcp.Description("Return base64 PDF data inline")),
+		mcp.WithString("page_size", mcp.Description("a4 | letter | legal")),
+		mcp.WithNumber("page_width_mm", mcp.Description("Custom page width in millimeters")),
+		mcp.WithNumber("page_height_mm", mcp.Description("Custom page height in millimeters")),
+		mcp.WithString("layout_mode", mcp.Description("paged | single_page")),
+		mcp.WithString("theme", mcp.Description("invoice | scientific_article | professional | engineering | informational")),
+		mcp.WithObject("theme_config", mcp.Description("Theme overrides forwarded to dpf")),
+		mcp.WithObject("resource_files", mcp.Description("Optional href-to-file mapping for inline assets")),
+	), func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		args := argsMap(req)
+		input := tools.MarkdownToPDFInput{
+			Input:          mcp.ParseString(req, "input", ""),
+			MarkdownText:   mcp.ParseString(req, "markdown_text", ""),
+			MarkdownBase64: mcp.ParseString(req, "markdown_base64", ""),
+			Output:         mcp.ParseString(req, "output", ""),
+			OutputDir:      mcp.ParseString(req, "output_dir", ""),
+			FileName:       mcp.ParseString(req, "file_name", ""),
+			Inline:         mcp.ParseBoolean(req, "inline", false),
+			PageSize:       mcp.ParseString(req, "page_size", ""),
+			LayoutMode:     mcp.ParseString(req, "layout_mode", ""),
+			Theme:          mcp.ParseString(req, "theme", ""),
+		}
+		if v, ok := args["page_width_mm"].(float64); ok {
+			input.PageWidthMM = &v
+		}
+		if v, ok := args["page_height_mm"].(float64); ok {
+			input.PageHeightMM = &v
+		}
+		if themeConfig, ok := args["theme_config"].(map[string]interface{}); ok {
+			input.ThemeConfig = themeConfig
+		}
+		if resourceFiles, ok := args["resource_files"].(map[string]interface{}); ok {
+			input.ResourceFiles = make(map[string]string, len(resourceFiles))
+			for k, v := range resourceFiles {
+				if s, ok := v.(string); ok {
+					input.ResourceFiles[k] = s
+				}
+			}
+		}
+		return mcp.NewToolResultText(app.srv.MarkdownToPDF(ctx, input)), nil
 	})
 
 	// ── configure_gemini ────────────────────────────────────────

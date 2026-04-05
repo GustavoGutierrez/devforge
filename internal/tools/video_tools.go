@@ -117,8 +117,8 @@ func (s *Server) VideoTranscode(ctx context.Context, input VideoTranscodeInput) 
 	}
 
 	result, err := s.DPF.VideoTranscode(job)
-	if err != nil {
-		return errorJSON("dpf error: " + err.Error())
+	if msg := dpfErrorJSON(result, err); msg != "" {
+		return msg
 	}
 
 	return mustJSON(VideoTranscodeOutput{
@@ -153,8 +153,8 @@ func (s *Server) VideoResize(ctx context.Context, input VideoResizeInput) string
 	}
 
 	result, err := s.DPF.VideoResize(job)
-	if err != nil {
-		return errorJSON("dpf error: " + err.Error())
+	if msg := dpfErrorJSON(result, err); msg != "" {
+		return msg
 	}
 
 	return mustJSON(VideoResizeOutput{
@@ -191,8 +191,8 @@ func (s *Server) VideoTrim(ctx context.Context, input VideoTrimInput) string {
 	}
 
 	result, err := s.DPF.VideoTrim(job)
-	if err != nil {
-		return errorJSON("dpf error: " + err.Error())
+	if msg := dpfErrorJSON(result, err); msg != "" {
+		return msg
 	}
 
 	return mustJSON(VideoTrimOutput{
@@ -231,8 +231,8 @@ func (s *Server) VideoThumbnail(ctx context.Context, input VideoThumbnailInput) 
 	}
 
 	result, err := s.DPF.VideoThumbnail(job)
-	if err != nil {
-		return errorJSON("dpf error: " + err.Error())
+	if msg := dpfErrorJSON(result, err); msg != "" {
+		return msg
 	}
 
 	return mustJSON(VideoThumbnailOutput{
@@ -265,8 +265,8 @@ func (s *Server) VideoProfile(ctx context.Context, input VideoProfileInput) stri
 	}
 
 	result, err := s.DPF.VideoProfile(job)
-	if err != nil {
-		return errorJSON("dpf error: " + err.Error())
+	if msg := dpfErrorJSON(result, err); msg != "" {
+		return msg
 	}
 
 	return mustJSON(VideoProfileOutput{

@@ -37,6 +37,7 @@ var menuEntries = []menuEntry{
 	{label: "Process video"},
 	{label: "Process audio"},
 	{label: "UI to Markdown"},
+	{label: "Markdown to PDF"},
 	{label: "── Developer Tools", isSection: true},
 	{label: "Text & Encoding"},
 	{label: "Data Format"},
@@ -90,7 +91,7 @@ func (m homeModel) Init() tea.Cmd {
 // checkLatestVersion queries the GitHub releases API for the latest tag.
 func checkLatestVersion() tea.Msg {
 	client := &http.Client{Timeout: 5 * 1e9} // 5s timeout
-	req, err := http.NewRequest("GET", "https://api.github.com/repos/GustavoGutierrez/devforge-mcp/releases/latest", nil)
+	req, err := http.NewRequest("GET", "https://api.github.com/repos/GustavoGutierrez/devforge/releases/latest", nil)
 	if err != nil {
 		return latestVersionMsg{}
 	}

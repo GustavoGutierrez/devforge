@@ -443,17 +443,17 @@ homebrew-tap/              ← cloned from the homebrew-tap branch
 
 ```bash
 # From the main branch:
-gh workflow run homebrew.yml -f version=v1.0.1 --repo GustavoGutierrez/devforge-mcp
+gh workflow run homebrew.yml -f version=v1.0.1 --repo GustavoGutierrez/devforge
 ```
 
 Or create a GitHub Release manually (the workflow also listens to `release: published`).
 
 ### Homebrew Tap Naming Convention
 
-Homebrew expects `user/homebrew-{name}` for taps. Since the repo is `devforge-mcp` (not `homebrew-devforge`), users must specify URL + branch:
+Homebrew expects `user/homebrew-{name}` for taps. Since the repo is `devforge` (not `homebrew-devforge`), users must specify URL + branch:
 
 ```bash
-brew tap GustavoGutierrez/devforge https://github.com/GustavoGutierrez/devforge-mcp homebrew-tap
+brew tap GustavoGutierrez/devforge https://github.com/GustavoGutierrez/devforge homebrew-tap
 ```
 
 If the repo were renamed to `homebrew-devforge`, the simple form would work: `brew tap GustavoGutierrez/devforge`.
@@ -520,7 +520,7 @@ The CI generates `devforge.rb` with this structure:
 ```ruby
 class Devforge < Formula
   desc "DevForge MCP Server + CLI"
-  homepage "https://github.com/GustavoGutierrez/devforge-mcp"
+  homepage "https://github.com/GustavoGutierrez/devforge"
   url "https://github.com/.../archive/refs/tags/vX.X.X.tar.gz"
   sha256 "..."
   license "MIT"

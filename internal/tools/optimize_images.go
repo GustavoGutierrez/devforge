@@ -80,10 +80,10 @@ func (s *Server) OptimizeImages(ctx context.Context, input OptimizeImagesInput) 
 		}
 
 		jobResult, err := s.DPF.Execute(job)
-		if err != nil {
+		if callErr := dpfCallError(jobResult, err); callErr != nil {
 			results = append(results, OptimizeResult{
 				SourcePath: item.Path,
-				Outputs:    []OptimizeOutput{{Format: "error", Path: fmt.Sprintf("error: %s", err.Error())}},
+				Outputs:    []OptimizeOutput{{Format: "error", Path: fmt.Sprintf("error: %s", callErr.Error())}},
 			})
 			continue
 		}

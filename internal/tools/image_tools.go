@@ -295,8 +295,8 @@ func (s *Server) ImageCrop(ctx context.Context, input ImageCropInput) string {
 	}
 
 	result, err := s.DPF.Crop(job)
-	if err != nil {
-		return errorJSON("dpf error: " + err.Error())
+	if msg := dpfErrorJSON(result, err); msg != "" {
+		return msg
 	}
 
 	return mustJSON(ImageCropOutput{
@@ -335,8 +335,8 @@ func (s *Server) ImageRotate(ctx context.Context, input ImageRotateInput) string
 	}
 
 	result, err := s.DPF.Rotate(job)
-	if err != nil {
-		return errorJSON("dpf error: " + err.Error())
+	if msg := dpfErrorJSON(result, err); msg != "" {
+		return msg
 	}
 
 	return mustJSON(ImageRotateOutput{
@@ -387,8 +387,8 @@ func (s *Server) ImageWatermark(ctx context.Context, input ImageWatermarkInput) 
 	}
 
 	result, err := s.DPF.Watermark(job)
-	if err != nil {
-		return errorJSON("dpf error: " + err.Error())
+	if msg := dpfErrorJSON(result, err); msg != "" {
+		return msg
 	}
 
 	return mustJSON(ImageWatermarkOutput{
@@ -432,8 +432,8 @@ func (s *Server) ImageAdjust(ctx context.Context, input ImageAdjustInput) string
 	}
 
 	result, err := s.DPF.Adjust(job)
-	if err != nil {
-		return errorJSON("dpf error: " + err.Error())
+	if msg := dpfErrorJSON(result, err); msg != "" {
+		return msg
 	}
 
 	return mustJSON(ImageAdjustOutput{
@@ -476,8 +476,8 @@ func (s *Server) ImageQuality(ctx context.Context, input ImageQualityInput) stri
 	}
 
 	result, err := s.DPF.AutoQuality(job)
-	if err != nil {
-		return errorJSON("dpf error: " + err.Error())
+	if msg := dpfErrorJSON(result, err); msg != "" {
+		return msg
 	}
 
 	return mustJSON(ImageQualityOutput{
@@ -514,8 +514,8 @@ func (s *Server) ImageSrcset(ctx context.Context, input ImageSrcsetInput) string
 	}
 
 	result, err := s.DPF.Srcset(job)
-	if err != nil {
-		return errorJSON("dpf error: " + err.Error())
+	if msg := dpfErrorJSON(result, err); msg != "" {
+		return msg
 	}
 
 	var variants []SrcsetVariant
@@ -559,8 +559,8 @@ func (s *Server) ImageExif(ctx context.Context, input ImageExifInput) string {
 	}
 
 	result, err := s.DPF.Exif(job)
-	if err != nil {
-		return errorJSON("dpf error: " + err.Error())
+	if msg := dpfErrorJSON(result, err); msg != "" {
+		return msg
 	}
 
 	// Parse metadata if available (for extract operation)
@@ -626,8 +626,8 @@ func (s *Server) ImageResize(ctx context.Context, input ImageResizeInput) string
 	}
 
 	result, err := s.DPF.Execute(job)
-	if err != nil {
-		return errorJSON("dpf error: " + err.Error())
+	if msg := dpfErrorJSON(result, err); msg != "" {
+		return msg
 	}
 
 	var variants []ResizeVariant
@@ -688,8 +688,8 @@ func (s *Server) ImageConvert(ctx context.Context, input ImageConvertInput) stri
 	}
 
 	result, err := s.DPF.Execute(job)
-	if err != nil {
-		return errorJSON("dpf error: " + err.Error())
+	if msg := dpfErrorJSON(result, err); msg != "" {
+		return msg
 	}
 
 	var sizeKB int
@@ -733,8 +733,8 @@ func (s *Server) ImagePlaceholder(ctx context.Context, input ImagePlaceholderInp
 	}
 
 	result, err := s.DPF.Execute(job)
-	if err != nil {
-		return errorJSON("dpf error: " + err.Error())
+	if msg := dpfErrorJSON(result, err); msg != "" {
+		return msg
 	}
 
 	var dataBase64, dominantColor, cssGradient, lqipDimensions string
@@ -800,8 +800,8 @@ func (s *Server) ImagePalette(ctx context.Context, input ImagePaletteInput) stri
 	}
 
 	result, err := s.DPF.Execute(job)
-	if err != nil {
-		return errorJSON("dpf error: " + err.Error())
+	if msg := dpfErrorJSON(result, err); msg != "" {
+		return msg
 	}
 
 	// Extract colors from metadata if available
@@ -859,8 +859,8 @@ func (s *Server) ImageSprite(ctx context.Context, input ImageSpriteInput) string
 	}
 
 	result, err := s.DPF.Execute(job)
-	if err != nil {
-		return errorJSON("dpf error: " + err.Error())
+	if msg := dpfErrorJSON(result, err); msg != "" {
+		return msg
 	}
 
 	return mustJSON(ImageSpriteOutput{

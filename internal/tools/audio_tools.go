@@ -106,8 +106,8 @@ func (s *Server) AudioTranscode(ctx context.Context, input AudioTranscodeInput) 
 	}
 
 	result, err := s.DPF.AudioTranscode(job)
-	if err != nil {
-		return errorJSON("dpf error: " + err.Error())
+	if msg := dpfErrorJSON(result, err); msg != "" {
+		return msg
 	}
 
 	return mustJSON(AudioTranscodeOutput{
@@ -144,8 +144,8 @@ func (s *Server) AudioTrim(ctx context.Context, input AudioTrimInput) string {
 	}
 
 	result, err := s.DPF.AudioTrim(job)
-	if err != nil {
-		return errorJSON("dpf error: " + err.Error())
+	if msg := dpfErrorJSON(result, err); msg != "" {
+		return msg
 	}
 
 	return mustJSON(AudioTrimOutput{
@@ -175,8 +175,8 @@ func (s *Server) AudioNormalize(ctx context.Context, input AudioNormalizeInput) 
 	}
 
 	result, err := s.DPF.AudioNormalize(job)
-	if err != nil {
-		return errorJSON("dpf error: " + err.Error())
+	if msg := dpfErrorJSON(result, err); msg != "" {
+		return msg
 	}
 
 	return mustJSON(AudioNormalizeOutput{
@@ -212,8 +212,8 @@ func (s *Server) AudioSilenceTrim(ctx context.Context, input AudioSilenceTrimInp
 	}
 
 	result, err := s.DPF.AudioSilenceTrim(job)
-	if err != nil {
-		return errorJSON("dpf error: " + err.Error())
+	if msg := dpfErrorJSON(result, err); msg != "" {
+		return msg
 	}
 
 	return mustJSON(AudioSilenceTrimOutput{

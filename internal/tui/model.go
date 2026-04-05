@@ -27,6 +27,7 @@ const (
 	ViewVideo
 	ViewAudio
 	ViewUI2MD
+	ViewMarkdownToPDF
 	ViewTextEnc
 	ViewDataFmt
 	ViewCryptoutil
@@ -69,6 +70,7 @@ type Model struct {
 	video               videoModel
 	audio               audioModel
 	ui2md               ui2mdModel
+	markdownToPDF       markdownToPDFModel
 	colorPalettes       colorPalettesModel
 	settings            settingsModel
 	mcpSetup            mcpSetupModel
@@ -108,9 +110,10 @@ func New(database *sql.DB, cfg *config.Config, srv *tools.Server, framework, css
 	m.generateImages = newGenerateImagesModel(srv, cfg)
 	m.optimizeImages = newOptimizeImagesModel(srv)
 	m.generateFavicon = newGenerateFaviconModel(srv)
-	m.video = newVideoModel(nil)
-	m.audio = newAudioModel(nil)
+	m.video = newVideoModel(srv)
+	m.audio = newAudioModel(srv)
 	m.ui2md = newUI2MDModel(srv, cfg)
+	m.markdownToPDF = newMarkdownToPDFModel(srv)
 	m.colorPalettes = newColorPalettesModel(srv)
 	m.settings = newSettingsModel(cfg)
 	m.mcpSetup = newMCPSetupModel()
@@ -257,6 +260,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.ui2md = updated
 		if m.ui2md.goHome {
 			m.ui2md.goHome = false
+			m.currentView = ViewHome
+		}
+		return m, cmd
+
+	case ViewMarkdownToPDF:
+		updated, cmd := m.markdownToPDF.Update(msg)
+		m.markdownToPDF = updated
+		if m.markdownToPDF.goHome {
+			m.markdownToPDF.goHome = false
 			m.currentView = ViewHome
 		}
 		return m, cmd
@@ -417,6 +429,8 @@ func (m Model) View() string {
 		return m.audio.View()
 	case ViewUI2MD:
 		return m.ui2md.View()
+	case ViewMarkdownToPDF:
+		return m.markdownToPDF.View()
 	case ViewColorPalettes:
 		return m.colorPalettes.View()
 	case ViewSettings:
@@ -475,30 +489,32 @@ func (m Model) homeItemToView(idx int) View {
 	case 10:
 		return ViewUI2MD
 	case 11:
-		return ViewTextEnc
+		return ViewMarkdownToPDF
 	case 12:
-		return ViewDataFmt
+		return ViewTextEnc
 	case 13:
-		return ViewCryptoutil
+		return ViewDataFmt
 	case 14:
-		return ViewHTTPTools
+		return ViewCryptoutil
 	case 15:
-		return ViewDateTime
+		return ViewHTTPTools
 	case 16:
-		return ViewFileTools
+		return ViewDateTime
 	case 17:
-		return ViewFrontendTools
+		return ViewFileTools
 	case 18:
-		return ViewBackendTools
+		return ViewFrontendTools
 	case 19:
-		return ViewCodeTools
+		return ViewBackendTools
 	case 20:
-		return ViewSettings
+		return ViewCodeTools
 	case 21:
-		return ViewAddRecord
+		return ViewSettings
 	case 22:
-		return ViewMCPSetup
+		return ViewAddRecord
 	case 23:
+		return ViewMCPSetup
+	case 24:
 		return ViewAbout
 	}
 	return ViewHome

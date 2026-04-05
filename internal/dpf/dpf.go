@@ -1,26 +1,23 @@
-// Package dpf proporciona un cliente Go para el motor de procesamiento
-// de imágenes, video y audio en Rust (devpixelforge / dpf).
+// Package dpf provides a Go client for the devpixelforge (dpf) Rust media processor.
 //
-// Soporta dos modos de operación:
-//   - One-shot: ejecuta el binario Rust por cada trabajo (simple, sin estado)
-//   - Streaming: mantiene un proceso Rust persistente y envía trabajos por stdin
-//     (más rápido para múltiples operaciones, evita el overhead de spawn)
+// Supports two operation modes:
+//   - One-shot: executes the Rust binary for each job (simple, stateless)
+//   - Streaming: keeps a persistent Rust process and sends jobs via stdin
+//     (faster for multiple operations, avoids spawn overhead)
 //
-// Soporta:
-//   - Imágenes: resize, optimize, convert, favicon, sprite, placeholder, palette
-//   - Video: transcode, resize, trim, thumbnail, profile, metadata
-//   - Audio: transcode, trim, normalize, silence_trim
-//
-// Autor: Ing. Gustavo Gutiérrez
+// Author: Ing. Gustavo Gutiérrez
 package dpf
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"io"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"sync"
 	"time"
 )
@@ -113,9 +110,23 @@ type PaletteJob struct {
 type JobResult struct {
 	Success   bool             `json:"success"`
 	Operation string           `json:"operation"`
+	Error     string           `json:"error,omitempty"`
 	Outputs   []OutputFile     `json:"outputs"`
 	ElapsedMs uint64           `json:"elapsed_ms"`
 	Metadata  *json.RawMessage `json:"metadata,omitempty"`
+}
+
+// Capabilities describes the advertised dpf runtime surface.
+type Capabilities struct {
+	Version       string              `json:"version"`
+	Operations    []string            `json:"operations,omitempty"`
+	OutputFormats map[string][]string `json:"output_formats,omitempty"`
+	InputFormats  map[string][]string `json:"input_formats,omitempty"`
+	Features      map[string]bool     `json:"features,omitempty"`
+	AudioCodecs   []string            `json:"audio_codecs,omitempty"`
+	VideoCodecs   []string            `json:"video_codecs,omitempty"`
+	VideoProfiles []string            `json:"video_profiles,omitempty"`
+	Threads       int                 `json:"threads,omitempty"`
 }
 
 // OutputFile describe un archivo producido.
@@ -147,9 +158,53 @@ func NewClient(binaryPath string) *Client {
 	}
 }
 
+// ResolveBinaryPath locates the dpf binary using common repo and install layouts.
+func ResolveBinaryPath(executableDir string) (string, error) {
+	if override := os.Getenv("DEVFORGE_DPF_PATH"); override != "" {
+		if isExecutableFile(override) {
+			return override, nil
+		}
+		return "", fmt.Errorf("dpf binary not found or not executable at DEVFORGE_DPF_PATH=%s", override)
+	}
+
+	candidates := []string{}
+	if executableDir != "" {
+		candidates = append(candidates,
+			filepath.Join(executableDir, "dpf"),
+			filepath.Join(executableDir, "bin", "dpf"),
+		)
+	}
+	candidates = append(candidates, filepath.Join("bin", "dpf"))
+
+	seen := make(map[string]struct{}, len(candidates))
+	for _, candidate := range candidates {
+		if candidate == "" {
+			continue
+		}
+		absCandidate, err := filepath.Abs(candidate)
+		if err == nil {
+			candidate = absCandidate
+		}
+		if _, ok := seen[candidate]; ok {
+			continue
+		}
+		seen[candidate] = struct{}{}
+		if isExecutableFile(candidate) {
+			return candidate, nil
+		}
+	}
+
+	return "", fmt.Errorf("dpf binary not found; checked DEVFORGE_DPF_PATH, <exe>/dpf, <exe>/bin/dpf, and ./bin/dpf")
+}
+
 // SetTimeout configura el timeout para operaciones.
 func (c *Client) SetTimeout(d time.Duration) {
 	c.timeout = d
+}
+
+// Caps queries the dpf binary capabilities.
+func (c *Client) Caps(ctx context.Context) (*Capabilities, error) {
+	return GetCapabilities(ctx, c.binaryPath)
 }
 
 // Execute ejecuta un trabajo y devuelve el resultado.
@@ -157,28 +212,75 @@ func (c *Client) SetTimeout(d time.Duration) {
 func (c *Client) Execute(ctx context.Context, job any) (*JobResult, error) {
 	data, err := json.Marshal(job)
 	if err != nil {
-		return nil, fmt.Errorf("dpf: failed to marshal job: %w", err)
+		return nil, fmt.Errorf("imgproc: failed to marshal job: %w", err)
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, c.timeout)
 	defer cancel()
 
 	cmd := exec.CommandContext(ctx, c.binaryPath, "process", "--job", string(data))
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
 
-	output, err := cmd.Output()
+	err = cmd.Run()
 	if err != nil {
-		if exitErr, ok := err.(*exec.ExitError); ok {
-			return nil, fmt.Errorf("dpf: process failed: %s", string(exitErr.Stderr))
+		if result, parseErr := parseJobResult(stdout.Bytes()); parseErr == nil {
+			return result, nil
 		}
-		return nil, fmt.Errorf("dpf: execution failed: %w", err)
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			message := stderr.String()
+			if message == "" {
+				message = exitErr.Error()
+			}
+			return nil, fmt.Errorf("imgproc: process failed: %s", message)
+		}
+		return nil, fmt.Errorf("imgproc: execution failed: %w", err)
 	}
 
+	return parseJobResult(stdout.Bytes())
+}
+
+func parseJobResult(output []byte) (*JobResult, error) {
 	var result JobResult
 	if err := json.Unmarshal(output, &result); err != nil {
-		return nil, fmt.Errorf("dpf: invalid response: %w", err)
+		return nil, fmt.Errorf("imgproc: invalid response: %w", err)
 	}
 
 	return &result, nil
+}
+
+// GetCapabilities runs `dpf caps` and returns the advertised capabilities.
+func GetCapabilities(ctx context.Context, binaryPath string) (*Capabilities, error) {
+	cmd := exec.CommandContext(ctx, binaryPath, "caps")
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	if err := cmd.Run(); err != nil {
+		message := stderr.String()
+		if message == "" {
+			message = err.Error()
+		}
+		return nil, fmt.Errorf("imgproc: caps failed: %s", message)
+	}
+
+	var caps Capabilities
+	if err := json.Unmarshal(stdout.Bytes(), &caps); err != nil {
+		return nil, fmt.Errorf("imgproc: invalid caps response: %w", err)
+	}
+
+	return &caps, nil
+}
+
+func isExecutableFile(path string) bool {
+	info, err := os.Stat(path)
+	if err != nil || info.IsDir() {
+		return false
+	}
+	return info.Mode()&0o111 != 0
 }
 
 // ─── Convenience Methods ─────────────────────────────────────────
@@ -334,6 +436,14 @@ func (c *Client) Exif(ctx context.Context, job *ExifJob) (*JobResult, error) {
 	return c.Execute(ctx, job)
 }
 
+// MarkdownToPDF converts Markdown into PDF using the Rust Typst-backed renderer.
+func (c *Client) MarkdownToPDF(ctx context.Context, job *MarkdownToPDFJob) (*JobResult, error) {
+	if job.Operation == "" {
+		job.Operation = "markdown_to_pdf"
+	}
+	return c.Execute(ctx, job)
+}
+
 // ─── Video Operations ──────────────────────────────────────────────
 
 func (c *Client) VideoTranscode(ctx context.Context, job *VideoTranscodeJob) (*JobResult, error) {
@@ -421,20 +531,31 @@ type StreamClient struct {
 
 // NewStreamClient inicia el motor Rust en modo streaming.
 func NewStreamClient(binaryPath string) (*StreamClient, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	caps, err := GetCapabilities(ctx, binaryPath)
+	if err != nil {
+		return nil, err
+	}
+	if caps.Features != nil && !caps.Features["streaming_mode"] {
+		return nil, fmt.Errorf("imgproc: dpf binary at %s does not advertise streaming_mode", binaryPath)
+	}
+
 	cmd := exec.Command(binaryPath, "--stream")
 
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
-		return nil, fmt.Errorf("dpf: failed to get stdin pipe: %w", err)
+		return nil, fmt.Errorf("imgproc: failed to get stdin pipe: %w", err)
 	}
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		return nil, fmt.Errorf("dpf: failed to get stdout pipe: %w", err)
+		return nil, fmt.Errorf("imgproc: failed to get stdout pipe: %w", err)
 	}
 
 	if err := cmd.Start(); err != nil {
-		return nil, fmt.Errorf("dpf: failed to start process: %w", err)
+		return nil, fmt.Errorf("imgproc: failed to start process: %w", err)
 	}
 
 	return &StreamClient{
@@ -452,23 +573,23 @@ func (sc *StreamClient) Execute(job any) (*JobResult, error) {
 
 	data, err := json.Marshal(job)
 	if err != nil {
-		return nil, fmt.Errorf("dpf: marshal failed: %w", err)
+		return nil, fmt.Errorf("imgproc: marshal failed: %w", err)
 	}
 
 	// Enviar JSON + newline
 	if _, err := sc.stdin.Write(append(data, '\n')); err != nil {
-		return nil, fmt.Errorf("dpf: write failed: %w", err)
+		return nil, fmt.Errorf("imgproc: write failed: %w", err)
 	}
 
 	// Leer respuesta (una línea JSON)
 	line, err := sc.reader.ReadBytes('\n')
 	if err != nil {
-		return nil, fmt.Errorf("dpf: read failed: %w", err)
+		return nil, fmt.Errorf("imgproc: read failed: %w", err)
 	}
 
 	var result JobResult
 	if err := json.Unmarshal(line, &result); err != nil {
-		return nil, fmt.Errorf("dpf: invalid response: %w", err)
+		return nil, fmt.Errorf("imgproc: invalid response: %w", err)
 	}
 
 	return &result, nil
@@ -476,7 +597,12 @@ func (sc *StreamClient) Execute(job any) (*JobResult, error) {
 
 // Close cierra el proceso Rust.
 func (sc *StreamClient) Close() error {
-	sc.stdin.Close()
+	if sc == nil {
+		return nil
+	}
+	if sc.stdin != nil {
+		_ = sc.stdin.Close()
+	}
 	return sc.cmd.Wait()
 }
 
@@ -536,6 +662,14 @@ func (sc *StreamClient) Exif(job *ExifJob) (*JobResult, error) {
 		job.Operation = "exif"
 	}
 	// Use ExifOp field, the JSON tag maps to "exif_op"
+	return sc.Execute(job)
+}
+
+// MarkdownToPDF converts Markdown into PDF using the persistent stream client.
+func (sc *StreamClient) MarkdownToPDF(job *MarkdownToPDFJob) (*JobResult, error) {
+	if job.Operation == "" {
+		job.Operation = "markdown_to_pdf"
+	}
 	return sc.Execute(job)
 }
 

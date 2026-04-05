@@ -31,8 +31,8 @@ xcode-select --install
 ## 1. Clone the repository
 
 ```bash
-git clone https://github.com/GustavoGutierrez/devforge-mcp.git
-cd devforge-mcp
+git clone https://github.com/GustavoGutierrez/devforge.git
+cd devforge
 ```
 
 ---
@@ -77,7 +77,36 @@ chmod +x ../devforge-mcp/bin/dpf
 
 ---
 
-## 3. Build and install the binaries
+## 3. Homebrew install (Linux amd64)
+
+The canonical packaged install path is the dedicated Homebrew tap:
+
+```bash
+brew tap GustavoGutierrez/devforge
+brew install GustavoGutierrez/devforge/devforge
+```
+
+This installs a colocated runtime bundle containing:
+
+- `devforge`
+- `devforge-mcp`
+- `dpf`
+- `devforge.db`
+
+The formula places those files in `libexec` and exposes wrappers/symlinks from
+`bin`, so the binaries can always resolve the bundled database and media engine.
+
+> Current packaged target: Linux amd64. macOS arm64 is planned future work.
+
+Install FFmpeg as well if it is not already present:
+
+```bash
+brew install ffmpeg
+```
+
+---
+
+## 4. Build and install from source
 
 The recommended path is `~/.local/bin`. The installer script builds both binaries, copies them alongside the dpf binary, and prints the required `PATH` setup.
 
@@ -108,7 +137,7 @@ After installation, the following files are present in `INSTALL_DIR`:
 
 ---
 
-## 4. Add `~/.local/bin` to your PATH
+## 5. Add `~/.local/bin` to your PATH
 
 Add the following line to your shell profile (`~/.bashrc`, `~/.zshrc`, etc.) if it is not already there:
 
@@ -131,7 +160,7 @@ devforge --help
 
 ---
 
-## 5. Create the configuration file
+## 6. Create the configuration file
 
 The MCP server and CLI share a single config file:
 
@@ -167,7 +196,7 @@ chmod 600 ~/.config/devforge/config.json
 
 ---
 
-## 6. Initialize the database
+## 7. Initialize the database
 
 The MCP server and CLI need a seeded SQLite database. From the project root:
 
@@ -191,7 +220,7 @@ make db-seed  DB_PATH=~/.local/share/devforge/devforge.db
 
 ---
 
-## 7. (Optional) Set up Ollama for semantic search
+## 8. (Optional) Set up Ollama for semantic search
 
 Without Ollama the server falls back to FTS5 full-text search. To enable vector search:
 
@@ -205,7 +234,7 @@ make db-embeddings
 
 ---
 
-## 8. (Optional) Set up the Gemini API key
+## 9. (Optional) Set up the Gemini API key
 
 Required only for the `generate_ui_image` tool. Add the key to config:
 
@@ -219,7 +248,7 @@ Or use the MCP tool `configure_gemini` from any connected MCP client (hot-reload
 
 ---
 
-## 9. (Optional) Run as a system service
+## 10. (Optional) Run as a system service
 
 ### Linux — systemd user service
 
@@ -298,7 +327,22 @@ Run `make db-init` (or `make db-init DB_PATH=...`) before `make db-seed`.
 
 ### `optimize_images` / `generate_favicon` return an error about the dpf binary
 
-Ensure `bin/dpf` exists and is executable (`chmod +x bin/dpf`). The MCP server looks for it at `./bin/dpf` relative to its **working directory** — not relative to `PATH`.
+Ensure `bin/dpf` exists and is executable when building from source:
+
+```bash
+chmod +x bin/dpf
+```
+
+### Homebrew tap command fails
+
+The dedicated tap repository must exist first:
+
+```text
+GustavoGutierrez/homebrew-devforge
+```
+
+If it does not exist yet, use the source install flow until the tap repo and
+deploy key are configured.
 
 ### `generate_ui_image` returns "gemini_api_key not configured"
 

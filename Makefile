@@ -40,12 +40,16 @@ SEED_SCRIPT  := scripts/seed.sh
 
 # ── Phony targets ──────────────────────────────────────────────────────────────
 .PHONY: build build-mcp build-tui install uninstall dist \
-        db-init db-seed db-embeddings seed \
-        clean test run tui \
+        db-init db-seed db-bootstrap db-embeddings seed \
+        clean test run tui release-bundle render-homebrew-formula \
         install-dpf build-rust build-rust-static help
 
 # ── Seed file list (sorted) ─────────────────────────────────────────────────
 SEED_FILES := $(sort $(wildcard $(SEEDS_DIR)/*.sql))
+RELEASE_OUT_DIR := $(DIST_DIR)/release
+FORMULA_TEMPLATE := packaging/homebrew/Formula/devforge.rb
+FORMULA_OUTPUT ?= $(RELEASE_OUT_DIR)/devforge.rb
+CHECKSUMS_FILE ?= $(RELEASE_OUT_DIR)/checksums.txt
 
 # ── Build ──────────────────────────────────────────────────────────────────────
 
@@ -76,8 +80,8 @@ uninstall:
 
 # ── Distribution package ───────────────────────────────────────────────────────
 
-## dist: Build binaries + fully initialize and seed the distribution DB
-dist: build seed
+## dist: Build binaries + initialize and seed the distribution DB (no embeddings)
+dist: build db-bootstrap
 	@if [ -f $(BIN_DIR)/dpf ]; then \
 		chmod +x $(BIN_DIR)/dpf; \
 		cp $(BIN_DIR)/dpf $(DIST_DIR)/dpf; \
@@ -105,6 +109,9 @@ db-seed:
 	$(GO_RUN) $(SEED_RUNNER) -db "$(DB_PATH)" $(foreach f,$(SEED_FILES),-sql "$(f)")
 	@echo "Seed complete."
 
+## db-bootstrap: Create/migrate and seed the DB without embeddings
+db-bootstrap: db-init db-seed
+
 ## db-embeddings: Generate Ollama embeddings for rows with embedding IS NULL
 db-embeddings:
 	@bash $(SEED_SCRIPT) --embeddings-only \
@@ -114,6 +121,18 @@ db-embeddings:
 
 ## seed: Full seed pipeline — db-init + db-seed + db-embeddings (idempotent)
 seed: db-init db-seed db-embeddings
+
+## release-bundle: Build the canonical Linux amd64 release bundle in dist/release/
+release-bundle:
+	@bash scripts/package_release_bundle.sh --version "$(VERSION)" --output-dir "$(RELEASE_OUT_DIR)"
+
+## render-homebrew-formula: Render the release formula from packaging/homebrew/Formula/devforge.rb
+render-homebrew-formula:
+	@python3 scripts/render_homebrew_formula.py \
+		--template "$(FORMULA_TEMPLATE)" \
+		--version "$(VERSION)" \
+		--checksums-file "$(CHECKSUMS_FILE)" \
+		--output "$(FORMULA_OUTPUT)"
 
 # ── Run ───────────────────────────────────────────────────────────────────────
 
