@@ -20,8 +20,6 @@ class Devforge < Formula
     sha256 "__DARWIN_ARM64_SHA256__"
   end
 
-  depends_on "ffmpeg"
-
   def install
     # dpf is bundled as a pre-built binary from DevPixelForge releases.
     # The bundle build step downloads dpf and renames it to "dpf" before packaging.
@@ -37,8 +35,8 @@ class Devforge < Formula
   end
 
   def post_install
-    config_dir = Dir.home.join(".config", "devforge")
-    config_file = config_dir.join("config.json")
+    config_dir = Pathname.new(Dir.home)/".config"/"devforge"
+    config_file = config_dir/"config.json"
     return if config_file.exist?
 
     config_dir.mkpath
@@ -60,6 +58,9 @@ class Devforge < Formula
         - dpf            (DevPixelForge media engine)
 
       Config file: ~/.config/devforge/config.json
+
+      For media processing tools (video/audio via dpf), install ffmpeg:
+        brew install ffmpeg
     EOS
   end
 
