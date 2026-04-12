@@ -14,9 +14,6 @@ type View int
 
 const (
 	ViewHome View = iota
-	ViewAnalyzeLayout
-	ViewGenerateLayout
-	ViewColorPalettes
 	ViewGenerateImages
 	ViewOptimizeImages
 	ViewGenerateFavicon
@@ -54,8 +51,6 @@ type Model struct {
 
 	// Sub-models
 	home            homeModel
-	analyzeLayout   analyzeLayoutModel
-	generateLayout  generateLayoutModel
 	generateImages  generateImagesModel
 	optimizeImages  optimizeImagesModel
 	generateFavicon generateFaviconModel
@@ -63,7 +58,6 @@ type Model struct {
 	audio           audioModel
 	ui2md           ui2mdModel
 	markdownToPDF   markdownToPDFModel
-	colorPalettes   colorPalettesModel
 	settings        settingsModel
 	mcpSetup        mcpSetupModel
 	about           aboutModel
@@ -93,8 +87,6 @@ func New(cfg *config.Config, srv *tools.Server, framework, cssMode, ver string) 
 		detectedCSSMode:   cssMode,
 	}
 	m.home = newHomeModel(ver)
-	m.analyzeLayout = newAnalyzeLayoutModel(srv, framework, cssMode)
-	m.generateLayout = newGenerateLayoutModel(srv, framework, cssMode)
 	m.generateImages = newGenerateImagesModel(srv, cfg)
 	m.optimizeImages = newOptimizeImagesModel(srv)
 	m.generateFavicon = newGenerateFaviconModel(srv)
@@ -102,7 +94,6 @@ func New(cfg *config.Config, srv *tools.Server, framework, cssMode, ver string) 
 	m.audio = newAudioModel(srv)
 	m.ui2md = newUI2MDModel(srv, cfg)
 	m.markdownToPDF = newMarkdownToPDFModel(srv)
-	m.colorPalettes = newColorPalettesModel(srv)
 	m.settings = newSettingsModel(cfg)
 	m.mcpSetup = newMCPSetupModel()
 	m.about = newAboutModel(ver)
@@ -150,24 +141,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.home.selected = -1
 			m.currentView = view
 			return m, nil
-		}
-		return m, cmd
-
-	case ViewAnalyzeLayout:
-		updated, cmd := m.analyzeLayout.Update(msg)
-		m.analyzeLayout = updated
-		if m.analyzeLayout.goHome {
-			m.analyzeLayout.goHome = false
-			m.currentView = ViewHome
-		}
-		return m, cmd
-
-	case ViewGenerateLayout:
-		updated, cmd := m.generateLayout.Update(msg)
-		m.generateLayout = updated
-		if m.generateLayout.goHome {
-			m.generateLayout.goHome = false
-			m.currentView = ViewHome
 		}
 		return m, cmd
 
@@ -238,15 +211,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.markdownToPDF = updated
 		if m.markdownToPDF.goHome {
 			m.markdownToPDF.goHome = false
-			m.currentView = ViewHome
-		}
-		return m, cmd
-
-	case ViewColorPalettes:
-		updated, cmd := m.colorPalettes.Update(msg)
-		m.colorPalettes = updated
-		if m.colorPalettes.goHome {
-			m.colorPalettes.goHome = false
 			m.currentView = ViewHome
 		}
 		return m, cmd
@@ -369,10 +333,6 @@ func (m Model) View() string {
 	switch m.currentView {
 	case ViewHome:
 		return m.home.View()
-	case ViewAnalyzeLayout:
-		return m.analyzeLayout.View()
-	case ViewGenerateLayout:
-		return m.generateLayout.View()
 	case ViewGenerateImages:
 		return m.generateImages.View()
 	case ViewOptimizeImages:
@@ -387,8 +347,6 @@ func (m Model) View() string {
 		return m.ui2md.View()
 	case ViewMarkdownToPDF:
 		return m.markdownToPDF.View()
-	case ViewColorPalettes:
-		return m.colorPalettes.View()
 	case ViewSettings:
 		return m.settings.View()
 	case ViewMCPSetup:
@@ -421,48 +379,42 @@ func (m Model) View() string {
 func (m Model) homeItemToView(idx int) View {
 	switch idx {
 	case 0:
-		return ViewAnalyzeLayout
-	case 1:
-		return ViewGenerateLayout
-	case 2:
-		return ViewColorPalettes
-	case 3:
 		return ViewGenerateImages
-	case 4:
+	case 1:
 		return ViewOptimizeImages
-	case 5:
+	case 2:
 		return ViewGenerateFavicon
-	case 6:
+	case 3:
 		return ViewVideo
-	case 7:
+	case 4:
 		return ViewAudio
-	case 8:
+	case 5:
 		return ViewUI2MD
-	case 9:
+	case 6:
 		return ViewMarkdownToPDF
-	case 10:
+	case 7:
 		return ViewTextEnc
-	case 11:
+	case 8:
 		return ViewDataFmt
-	case 12:
+	case 9:
 		return ViewCryptoutil
-	case 13:
+	case 10:
 		return ViewHTTPTools
-	case 14:
+	case 11:
 		return ViewDateTime
-	case 15:
+	case 12:
 		return ViewFileTools
-	case 16:
+	case 13:
 		return ViewFrontendTools
-	case 17:
+	case 14:
 		return ViewBackendTools
-	case 18:
+	case 15:
 		return ViewCodeTools
-	case 19:
+	case 16:
 		return ViewSettings
-	case 20:
+	case 17:
 		return ViewMCPSetup
-	case 21:
+	case 18:
 		return ViewAbout
 	}
 	return ViewHome

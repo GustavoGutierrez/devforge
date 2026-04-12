@@ -739,3 +739,114 @@ func TestMQPayload(t *testing.T) {
 		})
 	}
 }
+
+// ── backend_cidr_subnet ──────────────────────────────────────────────────────
+
+func TestCIDRSubnet(t *testing.T) {
+	ctx := context.Background()
+
+	tests := []struct {
+		name      string
+		input     backend.CIDRSubnetInput
+		checkFn   func(t *testing.T, result string)
+		wantError bool
+	}{
+		{
+			name: "happy path: /24 subnet details",
+			input: backend.CIDRSubnetInput{
+				CIDR:       "10.0.0.0/24",
+				IncludeAll: true,
+				Limit:      300,
+			},
+			checkFn: func(t *testing.T, result string) {
+				m := jsonMap(t, result)
+				if getString(t, m, "network") != "10.0.0.0" {
+					t.Errorf("unexpected network: %v", m["network"])
+				}
+				if getString(t, m, "broadcast") != "10.0.0.255" {
+					t.Errorf("unexpected broadcast: %v", m["broadcast"])
+				}
+				if m["total_ips"].(float64) != 256 {
+					t.Errorf("expected total_ips 256, got %v", m["total_ips"])
+				}
+				if m["usable_ips"].(float64) != 254 {
+					t.Errorf("expected usable_ips 254, got %v", m["usable_ips"])
+				}
+				ips, ok := m["available_ips"].([]interface{})
+				if !ok {
+					t.Fatalf("available_ips missing")
+				}
+				if len(ips) != 254 {
+					t.Errorf("expected 254 hosts listed, got %d", len(ips))
+				}
+			},
+		},
+		{
+			name: "happy path: /31 point-to-point behavior",
+			input: backend.CIDRSubnetInput{
+				CIDR:       "10.0.0.0/31",
+				IncludeAll: true,
+				Limit:      10,
+			},
+			checkFn: func(t *testing.T, result string) {
+				m := jsonMap(t, result)
+				if m["usable_ips"].(float64) != 2 {
+					t.Errorf("expected usable_ips 2, got %v", m["usable_ips"])
+				}
+				if getString(t, m, "first_usable") != "10.0.0.0" {
+					t.Errorf("unexpected first_usable: %v", m["first_usable"])
+				}
+				if getString(t, m, "last_usable") != "10.0.0.1" {
+					t.Errorf("unexpected last_usable: %v", m["last_usable"])
+				}
+			},
+		},
+		{
+			name: "happy path: large block truncation",
+			input: backend.CIDRSubnetInput{
+				CIDR:       "10.0.0.0/16",
+				IncludeAll: true,
+				Limit:      5,
+			},
+			checkFn: func(t *testing.T, result string) {
+				m := jsonMap(t, result)
+				ips := m["available_ips"].([]interface{})
+				if len(ips) != 5 {
+					t.Errorf("expected 5 listed hosts, got %d", len(ips))
+				}
+				if tr, ok := m["truncated"].(bool); !ok || !tr {
+					t.Errorf("expected truncated=true, got %v", m["truncated"])
+				}
+			},
+		},
+		{
+			name: "error path: invalid CIDR",
+			input: backend.CIDRSubnetInput{
+				CIDR: "10.0.0.0",
+			},
+			wantError: true,
+		},
+		{
+			name: "error path: IPv6 not supported",
+			input: backend.CIDRSubnetInput{
+				CIDR: "2001:db8::/64",
+			},
+			wantError: true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := backend.CIDRSubnet(ctx, tc.input)
+			if tc.wantError {
+				if e := getError(t, got); e == "" {
+					t.Errorf("expected error, got: %s", got)
+				}
+				return
+			}
+			if tc.checkFn != nil {
+				tc.checkFn(t, got)
+			}
+		})
+	}
+}

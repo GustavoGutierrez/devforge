@@ -89,7 +89,7 @@ func main() {
 	}
 
 	// 4. Build MCP server and register all tools
-	s := mcpserver.NewMCPServer("devforge", "2.1.4",
+	s := mcpserver.NewMCPServer("devforge", "2.1.5",
 		mcpserver.WithToolCapabilities(true),
 	)
 
@@ -123,73 +123,10 @@ func registerTools(s *mcpserver.MCPServer, app *mcpApp) {
 	registerHTTPTools(s, app)
 	registerDateTimeTools(s, app)
 	registerFileTools(s, app)
+	registerColorTools(s, app)
 	registerFrontendTools(s, app)
 	registerBackendTools(s, app)
 	registerCodeTools(s, app)
-
-	// ── analyze_layout ──────────────────────────────────────────
-	s.AddTool(mcp.NewTool("analyze_layout",
-		mcp.WithDescription("Audit HTML/JSX markup for layout issues including accessibility, spacing, typography, and framework-specific conventions."),
-		mcp.WithString("markup", mcp.Required(), mcp.Description("HTML or JSX string to analyze")),
-		mcp.WithObject("stack", mcp.Required(), mcp.Description("CSS stack metadata")),
-		mcp.WithString("page_type", mcp.Description("Page type: landing | dashboard | form")),
-		mcp.WithString("device_focus", mcp.Description("Device focus: mobile | desktop | both")),
-	), func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		args := argsMap(req)
-		input := tools.AnalyzeLayoutInput{
-			Markup:      mcp.ParseString(req, "markup", ""),
-			PageType:    mcp.ParseString(req, "page_type", ""),
-			DeviceFocus: mcp.ParseString(req, "device_focus", ""),
-		}
-		if stackMap, ok := args["stack"].(map[string]interface{}); ok {
-			input.Stack.CSSMode = strVal(stackMap, "css_mode")
-			input.Stack.Framework = strVal(stackMap, "framework")
-		}
-		return mcp.NewToolResultText(app.srv.AnalyzeLayout(ctx, input)), nil
-	})
-
-	// ── suggest_layout ──────────────────────────────────────────
-	s.AddTool(mcp.NewTool("suggest_layout",
-		mcp.WithDescription("Generate a layout scaffold based on a description and stack metadata."),
-		mcp.WithString("description", mcp.Required(), mcp.Description("Layout description")),
-		mcp.WithObject("stack", mcp.Required(), mcp.Description("CSS stack metadata")),
-		mcp.WithString("fidelity", mcp.Required(), mcp.Description("wireframe | mid | production")),
-		mcp.WithObject("tokens_profile", mcp.Description("Existing token values to incorporate")),
-	), func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		args := argsMap(req)
-		input := tools.SuggestLayoutInput{
-			Description: mcp.ParseString(req, "description", ""),
-			Fidelity:    mcp.ParseString(req, "fidelity", "mid"),
-		}
-		if stackMap, ok := args["stack"].(map[string]interface{}); ok {
-			input.Stack.CSSMode = strVal(stackMap, "css_mode")
-			input.Stack.Framework = strVal(stackMap, "framework")
-		}
-		return mcp.NewToolResultText(app.srv.SuggestLayout(ctx, input)), nil
-	})
-
-	// ── manage_tokens ───────────────────────────────────────────
-	s.AddTool(mcp.NewTool("manage_tokens",
-		mcp.WithDescription("Read or update design tokens (colors, spacing, typography)."),
-		mcp.WithString("mode", mcp.Required(), mcp.Description("read | plan-update | apply-update")),
-		mcp.WithString("css_mode", mcp.Required(), mcp.Description("tailwind-v4 | plain-css")),
-		mcp.WithString("scope", mcp.Required(), mcp.Description("colors | spacing | typography | all")),
-		mcp.WithObject("proposal", mcp.Description("Token key/value pairs to apply (required for apply-update)")),
-	), func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		args := argsMap(req)
-		input := tools.ManageTokensInput{
-			Mode:    mcp.ParseString(req, "mode", ""),
-			CSSMode: mcp.ParseString(req, "css_mode", ""),
-			Scope:   mcp.ParseString(req, "scope", "all"),
-		}
-		if proposal, ok := args["proposal"].(map[string]interface{}); ok {
-			input.Proposal = make(map[string]interface{})
-			for k, v := range proposal {
-				input.Proposal[k] = v
-			}
-		}
-		return mcp.NewToolResultText(app.srv.ManageTokens(ctx, input)), nil
-	})
 
 	// ── generate_ui_image ────────────────────────────────────────
 	s.AddTool(mcp.NewTool("generate_ui_image",
@@ -661,27 +598,6 @@ func registerTools(s *mcpserver.MCPServer, app *mcpApp) {
 			input.Padding = &pi
 		}
 		return mcp.NewToolResultText(app.srv.ImageSprite(ctx, input)), nil
-	})
-
-	// ── suggest_color_palettes ──────────────────────────────────
-	s.AddTool(mcp.NewTool("suggest_color_palettes",
-		mcp.WithDescription("Generate named color palette proposals for a given use case and mood."),
-		mcp.WithString("use_case", mcp.Required(), mcp.Description("e.g. 'SaaS dashboard', 'marketing site'")),
-		mcp.WithArray("brand_keywords", mcp.Description("Brand keyword list"), mcp.WithStringItems()),
-		mcp.WithString("mood", mcp.Description("e.g. calm | bold | minimal | professional")),
-		mcp.WithNumber("count", mcp.Description("Number of palettes to generate (default 3)")),
-	), func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		args := argsMap(req)
-		input := tools.SuggestColorPalettesInput{
-			UseCase: mcp.ParseString(req, "use_case", ""),
-			Mood:    mcp.ParseString(req, "mood", ""),
-			Count:   mcp.ParseInt(req, "count", 3),
-		}
-		if kwRaw, ok := args["brand_keywords"]; ok {
-			data, _ := json.Marshal(kwRaw)
-			json.Unmarshal(data, &input.BrandKeywords)
-		}
-		return mcp.NewToolResultText(app.srv.SuggestColorPalettes(ctx, input)), nil
 	})
 
 	// ── Video Tools ────────────────────────────────────────────────

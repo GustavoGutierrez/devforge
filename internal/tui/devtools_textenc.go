@@ -3,6 +3,7 @@ package tui
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 	"unicode"
 
@@ -15,7 +16,7 @@ import (
 var textEncOps = []string{
 	"Escape / Unescape",
 	"Slug",
-	"UUID / NanoID / Token",
+	"UUID / ULID / NanoID / Token",
 	"Base64 Encode/Decode",
 	"URL Encode/Decode",
 	"Normalize",
@@ -140,8 +141,22 @@ func (m textEncModel) execute() string {
 			Lower:     m.values["lower"] != "false",
 		})
 	case 2:
+		length := 21
+		if v := strings.TrimSpace(m.values["length"]); v != "" {
+			if n, err := strconv.Atoi(v); err == nil {
+				length = n
+			}
+		}
+		count := 1
+		if v := strings.TrimSpace(m.values["count"]); v != "" {
+			if n, err := strconv.Atoi(v); err == nil {
+				count = n
+			}
+		}
 		return textenc.UUID(ctx, textenc.UUIDInput{
-			Kind: m.values["kind"],
+			Kind:   m.values["kind"],
+			Length: length,
+			Count:  count,
 		})
 	case 3:
 		return textenc.Base64(ctx, textenc.Base64Input{
@@ -188,7 +203,9 @@ func textEncFields(opIdx int) []fieldDef {
 		}
 	case 2:
 		return []fieldDef{
-			{"kind", "Kind", true, "uuid4 | nanoid | token", false},
+			{"kind", "Kind", true, "uuid4 | ulid | nanoid | token", false},
+			{"length", "Length", false, "for nanoid/token (default: 21)", false},
+			{"count", "Count", false, "number of IDs to generate (default: 1)", false},
 		}
 	case 3:
 		return []fieldDef{

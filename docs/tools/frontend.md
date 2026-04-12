@@ -1,8 +1,187 @@
 # Frontend Utilities — Tool Reference
 
-> Group 7 · Package `dev-forge-mcp/internal/tools/frontend`
+> Group 7 · Packages `dev-forge-mcp/internal/tools/frontend`, `dev-forge-mcp/internal/tools/frontend/ui`, and `dev-forge-mcp/internal/tools/frontend/micro`
 
-Six stateless tools for frontend development: color conversion, CSS unit conversion, responsive breakpoints, regex evaluation, locale-aware formatting, and ICU message formatting.
+Thirteen stateless frontend tools covering text diffing, batch CSS conversions, WCAG checks, aspect-ratio calculations, string case conversion, SVG optimization, image-to-Base64 encoding, color conversion, CSS unit conversion, responsive breakpoints, regex evaluation, locale-aware formatting, and ICU message formatting.
+
+---
+
+## `generate_text_diff`
+
+Generate a unified diff between two text blocks.
+
+### Parameters
+
+| Name | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| `original_text` | string | ✓ | — | Original/base text |
+| `modified_text` | string | ✓ | — | Updated/modified text |
+
+### Return Schema
+
+```json
+{
+  "diff": "@@ -1 +1 @@\n-old\n+new\n",
+  "additions": 1,
+  "deletions": 1
+}
+```
+
+---
+
+## `convert_css_units`
+
+Convert an array of pixel values to `rem` or `em` with a shared base size.
+
+### Parameters
+
+| Name | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| `values_px` | number[] | ✓ | — | Pixel values to convert |
+| `base_size` | number | | `16` | Base font size in px |
+| `target_unit` | string | | `rem` | Target unit: `rem` \| `em` |
+
+### Return Schema
+
+```json
+{
+  "base": 16,
+  "unit": "rem",
+  "conversions": {
+    "12px": "0.75rem",
+    "16px": "1rem",
+    "24px": "1.5rem"
+  }
+}
+```
+
+---
+
+## `check_wcag_contrast`
+
+Compute WCAG contrast ratio for foreground/background colors and return AA/AAA compliance for normal and large text.
+
+### Parameters
+
+| Name | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| `foreground_color` | string | ✓ | — | Foreground/text color (`#hex`, `rgb()`, `hsl()`) |
+| `background_color` | string | ✓ | — | Background color (`#hex`, `rgb()`, `hsl()`) |
+
+### Return Schema
+
+```json
+{
+  "contrast_ratio": 4.83,
+  "wcag_aa": {
+    "normal_text_pass": true,
+    "large_text_pass": true
+  },
+  "wcag_aaa": {
+    "normal_text_pass": false,
+    "large_text_pass": true
+  }
+}
+```
+
+---
+
+## `calculate_aspect_ratio`
+
+Calculate a missing dimension using an aspect ratio, or infer ratio from known width and height.
+
+### Parameters
+
+| Name | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| `aspect_ratio` | string | | — | Ratio in `W:H` format (for example `16:9`) |
+| `known_width` | number | | — | Known width |
+| `known_height` | number | | — | Known height |
+
+### Return Schema
+
+```json
+{
+  "aspect_ratio": "16:9",
+  "ratio_decimal": 1.7778,
+  "width": 1920,
+  "height": 1080
+}
+```
+
+---
+
+## `convert_string_cases`
+
+Batch-convert variable names to a target naming convention.
+
+### Parameters
+
+| Name | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| `variables` | string[] | ✓ | — | Variable names to convert |
+| `target_case` | string | ✓ | — | `camelCase` \| `snake_case` \| `kebab-case` \| `PascalCase` |
+
+### Return Schema
+
+```json
+{
+  "converted": {
+    "userName": "user_name",
+    "ProfileURL": "profile_url"
+  }
+}
+```
+
+---
+
+## `frontend_svg_optimize`
+
+Optimize raw SVG markup by removing comments, metadata blocks, empty container tags, and redundant whitespace.
+
+### Parameters
+
+| Name | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| `svg` | string | ✓ | — | Raw SVG markup string |
+
+### Return Schema
+
+```json
+{
+  "optimized_svg": "<svg ...>...</svg>",
+  "bytes_before": 1024,
+  "bytes_after": 612,
+  "reduction_bytes": 412,
+  "reduction_pct": 40.23
+}
+```
+
+---
+
+## `frontend_image_base64`
+
+Encode a local image file as Base64 and optionally return a Data URI.
+
+### Parameters
+
+| Name | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| `path` | string | ✓ | — | Local image file path |
+| `data_uri` | bool | | `true` | Include Data URI in output |
+| `mime_type` | string | | auto-detect | Optional MIME type override |
+
+### Return Schema
+
+```json
+{
+  "path": "./icon.png",
+  "mime_type": "image/png",
+  "bytes": 2048,
+  "base64": "iVBORw0KGgoAAA...",
+  "data_uri": "data:image/png;base64,iVBORw0KGgoAAA..."
+}
+```
 
 ---
 

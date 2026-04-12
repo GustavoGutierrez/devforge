@@ -58,7 +58,7 @@ func (m aboutModel) View() string {
 
 	b.WriteString(normalStyle.Render("DevForge MCP is a Go-based utility toolkit exposed through MCP and a local TUI."))
 	b.WriteString("\n")
-	b.WriteString(normalStyle.Render("It focuses on stateless developer tools for layout analysis, media processing,"))
+	b.WriteString(normalStyle.Render("It focuses on stateless developer tools for media processing,"))
 	b.WriteString("\n")
 	b.WriteString(normalStyle.Render("data conversion, crypto, HTTP, files, frontend/backend helpers, and code work."))
 	b.WriteString("\n")

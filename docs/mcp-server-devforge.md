@@ -4,8 +4,8 @@
 
 ## Notable tool groups
 
-- Layout/design: `analyze_layout`, `suggest_layout`, `manage_tokens`, `suggest_color_palettes`
 - Media/document: image/video/audio tools, `generate_favicon`, `generate_ui_image`, `ui2md`, `markdown_to_pdf`
+- Color utilities: `color_code_convert`, `color_harmony_palette`, `css_gradient_generate`
 - Utilities: text, data, crypto, HTTP, time, file, frontend, backend, code
 
 ## Runtime assumptions

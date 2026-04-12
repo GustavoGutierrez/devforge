@@ -90,7 +90,7 @@ DevForge MCP organizes its tools into 10 functional domains:
 | **Text Processing** | `text_uuid`, `text_slug`, `text_case`, `text_base64`, `text_url_encode`, `text_escape`, `text_normalize` | String normalization, encoding, identifier generation |
 | **Video & Audio** | `video_transcode`, `video_trim`, `video_thumbnail`, `audio_normalize`, `audio_transcode`, `audio_trim` | Media pipeline automation |
 
-**Total registered tools: 70+**
+**Total registered tools: 88**
 
 ---
 
@@ -375,7 +375,7 @@ DevForge MCP represents a paradigm shift in how AI-assisted development tools in
 
 The key technical properties that differentiate this approach from conventional tooling are:
 
-1. **Uniform invocation interface** — all 70+ tools share the same call semantics, reducing cognitive overhead.
+1. **Uniform invocation interface** — all 88 tools share the same call semantics, reducing cognitive overhead.
 2. **No runtime dependencies** — operations execute server-side; the developer environment requires no additional installations.
 3. **Composability** — tools can be chained within a single agent turn, enabling multi-step pipelines without user intervention.
 4. **Auditability** — all tool inputs and outputs are visible in the conversation context, providing a natural audit trail.

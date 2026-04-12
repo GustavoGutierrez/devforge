@@ -2,7 +2,7 @@
   <img src="devforge.png" width="1024" height="340" alt="DevForge MCP" />
 </p>
 
-[![Version](https://img.shields.io/badge/version-2.1.4-blue.svg)](https://github.com/GustavoGutierrez/devforge)
+[![Version](https://img.shields.io/badge/version-2.1.5-blue.svg)](https://github.com/GustavoGutierrez/devforge)
 [![License](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](LICENSE)
 [![Go](https://img.shields.io/badge/Go-1.24+-00ADD8.svg?logo=go&logoColor=white)](https://golang.org)
 [![MCP](https://img.shields.io/badge/MCP-stdio-8B5CF6.svg?logo=modelcontextprotocol&logoColor=white)](https://modelcontextprotocol.io)
@@ -11,7 +11,7 @@
 
 # DevForge MCP
 
-DevForge is a Go-powered MCP server and CLI/TUI that brings 70+ stateless developer tools directly into AI agents and terminals. It covers media processing, layout analysis, design tokens, data conversion, cryptography, HTTP, file operations, frontend/backend helpers, and code formatting — all with zero database dependencies.
+DevForge is a Go-powered MCP server and CLI/TUI with **88 stateless tools**. It covers media processing, standards-based color code conversion and harmony generation, data conversion, cryptography, HTTP, file operations, frontend/backend helpers, and code formatting — all with zero database dependencies.
 
 ---
 
@@ -19,8 +19,8 @@ DevForge is a Go-powered MCP server and CLI/TUI that brings 70+ stateless develo
 
 - [Architecture Overview](#-architecture-overview)
 - [Tool Surface](#-tool-surface)
-  - [Design & Media Tools](#design--media-tools)
-  - [Developer Utilities (48 Tools)](#developer-utilities-48-tools)
+  - [Media & AI Tools](#media--ai-tools)
+  - [Developer Utilities (58 Tools)](#developer-utilities-58-tools)
 - [Installation](#-installation)
   - [Homebrew](#homebrew)
   - [From Source](#from-source)
@@ -50,22 +50,22 @@ All three binaries are stateless — no database, no embeddings, no persistent s
 
 ## 🛠️ Tool Surface
 
-### Design & Media Tools
+### Media & AI Tools
 
 | Group | Tools | Description |
 |-------|-------|-------------|
-| **Design / UI** | `analyze_layout`, `suggest_layout`, `manage_tokens`, `suggest_color_palettes` | Layout analysis, design token planning, color palette generation |
 | **Gemini AI** | `generate_ui_image`, `ui2md`, `configure_gemini` | Generate UI images, convert screenshots to Markdown, configure Gemini API key at runtime |
 | **Image Processing** | `optimize_images`, `generate_favicon`, `image_resize`, `image_convert`, `image_crop`, `image_rotate`, `image_watermark`, `image_adjust`, `image_quality`, `image_srcset`, `image_exif`, `image_placeholder`, `image_palette`, `image_sprite` | Optimize, resize, convert, crop, rotate, watermark, adjust, generate favicons, extract EXIF, generate sprites and srcsets |
 | **Video** | `video_transcode`, `video_resize`, `video_trim`, `video_thumbnail`, `video_profile` | Transcode, resize, trim, extract thumbnails, inspect video profiles |
 | **Audio** | `audio_normalize`, `audio_transcode`, `audio_trim`, `audio_silence_trim` | Normalize, transcode, trim, remove silence from audio |
 | **Document** | `markdown_to_pdf` | Export Markdown to PDF |
+| **Color Utilities** | `color_code_convert`, `color_harmony_palette`, `css_gradient_generate` | Convert color codes across HEX/RGB/HSL/HSV/HWB/XYZ/LAB/LCH/OKLAB/OKLCH, generate harmony-based palettes, and build CSS linear/radial gradients |
 
 > Media tools require `dpf` (bundled). Video and audio tools additionally require FFmpeg in `$PATH` — install with `brew install ffmpeg` if needed.
 
 ---
 
-### Developer Utilities (48 Tools)
+### Developer Utilities (58 Tools)
 
 > Stateless, deterministic tools for everyday developer tasks — callable from AI agents via MCP or from the CLI.
 
@@ -77,11 +77,11 @@ All three binaries are stateless — no database, no embeddings, no persistent s
 | **HTTP & Networking** | `http_request`, `http_curl_convert`, `http_webhook_replay`, `http_signed_url`, `http_url_parse` | Execute requests, convert curl, sign URLs, parse URLs |
 | **Date & Time** | `time_convert`, `time_diff`, `time_cron`, `time_date_range` | Timestamp conversion, duration math, cron parsing, date ranges |
 | **File & Archive** | `file_checksum`, `file_archive`, `file_diff`, `file_line_endings`, `file_hex_view` | Checksums, zip/tar.gz, unified diff, line ending normalization, hex dump |
-| **Frontend Utilities** | `frontend_color`, `frontend_css_unit`, `frontend_breakpoint`, `frontend_regex`, `frontend_locale_format`, `frontend_icu_format` | Color conversion, CSS units, breakpoints, regex testing, locale formatting |
-| **Backend Utilities** | `backend_sql_format`, `backend_conn_string`, `backend_log_parse`, `backend_env_inspect`, `backend_mq_payload` | SQL formatting, DSN builder, log parsing, .env validation, MQ payloads |
-| **Code Utilities** | `code_format`, `code_metrics`, `code_template` | Code formatting (Go/TS/JSON/HTML/CSS), metrics (LOC/complexity), template rendering |
+| **Frontend Utilities (13)** | `generate_text_diff`, `convert_css_units`, `check_wcag_contrast`, `calculate_aspect_ratio`, `convert_string_cases`, `frontend_svg_optimize`, `frontend_image_base64`, `frontend_color`, `frontend_css_unit`, `frontend_breakpoint`, `frontend_regex`, `frontend_locale_format`, `frontend_icu_format` | Diff generation, batch CSS unit conversion, WCAG checks, aspect ratio helpers, string case conversion, SVG optimization, image-to-Base64 encoding, color conversion, CSS units, breakpoints, regex testing, locale/ICU formatting |
+| **Backend Utilities (6)** | `backend_sql_format`, `backend_conn_string`, `backend_log_parse`, `backend_env_inspect`, `backend_mq_payload`, `backend_cidr_subnet` | SQL formatting, DSN builder, log parsing, .env validation, MQ payloads, and CIDR subnet calculations |
+| **Code Utilities** | `code_json_to_types`, `code_ast_explorer`, `code_format`, `code_metrics`, `code_template` | JSON-to-code type generation, JS/TS AST outline, code formatting, metrics (LOC/complexity), template rendering |
 
-All 48 tools are documented in [`docs/tools/`](docs/tools/).
+All **58 developer utilities** (and **88 total tools** including media/AI) are documented in [`docs/tools/`](docs/tools/).
 
 ---
 
@@ -154,7 +154,7 @@ DevForge reads its configuration from `~/.config/devforge/config.json`. You can 
 
 | Field | Required | Default | Description |
 |-------|----------|---------|-------------|
-| `gemini_api_key` | For AI tools only | — | Required for `generate_ui_image` and `suggest_color_palettes`. All other tools work without a key. |
+| `gemini_api_key` | For AI tools only | — | Required for `generate_ui_image` (and any future Gemini-backed tool). All other tools work without a key. |
 | `image_model` | No | `gemini-2.5-flash-image` | Gemini model used for image generation. |
 
 > All non-AI tools are fully key-free and work offline.

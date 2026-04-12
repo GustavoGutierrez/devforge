@@ -3,6 +3,7 @@ package tui
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 	"unicode"
 
@@ -18,6 +19,7 @@ var backendOps = []string{
 	"Log Parser",
 	"Env File Inspector",
 	"MQ Payload Builder",
+	"CIDR / Subnet Calculator",
 }
 
 type backendToolsModel struct {
@@ -160,6 +162,22 @@ func (m backendToolsModel) execute() string {
 			Topic:     m.values["topic"],
 			Payload:   m.values["payload"],
 		})
+	case 5: // CIDR / Subnet Calculator
+		includeAll := true
+		if strings.EqualFold(strings.TrimSpace(m.values["include_all"]), "false") {
+			includeAll = false
+		}
+		limit := 256
+		if v := strings.TrimSpace(m.values["limit"]); v != "" {
+			if n, err := strconv.Atoi(v); err == nil {
+				limit = n
+			}
+		}
+		return backend.CIDRSubnet(ctx, backend.CIDRSubnetInput{
+			CIDR:       m.values["cidr"],
+			IncludeAll: includeAll,
+			Limit:      limit,
+		})
 	}
 	return `{"error":"unknown operation"}`
 }
@@ -200,6 +218,12 @@ func backendFields(opIdx int) []fieldDef {
 			{"operation", "Operation", false, "build | serialize | format (default: build)", false},
 			{"topic", "Topic / Queue", false, "topic or queue name", false},
 			{"payload", "Payload (JSON)", false, "message body as JSON", false},
+		}
+	case 5:
+		return []fieldDef{
+			{"cidr", "CIDR", true, "IPv4 CIDR block, e.g. 10.0.0.0/24", false},
+			{"include_all", "Include Host List", false, "true | false (default: true)", false},
+			{"limit", "Host List Limit", false, "max hosts to return when include_all=true (default: 256)", false},
 		}
 	}
 	return nil

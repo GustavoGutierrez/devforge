@@ -3,6 +3,7 @@ package textenc_test
 import (
 	"context"
 	"encoding/json"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -221,6 +222,19 @@ func TestUUID(t *testing.T) {
 			},
 		},
 		{
+			name:  "ulid format",
+			input: textenc.UUIDInput{Kind: "ulid"},
+			validate: func(t *testing.T, val string) {
+				t.Helper()
+				if len(val) != 26 {
+					t.Errorf("expected 26 chars for ulid, got %d", len(val))
+				}
+				if !regexp.MustCompile(`^[0-9A-HJKMNP-TV-Z]{26}$`).MatchString(val) {
+					t.Errorf("invalid ulid format: %q", val)
+				}
+			},
+		},
+		{
 			name:      "unknown kind returns error",
 			input:     textenc.UUIDInput{Kind: "snowflake"},
 			wantError: true,
@@ -241,6 +255,27 @@ func TestUUID(t *testing.T) {
 				tc.validate(t, val)
 			}
 		})
+	}
+}
+
+func TestUUIDMultiple(t *testing.T) {
+	ctx := context.Background()
+
+	got := textenc.UUID(ctx, textenc.UUIDInput{Kind: "uuid4", Count: 3})
+	var out map[string]any
+	if err := json.Unmarshal([]byte(got), &out); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+	if e, ok := out["error"]; ok {
+		t.Fatalf("unexpected error: %v", e)
+	}
+
+	values, ok := out["values"].([]any)
+	if !ok {
+		t.Fatalf("expected values array in response: %v", out)
+	}
+	if len(values) != 3 {
+		t.Fatalf("expected 3 generated identifiers, got %d", len(values))
 	}
 }
 

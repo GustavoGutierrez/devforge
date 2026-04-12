@@ -91,13 +91,26 @@ Generate a unique identifier.
 
 | Name | Type | Required | Default | Description |
 |------|------|----------|---------|-------------|
-| `kind` | string | no | `uuid4` | Kind: `uuid4` \| `nanoid` \| `token` |
+| `kind` | string | no | `uuid4` | Kind: `uuid4` \| `ulid` \| `nanoid` \| `token` |
 | `length` | number | no | `21` | Length for `nanoid` and `token` |
+| `count` | number | no | `1` | Number of identifiers to generate (max `1000`) |
 
 **Return schema**
 
+When `count = 1`:
+
 ```json
 { "value": "<generated identifier>" }
+```
+
+When `count > 1`:
+
+```json
+{
+  "values": ["<id1>", "<id2>", "..."],
+  "count": 3,
+  "kind": "uuid4"
+}
 ```
 
 **Kind details**
@@ -105,6 +118,7 @@ Generate a unique identifier.
 | Kind | Description | Output example |
 |------|-------------|----------------|
 | `uuid4` | RFC 4122 UUID v4 via `github.com/google/uuid` | `f47ac10b-58cc-4372-a567-0e02b2c3d479` |
+| `ulid` | Time-ordered ULID (Crockford Base32, 26 chars) | `01JZ9WX2RZ1N1M6N6SK2D1XQ0E` |
 | `nanoid` | Random URL-safe string from alphabet `A-Za-z0-9_-` | `V1StGXR8_Z5jdHi6B-myT` |
 | `token` | Hex-encoded cryptographically random bytes; output length = 2 × `length` | `a3f4b9c1...` |
 

@@ -6,8 +6,10 @@ package backend
 import (
 	"bufio"
 	"context"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/url"
 	"regexp"
 	"strconv"
@@ -1276,4 +1278,115 @@ func buildSQSEnvelope(queueName string, payload interface{}, headers map[string]
 	}
 
 	return envelope
+}
+
+// ─── backend_cidr_subnet ─────────────────────────────────────────────────────
+
+// CIDRSubnetInput is the input schema for the backend_cidr_subnet tool.
+type CIDRSubnetInput struct {
+	CIDR       string `json:"cidr"`
+	IncludeAll bool   `json:"include_all"`
+	Limit      int    `json:"limit"`
+}
+
+// CIDRSubnetOutput is the output schema for the backend_cidr_subnet tool.
+type CIDRSubnetOutput struct {
+	CIDR        string   `json:"cidr"`
+	Network     string   `json:"network"`
+	Broadcast   string   `json:"broadcast"`
+	Netmask     string   `json:"netmask"`
+	Prefix      int      `json:"prefix"`
+	TotalIPs    uint64   `json:"total_ips"`
+	UsableIPs   uint64   `json:"usable_ips"`
+	FirstUsable string   `json:"first_usable"`
+	LastUsable  string   `json:"last_usable"`
+	AvailableIP []string `json:"available_ips,omitempty"`
+	Truncated   bool     `json:"truncated,omitempty"`
+}
+
+// CIDRSubnet calculates network details and optionally lists usable host IPs.
+func CIDRSubnet(_ context.Context, input CIDRSubnetInput) string {
+	cidr := strings.TrimSpace(input.CIDR)
+	if cidr == "" {
+		return errResult("cidr is required")
+	}
+
+	ip, ipNet, err := net.ParseCIDR(cidr)
+	if err != nil {
+		return errResult("invalid cidr: " + err.Error())
+	}
+
+	ipv4 := ip.To4()
+	if ipv4 == nil {
+		return errResult("only IPv4 CIDR blocks are supported")
+	}
+
+	ones, bits := ipNet.Mask.Size()
+	if bits != 32 {
+		return errResult("only IPv4 CIDR blocks are supported")
+	}
+
+	network := ipv4.Mask(ipNet.Mask).To4()
+	broadcast := make(net.IP, len(network))
+	copy(broadcast, network)
+	for i := 0; i < 4; i++ {
+		broadcast[i] = network[i] | ^ipNet.Mask[i]
+	}
+
+	networkU := ipToUint32(network)
+	broadcastU := ipToUint32(broadcast)
+	totalIPs := uint64(broadcastU-networkU) + 1
+
+	usableIPs := totalIPs
+	firstU := networkU
+	lastU := broadcastU
+	if ones <= 30 {
+		usableIPs = totalIPs - 2
+		firstU = networkU + 1
+		lastU = broadcastU - 1
+	}
+
+	out := CIDRSubnetOutput{
+		CIDR:        cidr,
+		Network:     uint32ToIPv4(networkU).String(),
+		Broadcast:   uint32ToIPv4(broadcastU).String(),
+		Netmask:     net.IP(ipNet.Mask).String(),
+		Prefix:      ones,
+		TotalIPs:    totalIPs,
+		UsableIPs:   usableIPs,
+		FirstUsable: uint32ToIPv4(firstU).String(),
+		LastUsable:  uint32ToIPv4(lastU).String(),
+	}
+
+	if input.IncludeAll {
+		limit := input.Limit
+		if limit <= 0 {
+			limit = 256
+		}
+
+		available := make([]string, 0)
+		for host := firstU; host <= lastU; host++ {
+			if len(available) >= limit {
+				out.Truncated = true
+				break
+			}
+			available = append(available, uint32ToIPv4(host).String())
+			if host == lastU {
+				break
+			}
+		}
+		out.AvailableIP = available
+	}
+
+	return resultJSON(out)
+}
+
+func ipToUint32(ip net.IP) uint32 {
+	return binary.BigEndian.Uint32(ip.To4())
+}
+
+func uint32ToIPv4(v uint32) net.IP {
+	b := make([]byte, 4)
+	binary.BigEndian.PutUint32(b, v)
+	return net.IPv4(b[0], b[1], b[2], b[3]).To4()
 }

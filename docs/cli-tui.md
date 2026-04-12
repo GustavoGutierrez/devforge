@@ -4,15 +4,12 @@ The `devforge` binary launches an interactive Bubble Tea interface for the state
 
 ## Main screens
 
-- Analyze layout
-- Generate layout
-- Explore color palettes
 - Generate/optimize images
 - Generate favicon
 - Video/audio processing
 - UI to Markdown
 - Markdown to PDF
-- Text/data/crypto/HTTP/time/file/frontend/backend/code utilities
+- Text/data/crypto/HTTP/time/file/frontend/backend/code utilities (including ULID-aware ID generation, CIDR subnet calculation, color code conversion, color harmony palette generation, and CSS gradient generation)
 - Settings and MCP setup
 
 ## Removed screens

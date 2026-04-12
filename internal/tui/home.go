@@ -24,10 +24,6 @@ type menuEntry struct {
 }
 
 var menuEntries = []menuEntry{
-	{label: "── Design & Layout", isSection: true},
-	{label: "Analyze layout file"},
-	{label: "Generate layout"},
-	{label: "Explore color palettes"},
 	{label: "── Images & Media", isSection: true},
 	{label: "Generate Image (Gemini)"},
 	{label: "Optimize images"},
@@ -171,8 +167,8 @@ func (m homeModel) View() string {
 		Foreground(lipgloss.Color("12"))
 	b.WriteString(logoStyle.Render(asciiLogo) + "\n\n")
 
-	b.WriteString(dimStyle.Render("  AI-powered design & developer toolkit") + "\n")
-	b.WriteString(dimStyle.Render("  Design · Layout · Media · Cryptography · HTTP · Code · utility-first tools") + "\n")
+	b.WriteString(dimStyle.Render("  AI-powered developer toolkit") + "\n")
+	b.WriteString(dimStyle.Render("  Media · Cryptography · HTTP · Code · utility-first tools") + "\n")
 
 	versionLine := lipgloss.NewStyle().Foreground(lipgloss.Color("2")).Render(fmt.Sprintf("  v%s", m.version))
 	if m.latestVersion != "" && m.latestVersion != m.version {

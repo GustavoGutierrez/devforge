@@ -2,7 +2,7 @@
 
 ## Overview
 
-Go MCP server (`devforge-mcp`) + Bubble Tea CLI/TUI (`devforge`) providing 70+ stateless developer
+Go MCP server (`devforge-mcp`) + Bubble Tea CLI/TUI (`devforge`) providing 88 stateless developer
 tools over stdio transport. Media tools delegate to **[dpf (DevPixelForge)](https://github.com/GustavoGutierrez/devpixelforge)**,
 a Rust binary bundled in every release. No database, no embeddings, no persistent state.
 

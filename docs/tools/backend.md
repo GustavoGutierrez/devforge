@@ -1,6 +1,6 @@
 # Backend Utility Tools
 
-MCP tools for backend development workflows: SQL formatting, connection string management, log parsing, environment inspection, and message queue payload building.
+MCP tools for backend and infrastructure workflows: SQL formatting, connection string management, log parsing, environment inspection, message queue payload building, and CIDR subnet calculations.
 
 ---
 
@@ -293,3 +293,41 @@ Build a message queue payload envelope for Kafka, RabbitMQ, or SQS. Pure seriali
   "MessageGroupId": "group-1"
 }
 ```
+
+---
+
+## `backend_cidr_subnet`
+
+Calculate IPv4 CIDR subnet details and optionally list usable host IP addresses.
+
+### Input
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `cidr` | string | ✅ | — | IPv4 CIDR block (for example `10.0.0.0/24`) |
+| `include_all` | bool | | `true` | Include usable host list in response |
+| `limit` | int | | `256` | Maximum hosts to return when `include_all=true` |
+
+### Output
+
+```json
+{
+  "cidr": "10.0.0.0/24",
+  "network": "10.0.0.0",
+  "broadcast": "10.0.0.255",
+  "netmask": "255.255.255.0",
+  "prefix": 24,
+  "total_ips": 256,
+  "usable_ips": 254,
+  "first_usable": "10.0.0.1",
+  "last_usable": "10.0.0.254",
+  "available_ips": ["10.0.0.1", "10.0.0.2", "..."],
+  "truncated": true
+}
+```
+
+### Notes
+
+- Only IPv4 is supported.
+- `/31` and `/32` are handled as special cases for usable host calculation.
+- Host listing respects `limit` to keep responses bounded.

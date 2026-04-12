@@ -1,6 +1,6 @@
 // Package tools contains MCP tool handler implementations.
 // Each tool is implemented in its own file following the naming convention
-// of the tool name (e.g., analyze_layout.go, manage_tokens.go).
+// of the tool name (e.g., text_case.go, http_request.go).
 package tools
 
 import (

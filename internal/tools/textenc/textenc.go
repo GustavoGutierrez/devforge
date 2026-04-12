@@ -8,10 +8,13 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"html"
+	"math/big"
 	"net/url"
 	"regexp"
 	"strings"
+	"time"
 	"unicode"
 
 	"github.com/google/uuid"
@@ -217,8 +220,9 @@ func Slug(_ context.Context, in SlugInput) string {
 
 // UUIDInput holds the parameters for the text_uuid tool.
 type UUIDInput struct {
-	Kind   string // uuid4 | nanoid | token
+	Kind   string // uuid4 | ulid | nanoid | token
 	Length int    // for nanoid and token (default 21)
+	Count  int    // number of identifiers to generate (default 1)
 }
 
 // nanoidAlphabet is the URL-safe character set used by nanoid.
@@ -230,37 +234,115 @@ func UUID(_ context.Context, in UUIDInput) string {
 	if kind == "" {
 		kind = "uuid4"
 	}
+	kind = strings.ToLower(kind)
 	length := in.Length
 	if length <= 0 {
 		length = 21
 	}
+	count := in.Count
+	if count <= 0 {
+		count = 1
+	}
+	if count > 1000 {
+		return errResult("count must be between 1 and 1000")
+	}
 
+	values := make([]string, 0, count)
+	for i := 0; i < count; i++ {
+		val, err := generateIdentifier(kind, length)
+		if err != nil {
+			return errResult(err.Error())
+		}
+		values = append(values, val)
+	}
+
+	if count == 1 {
+		return resultJSON(map[string]string{"value": values[0]})
+	}
+
+	return resultJSON(map[string]any{
+		"values": values,
+		"count":  count,
+		"kind":   kind,
+	})
+}
+
+func generateIdentifier(kind string, length int) (string, error) {
 	switch kind {
 	case "uuid4":
 		id, err := uuid.NewRandom()
 		if err != nil {
-			return errResult("uuid generation failed: " + err.Error())
+			return "", fmt.Errorf("uuid generation failed: %w", err)
 		}
-		return resultJSON(map[string]string{"value": id.String()})
+		return id.String(), nil
+
+	case "ulid":
+		val, err := generateULID()
+		if err != nil {
+			return "", fmt.Errorf("ulid generation failed: %w", err)
+		}
+		return val, nil
 
 	case "nanoid":
 		val, err := generateNanoid(length)
 		if err != nil {
-			return errResult("nanoid generation failed: " + err.Error())
+			return "", fmt.Errorf("nanoid generation failed: %w", err)
 		}
-		return resultJSON(map[string]string{"value": val})
+		return val, nil
 
 	case "token":
 		// Generate hex-encoded random bytes. length bytes → 2*length hex chars.
 		buf := make([]byte, length)
 		if _, err := rand.Read(buf); err != nil {
-			return errResult("token generation failed: " + err.Error())
+			return "", fmt.Errorf("token generation failed: %w", err)
 		}
-		return resultJSON(map[string]string{"value": hex.EncodeToString(buf)})
+		return hex.EncodeToString(buf), nil
 
 	default:
-		return errResult("unknown kind: must be one of uuid4, nanoid, token")
+		return "", fmt.Errorf("unknown kind: must be one of uuid4, ulid, nanoid, token")
 	}
+}
+
+// Crockford Base32 alphabet used by ULID.
+const ulidAlphabet = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
+
+// generateULID creates a ULID string from current timestamp and cryptographic entropy.
+func generateULID() (string, error) {
+	var raw [16]byte
+
+	ms := uint64(time.Now().UTC().UnixMilli())
+	raw[0] = byte(ms >> 40)
+	raw[1] = byte(ms >> 32)
+	raw[2] = byte(ms >> 24)
+	raw[3] = byte(ms >> 16)
+	raw[4] = byte(ms >> 8)
+	raw[5] = byte(ms)
+
+	if _, err := rand.Read(raw[6:]); err != nil {
+		return "", err
+	}
+
+	return encodeULID(raw), nil
+}
+
+// encodeULID encodes 128-bit ULID binary data into a 26-char Crockford Base32 string.
+func encodeULID(raw [16]byte) string {
+	base := big.NewInt(32)
+	n := new(big.Int).SetBytes(raw[:])
+
+	out := make([]byte, 26)
+	for i := 25; i >= 0; i-- {
+		if n.Sign() == 0 {
+			out[i] = ulidAlphabet[0]
+			continue
+		}
+		q := new(big.Int)
+		r := new(big.Int)
+		q.QuoRem(n, base, r)
+		out[i] = ulidAlphabet[r.Int64()]
+		n = q
+	}
+	return string(out)
 }
 
 // generateNanoid produces a URL-safe random string of the given length

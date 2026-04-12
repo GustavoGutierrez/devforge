@@ -69,7 +69,7 @@ The config file is created automatically on first Homebrew install. For source b
 
 | Field | Purpose |
 |---|---|
-| `gemini_api_key` | Required only for Gemini-powered tools (`generate_ui_image`, `suggest_color_palettes`) |
+| `gemini_api_key` | Required only for Gemini-powered tools (`generate_ui_image`) |
 | `image_model` | Gemini image model override (default: `gemini-2.5-flash-image`) |
 
 Override the config path with the `DEV_FORGE_CONFIG` environment variable.

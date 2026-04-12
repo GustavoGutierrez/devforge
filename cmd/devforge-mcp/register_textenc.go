@@ -51,14 +51,16 @@ func registerTextEncTools(s *mcpserver.MCPServer, _ *mcpApp) {
 	// ── text_uuid ────────────────────────────────────────────────────────────
 	s.AddTool(
 		mcp.NewTool("text_uuid",
-			mcp.WithDescription("Generate a unique identifier: UUID v4, nanoid (URL-safe random string), or a hex-encoded random token."),
-			mcp.WithString("kind", mcp.Description("Kind of identifier to generate: uuid4 | nanoid | token (default: uuid4)")),
+			mcp.WithDescription("Generate one or more unique identifiers: UUID v4, ULID, nanoid (URL-safe random string), or a hex-encoded random token."),
+			mcp.WithString("kind", mcp.Description("Kind of identifier to generate: uuid4 | ulid | nanoid | token (default: uuid4)")),
 			mcp.WithNumber("length", mcp.Description("Length of the generated value for nanoid and token (default: 21)")),
+			mcp.WithNumber("count", mcp.Description("Number of identifiers to generate (default: 1, max: 1000)")),
 		),
 		func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 			return mcp.NewToolResultText(textenc.UUID(ctx, textenc.UUIDInput{
 				Kind:   mcp.ParseString(req, "kind", "uuid4"),
 				Length: mcp.ParseInt(req, "length", 21),
+				Count:  mcp.ParseInt(req, "count", 1),
 			})), nil
 		},
 	)

@@ -10,10 +10,116 @@ import (
 	mcpserver "github.com/mark3labs/mcp-go/server"
 
 	"dev-forge-mcp/internal/tools/frontend"
+	"dev-forge-mcp/internal/tools/frontend/micro"
+	"dev-forge-mcp/internal/tools/frontend/ui"
 )
 
 // registerFrontendTools registers all frontend utility tools with the MCP server.
 func registerFrontendTools(s *mcpserver.MCPServer, _ *mcpApp) {
+	// ── generate_text_diff ───────────────────────────────────────
+	s.AddTool(mcp.NewTool("generate_text_diff",
+		mcp.WithDescription("Compare two text blocks and return a unified diff output, including additions and deletions."),
+		mcp.WithString("original_text", mcp.Required(), mcp.Description("Base/original text")),
+		mcp.WithString("modified_text", mcp.Required(), mcp.Description("Updated/modified text")),
+	), func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		in := micro.TextDiffInput{
+			OriginalText: mcp.ParseString(req, "original_text", ""),
+			ModifiedText: mcp.ParseString(req, "modified_text", ""),
+		}
+		return mcp.NewToolResultText(micro.GenerateTextDiff(ctx, in)), nil
+	})
+
+	// ── convert_css_units ────────────────────────────────────────
+	s.AddTool(mcp.NewTool("convert_css_units",
+		mcp.WithDescription("Convert an array of pixel values to rem or em using a base font size."),
+		mcp.WithArray("values_px", mcp.Required(), mcp.Description("Pixel values to convert"), mcp.WithNumberItems()),
+		mcp.WithNumber("base_size", mcp.Description("Base font size in px (default: 16)")),
+		mcp.WithString("target_unit", mcp.Description("Target unit: rem | em (default: rem)")),
+	), func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		args := frontendArgsMap(req)
+		in := micro.CSSUnitsBatchInput{
+			BaseSize:   frontendNumVal(args, "base_size", 16),
+			TargetUnit: mcp.ParseString(req, "target_unit", "rem"),
+		}
+		if arr, ok := args["values_px"]; ok {
+			data, _ := json.Marshal(arr)
+			_ = json.Unmarshal(data, &in.ValuesPX)
+		}
+		return mcp.NewToolResultText(micro.ConvertCSSUnits(ctx, in)), nil
+	})
+
+	// ── check_wcag_contrast ──────────────────────────────────────
+	s.AddTool(mcp.NewTool("check_wcag_contrast",
+		mcp.WithDescription("Calculate WCAG contrast ratio for foreground/background colors and return AA/AAA pass results for normal and large text."),
+		mcp.WithString("foreground_color", mcp.Required(), mcp.Description("Foreground/text color: #hex, rgb(), or hsl()")),
+		mcp.WithString("background_color", mcp.Required(), mcp.Description("Background color: #hex, rgb(), or hsl()")),
+	), func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		in := micro.WCAGContrastInput{
+			ForegroundColor: mcp.ParseString(req, "foreground_color", ""),
+			BackgroundColor: mcp.ParseString(req, "background_color", ""),
+		}
+		return mcp.NewToolResultText(micro.CheckWCAGContrast(ctx, in)), nil
+	})
+
+	// ── calculate_aspect_ratio ───────────────────────────────────
+	s.AddTool(mcp.NewTool("calculate_aspect_ratio",
+		mcp.WithDescription("Calculate the missing dimension for a given aspect ratio, or infer the ratio from known width and height."),
+		mcp.WithString("aspect_ratio", mcp.Description("Aspect ratio in W:H format (e.g., 16:9). Optional when both dimensions are provided")),
+		mcp.WithNumber("known_width", mcp.Description("Known width value (optional)")),
+		mcp.WithNumber("known_height", mcp.Description("Known height value (optional)")),
+	), func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		args := frontendArgsMap(req)
+		in := micro.AspectRatioInput{AspectRatio: mcp.ParseString(req, "aspect_ratio", "")}
+		if _, ok := args["known_width"]; ok {
+			v := frontendNumVal(args, "known_width", 0)
+			in.KnownWidth = &v
+		}
+		if _, ok := args["known_height"]; ok {
+			v := frontendNumVal(args, "known_height", 0)
+			in.KnownHeight = &v
+		}
+		return mcp.NewToolResultText(micro.CalculateAspectRatio(ctx, in)), nil
+	})
+
+	// ── convert_string_cases ─────────────────────────────────────
+	s.AddTool(mcp.NewTool("convert_string_cases",
+		mcp.WithDescription("Batch-convert variable names to a target naming convention (camelCase, snake_case, kebab-case, PascalCase)."),
+		mcp.WithArray("variables", mcp.Required(), mcp.Description("List of variable names to convert"), mcp.WithStringItems()),
+		mcp.WithString("target_case", mcp.Required(), mcp.Description("Target case: camelCase | snake_case | kebab-case | PascalCase")),
+	), func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		args := frontendArgsMap(req)
+		in := micro.StringCasesInput{TargetCase: mcp.ParseString(req, "target_case", "")}
+		if vars, ok := args["variables"]; ok {
+			data, _ := json.Marshal(vars)
+			_ = json.Unmarshal(data, &in.Variables)
+		}
+		return mcp.NewToolResultText(micro.ConvertStringCases(ctx, in)), nil
+	})
+
+	// ── frontend_svg_optimize ────────────────────────────────────
+	s.AddTool(mcp.NewTool("frontend_svg_optimize",
+		mcp.WithDescription("Optimize raw SVG markup by removing comments, metadata tags, empty containers, and unnecessary whitespace."),
+		mcp.WithString("svg", mcp.Required(), mcp.Description("Raw SVG markup string")),
+	), func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		in := ui.SVGOptimizeInput{SVG: mcp.ParseString(req, "svg", "")}
+		return mcp.NewToolResultText(ui.SVGOptimize(ctx, in)), nil
+	})
+
+	// ── frontend_image_base64 ────────────────────────────────────
+	s.AddTool(mcp.NewTool("frontend_image_base64",
+		mcp.WithDescription("Encode a local image file to Base64 and optional Data URI for direct embedding in CSS/HTML/source code."),
+		mcp.WithString("path", mcp.Required(), mcp.Description("Local image file path")),
+		mcp.WithBoolean("data_uri", mcp.Description("Include data URI output (default: true)")),
+		mcp.WithString("mime_type", mcp.Description("Optional MIME type override (e.g., image/png)")),
+	), func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		in := ui.ImageBase64Input{
+			Path:     mcp.ParseString(req, "path", ""),
+			DataURI:  mcp.ParseBoolean(req, "data_uri", true),
+			MimeType: mcp.ParseString(req, "mime_type", ""),
+		}
+		return mcp.NewToolResultText(ui.ImageBase64(ctx, in)), nil
+	})
+
 	// ── frontend_color ──────────────────────────────────────────
 	s.AddTool(mcp.NewTool("frontend_color",
 		mcp.WithDescription("Convert colors between HEX, RGB, HSL, HSLA, RGBA formats and compute WCAG 2.1 contrast ratio. Returns the converted color and optionally contrast_ratio, wcag_aa, wcag_aaa when 'against' color is provided."),

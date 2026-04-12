@@ -130,6 +130,21 @@ func registerBackendTools(s *mcpserver.MCPServer, _ *mcpApp) {
 		}
 		return mcp.NewToolResultText(backend.MQPayload(ctx, input)), nil
 	})
+
+	// ── backend_cidr_subnet ───────────────────────────────────────
+	s.AddTool(mcp.NewTool("backend_cidr_subnet",
+		mcp.WithDescription("Calculate IPv4 CIDR subnet details including network, broadcast, usable range, and optional host list."),
+		mcp.WithString("cidr", mcp.Required(), mcp.Description("IPv4 CIDR block, e.g. 10.0.0.0/24")),
+		mcp.WithBoolean("include_all", mcp.Description("Include usable host IP list in the response (default: true)")),
+		mcp.WithNumber("limit", mcp.Description("Maximum number of host IPs to return when include_all=true (default: 256)")),
+	), func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		input := backend.CIDRSubnetInput{
+			CIDR:       mcp.ParseString(req, "cidr", ""),
+			IncludeAll: mcp.ParseBoolean(req, "include_all", true),
+			Limit:      mcp.ParseInt(req, "limit", 256),
+		}
+		return mcp.NewToolResultText(backend.CIDRSubnet(ctx, input)), nil
+	})
 }
 
 // stringify converts an arbitrary interface value to its string representation.
