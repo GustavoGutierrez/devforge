@@ -19,7 +19,8 @@ func registerColorTools(s *mcpserver.MCPServer, _ *mcpApp) {
 	s.AddTool(mcp.NewTool("css_gradient_generate",
 		mcp.WithDescription("Generate CSS linear or radial gradients with two or more color stops, including optional stop positions and browser-safe fallback color."),
 		mcp.WithString("gradient_type", mcp.Required(), mcp.Description("Gradient type: linear | radial")),
-		mcp.WithArray("stops", mcp.Required(), mcp.Description("Color stops array. Each item: { color: string, position?: number (0-100) }")),
+		mcp.WithArray("stops", mcp.Required(), mcp.Description("Color stops array. Each item: { color: string, position?: number (0-100) }"),
+			mcp.Items(map[string]any{"type": "object"})),
 		mcp.WithNumber("angle", mcp.Description("Linear gradient angle in degrees (default: 0)")),
 		mcp.WithString("shape", mcp.Description("Radial gradient shape: circle | ellipse (default: circle)")),
 	), func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {

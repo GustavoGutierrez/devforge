@@ -81,6 +81,38 @@ Homebrew tap. Use `workflow_dispatch` to republish an existing tag without re-ta
 4. Add a table-driven unit test covering happy path and error cases.
 5. Keep the handler stateless and side-effect-free.
 
+## MCP Schema Rules (cross-model compatibility)
+
+Every `mcp.WithArray(...)` call **must** include an `items` definition. Omitting it causes
+`Invalid schema … array schema missing items` on OpenAI models (GPT-4o, GPT-5, Codex) and any
+client that validates JSON Schema strictly.
+
+| Array element type | Correct usage |
+|--------------------|---------------|
+| strings | `mcp.WithArray("x", ..., mcp.WithStringItems())` |
+| numbers | `mcp.WithArray("x", ..., mcp.WithNumberItems())` |
+| booleans | `mcp.WithArray("x", ..., mcp.WithBooleanItems())` |
+| objects | `mcp.WithArray("x", ..., mcp.Items(map[string]any{"type": "object"}))` |
+
+**Audit command** — run before every release to catch regressions:
+
+```bash
+# Reports WithArray calls where neither the same line nor the next line contain an items definition.
+# Must return no output (zero violations) before releasing.
+awk '
+/WithArray/ {
+  line = NR; content = $0
+  getline nextline
+  combined = content "\n" nextline
+  if (combined !~ /WithStringItems|WithNumberItems|WithBooleanItems|WithStringEnumItems|mcp\.Items/) {
+    print FILENAME ":" line ": " content
+  }
+}
+' cmd/devforge-mcp/*.go
+```
+
+If the command returns any lines, add the appropriate `items` option before releasing.
+
 ## Workflow
 
 - **SDD pipeline**: explore → propose → spec → design → tasks → apply → verify → archive.

@@ -2,4 +2,4 @@
 package version
 
 // Current is the current release version. Updated on every release.
-const Current = "2.1.5"
+const Current = "2.1.6"
