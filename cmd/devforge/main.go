@@ -18,6 +18,13 @@ import (
 )
 
 func main() {
+	if versionRequested(os.Args[1:]) {
+		if _, err := os.Stdout.WriteString(versionOutput()); err != nil {
+			log.Fatalf("failed to write version: %v", err)
+		}
+		return
+	}
+
 	// Load config
 	cfg, err := config.Load()
 	if err != nil {
@@ -64,6 +71,20 @@ func main() {
 	if _, err := p.Run(); err != nil {
 		log.Fatalf("TUI error: %v", err)
 	}
+}
+
+func versionRequested(args []string) bool {
+	for _, arg := range args {
+		if arg == "--version" {
+			return true
+		}
+	}
+
+	return false
+}
+
+func versionOutput() string {
+	return "devforge v" + version.Current + "\n"
 }
 
 // executableDir returns the directory that contains the running binary,
