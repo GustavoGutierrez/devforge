@@ -2,7 +2,7 @@
   <img src="devforge.png" width="1024" height="340" alt="DevForge MCP" />
 </p>
 
-[![Version](https://img.shields.io/badge/version-2.1.7-blue.svg)](https://github.com/GustavoGutierrez/devforge)
+[![Version](https://img.shields.io/badge/version-2.1.8-blue.svg)](https://github.com/GustavoGutierrez/devforge)
 [![License](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](LICENSE)
 [![Go](https://img.shields.io/badge/Go-1.24+-00ADD8.svg?logo=go&logoColor=white)](https://golang.org)
 [![MCP](https://img.shields.io/badge/MCP-stdio-8B5CF6.svg?logo=modelcontextprotocol&logoColor=white)](https://modelcontextprotocol.io)
@@ -11,7 +11,7 @@
 
 # DevForge MCP
 
-DevForge is a Go-powered MCP server and CLI/TUI with **88 stateless tools**. It covers media processing, standards-based color code conversion and harmony generation, data conversion, cryptography, HTTP, file operations, frontend/backend helpers, and code formatting — all with zero database dependencies.
+DevForge is a Go-powered MCP server and CLI/TUI with **90 stateless tools**. It covers media processing, standards-based color code conversion and harmony generation, data conversion, cryptography, HTTP, file operations, frontend/backend helpers, and code formatting — all with zero database dependencies.
 
 ---
 
@@ -20,7 +20,7 @@ DevForge is a Go-powered MCP server and CLI/TUI with **88 stateless tools**. It 
 - [Architecture Overview](#-architecture-overview)
 - [Tool Surface](#-tool-surface)
   - [Media & AI Tools](#media--ai-tools)
-  - [Developer Utilities (58 Tools)](#developer-utilities-58-tools)
+  - [Developer Utilities (60 Tools)](#developer-utilities-60-tools)
 - [Installation](#-installation)
   - [Homebrew](#homebrew)
   - [From Source](#from-source)
@@ -65,23 +65,23 @@ All three binaries are stateless — no database, no embeddings, no persistent s
 
 ---
 
-### Developer Utilities (58 Tools)
+### Developer Utilities (60 Tools)
 
 > Stateless, deterministic tools for everyday developer tasks — callable from AI agents via MCP or from the CLI.
 
 | Group | Tools | Description |
 |-------|-------|-------------|
-| **Text & Encoding** | `text_escape`, `text_slug`, `text_uuid`, `text_base64`, `text_url_encode`, `text_normalize`, `text_case` | String transformations and encoding operations |
-| **Data Format** | `data_json_format`, `data_yaml_convert`, `data_csv_convert`, `data_jsonpath`, `data_schema_validate`, `data_diff` | Parse, convert, validate, and diff structured data |
-| **Security & Cryptography** | `crypto_hash`, `crypto_hmac`, `crypto_jwt`, `crypto_password`, `crypto_keygen`, `crypto_random`, `crypto_mask` | Hashing, signing, JWT, password hashing, key generation, secret redaction |
+| **Text & Encoding** | `text_escape`, `text_slug`, `text_uuid`, `text_base64`, `text_url_encode`, `text_normalize`, `text_case`, `text_stats` | String transformations, UUID generation, Base64, URL encoding, text normalization, case conversion, word/character counting |
+| **Data Format** | `json_format`, `data_yaml_convert`, `data_csv_convert`, `data_jsonpath`, `data_schema_validate`, `data_diff`, `fake_data` | Parse, convert, validate, diff structured data, generate fake data from JSON Schema |
+| **Security & Cryptography** | `crypto_hash`, `crypto_hmac`, `jwt`, `crypto_password`, `crypto_keygen`, `crypto_random`, `crypto_mask`, `password_generate` | Hashing (SHA256/512, MD5, SHA1), HMAC, JWT encode/decode/verify, password hashing (bcrypt/argon2), key generation, secure random values, secret redaction, secure password generation |
 | **HTTP & Networking** | `http_request`, `http_curl_convert`, `http_webhook_replay`, `http_signed_url`, `http_url_parse` | Execute requests, convert curl, sign URLs, parse URLs |
-| **Date & Time** | `time_convert`, `time_diff`, `time_cron`, `time_date_range` | Timestamp conversion, duration math, cron parsing, date ranges |
+| **Date & Time** | `time_convert`, `time_diff`, `time_cron`, `time_date_range`, `current_date`, `current_week`, `week_number`, `calendar` | Timestamp conversion, duration math, cron parsing, date ranges, current date info, week days list, week number calculation, monthly calendar |
 | **File & Archive** | `file_checksum`, `file_archive`, `file_diff`, `file_line_endings`, `file_hex_view` | Checksums, zip/tar.gz, unified diff, line ending normalization, hex dump |
-| **Frontend Utilities (13)** | `generate_text_diff`, `convert_css_units`, `check_wcag_contrast`, `calculate_aspect_ratio`, `convert_string_cases`, `frontend_svg_optimize`, `frontend_image_base64`, `frontend_color`, `frontend_css_unit`, `frontend_breakpoint`, `frontend_regex`, `frontend_locale_format`, `frontend_icu_format` | Diff generation, batch CSS unit conversion, WCAG checks, aspect ratio helpers, string case conversion, SVG optimization, image-to-Base64 encoding, color conversion, CSS units, breakpoints, regex testing, locale/ICU formatting |
-| **Backend Utilities (6)** | `backend_sql_format`, `backend_conn_string`, `backend_log_parse`, `backend_env_inspect`, `backend_mq_payload`, `backend_cidr_subnet` | SQL formatting, DSN builder, log parsing, .env validation, MQ payloads, and CIDR subnet calculations |
+| **Frontend Utilities** | `generate_text_diff`, `convert_css_units`, `check_wcag_contrast`, `calculate_aspect_ratio`, `convert_string_cases`, `frontend_svg_optimize`, `frontend_image_base64`, `frontend_color`, `frontend_css_unit`, `frontend_breakpoint`, `regex_test`, `frontend_locale_format`, `frontend_icu_format` | Diff generation, batch CSS unit conversion, WCAG checks, aspect ratio helpers, string case conversion, SVG optimization, image-to-Base64 encoding, color conversion, CSS units, breakpoints, regex testing, locale/ICU formatting |
+| **Backend Utilities** | `sql_format`, `backend_conn_string`, `backend_log_parse`, `backend_env_inspect`, `backend_mq_payload`, `backend_cidr_subnet` | SQL formatting, DSN builder, log parsing, .env validation, MQ payloads, and CIDR subnet calculations |
 | **Code Utilities** | `code_json_to_types`, `code_ast_explorer`, `code_format`, `code_metrics`, `code_template` | JSON-to-code type generation, JS/TS AST outline, code formatting, metrics (LOC/complexity), template rendering |
 
-All **58 developer utilities** (and **88 total tools** including media/AI) are documented in [`docs/tools/`](docs/tools/).
+All **60 developer utilities** (and **90 total tools** including media/AI) are documented in [`docs/tools/`](docs/tools/).
 
 ---
 
