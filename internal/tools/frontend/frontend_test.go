@@ -358,7 +358,7 @@ func TestBreakpoint(t *testing.T) {
 	}
 }
 
-// ── frontend_regex ────────────────────────────────────────────────────────────
+// ── regex_test ──────────────────────────────────────────────────────────────
 
 func TestRegex(t *testing.T) {
 	ctx := context.Background()

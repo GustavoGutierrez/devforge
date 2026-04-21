@@ -90,6 +90,9 @@ jobs:
           go-version-file: go.mod
           cache: true
 
+      - name: Clear Go build cache
+        run: go clean -cache
+
       - name: Build Linux runtime bundle
         env:
           VERSION: ${{ needs.prepare.outputs.version }}
@@ -124,6 +127,9 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
+
+      - name: Clear Go build cache
+        run: go clean -cache
 
       - name: Build macOS runtime bundle
         env:

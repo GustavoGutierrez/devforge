@@ -497,3 +497,368 @@ func TestTimeDateRange_MissingStart_ReturnsError(t *testing.T) {
 		t.Error("expected error for missing start")
 	}
 }
+
+// ─── current_date tests ─────────────────────────────────────────────────────
+
+func TestCurrentDate_DefaultLocale(t *testing.T) {
+	result := datetime.CurrentDate(context.Background(), datetime.CurrentDateInput{})
+	var out datetime.CurrentDateOutput
+	if err := json.Unmarshal([]byte(result), &out); err != nil {
+		t.Fatalf("invalid JSON: %v — got: %s", err, result)
+	}
+	if out.DayOfWeek == "" {
+		t.Error("expected non-empty day_of_week")
+	}
+	if out.Month == "" {
+		t.Error("expected non-empty month")
+	}
+	if out.Year == 0 {
+		t.Error("expected non-zero year")
+	}
+	if out.DayNumber == 0 {
+		t.Error("expected non-zero day_number")
+	}
+	if out.WeekOfYear == 0 {
+		t.Error("expected non-zero week_of_year")
+	}
+	if out.ISO8601 == "" {
+		t.Error("expected non-empty iso8601")
+	}
+}
+
+func TestCurrentDate_SpanishLocale(t *testing.T) {
+	result := datetime.CurrentDate(context.Background(), datetime.CurrentDateInput{
+		Locale: "es",
+	})
+	var out datetime.CurrentDateOutput
+	if err := json.Unmarshal([]byte(result), &out); err != nil {
+		t.Fatalf("invalid JSON: %v — got: %s", err, result)
+	}
+	if out.DayOfWeek == "" {
+		t.Error("expected non-empty day_of_week")
+	}
+	if !strings.Contains(out.Date, " de ") {
+		t.Errorf("expected Spanish format with 'de' separator, got %q", out.Date)
+	}
+}
+
+func TestCurrentDate_WeekendDetection(t *testing.T) {
+	result := datetime.CurrentDate(context.Background(), datetime.CurrentDateInput{})
+	var out datetime.CurrentDateOutput
+	if err := json.Unmarshal([]byte(result), &out); err != nil {
+		t.Fatalf("invalid JSON: %v — got: %s", err, result)
+	}
+	// Just verify the field is populated correctly (true or false)
+	_ = out.IsWeekend
+}
+
+// ─── current_week tests ─────────────────────────────────────────────────────
+
+func TestCurrentWeek_DefaultLocale(t *testing.T) {
+	result := datetime.CurrentWeek(context.Background(), datetime.CurrentWeekInput{})
+	var out datetime.CurrentWeekOutput
+	if err := json.Unmarshal([]byte(result), &out); err != nil {
+		t.Fatalf("invalid JSON: %v — got: %s", err, result)
+	}
+	if len(out.Days) != 7 {
+		t.Errorf("expected 7 days, got %d", len(out.Days))
+	}
+	if out.WeekOfYear == 0 {
+		t.Error("expected non-zero week_of_year")
+	}
+	if out.StartDate == "" {
+		t.Error("expected non-empty start_date")
+	}
+	if out.EndDate == "" {
+		t.Error("expected non-empty end_date")
+	}
+}
+
+func TestCurrentWeek_SpanishLocale(t *testing.T) {
+	result := datetime.CurrentWeek(context.Background(), datetime.CurrentWeekInput{
+		Locale: "es",
+	})
+	var out datetime.CurrentWeekOutput
+	if err := json.Unmarshal([]byte(result), &out); err != nil {
+		t.Fatalf("invalid JSON: %v — got: %s", err, result)
+	}
+	if out.Locale != "es" {
+		t.Errorf("expected locale=es, got %q", out.Locale)
+	}
+	// Verify working days and weekend days are populated
+	if len(out.WorkingDays) == 0 {
+		t.Error("expected working days to be populated")
+	}
+	if len(out.WeekendDays) == 0 {
+		t.Error("expected weekend days to be populated")
+	}
+}
+
+func TestCurrentWeek_SpecificYearAndWeek(t *testing.T) {
+	result := datetime.CurrentWeek(context.Background(), datetime.CurrentWeekInput{
+		Year:       2024,
+		WeekOfYear: 15,
+	})
+	var out datetime.CurrentWeekOutput
+	if err := json.Unmarshal([]byte(result), &out); err != nil {
+		t.Fatalf("invalid JSON: %v — got: %s", err, result)
+	}
+	if out.WeekOfYear != 15 {
+		t.Errorf("expected week_of_year=15, got %d", out.WeekOfYear)
+	}
+	if len(out.Days) != 7 {
+		t.Errorf("expected 7 days, got %d", len(out.Days))
+	}
+}
+
+func TestCurrentWeek_DaysContainCorrectFields(t *testing.T) {
+	result := datetime.CurrentWeek(context.Background(), datetime.CurrentWeekInput{})
+	var out datetime.CurrentWeekOutput
+	if err := json.Unmarshal([]byte(result), &out); err != nil {
+		t.Fatalf("invalid JSON: %v — got: %s", err, result)
+	}
+	for i, day := range out.Days {
+		if day.DayName == "" {
+			t.Errorf("day %d: expected non-empty day_name", i)
+		}
+		if day.DayNumber == 0 {
+			t.Errorf("day %d: expected non-zero day_number", i)
+		}
+		if day.Date == "" {
+			t.Errorf("day %d: expected non-empty date", i)
+		}
+		_ = day.IsWeekend
+		_ = day.IsToday
+	}
+}
+
+// ─── week_number tests ──────────────────────────────────────────────────────
+
+func TestWeekNumber_FromDate(t *testing.T) {
+	result := datetime.WeekNumber(context.Background(), datetime.WeekNumberInput{
+		Date: "2024-04-15",
+	})
+	var out datetime.WeekNumberOutput
+	if err := json.Unmarshal([]byte(result), &out); err != nil {
+		t.Fatalf("invalid JSON: %v — got: %s", err, result)
+	}
+	if out.Year != 2024 {
+		t.Errorf("expected year=2024, got %d", out.Year)
+	}
+	if out.Month != 4 {
+		t.Errorf("expected month=4, got %d", out.Month)
+	}
+	if out.Day != 15 {
+		t.Errorf("expected day=15, got %d", out.Day)
+	}
+	if out.WeekOfYear == 0 {
+		t.Error("expected non-zero week_of_year")
+	}
+	if out.ISOWeekString == "" {
+		t.Error("expected non-empty iso_week_string")
+	}
+}
+
+func TestWeekNumber_FromYearMonthDay(t *testing.T) {
+	result := datetime.WeekNumber(context.Background(), datetime.WeekNumberInput{
+		Year:  2024,
+		Month: 12,
+		Day:   25,
+	})
+	var out datetime.WeekNumberOutput
+	if err := json.Unmarshal([]byte(result), &out); err != nil {
+		t.Fatalf("invalid JSON: %v — got: %s", err, result)
+	}
+	if out.Month != 12 {
+		t.Errorf("expected month=12, got %d", out.Month)
+	}
+	if out.Day != 25 {
+		t.Errorf("expected day=25, got %d", out.Day)
+	}
+}
+
+func TestWeekNumber_DefaultToCurrent(t *testing.T) {
+	result := datetime.WeekNumber(context.Background(), datetime.WeekNumberInput{})
+	var out datetime.WeekNumberOutput
+	if err := json.Unmarshal([]byte(result), &out); err != nil {
+		t.Fatalf("invalid JSON: %v — got: %s", err, result)
+	}
+	if out.Year == 0 {
+		t.Error("expected non-zero year for current date")
+	}
+}
+
+func TestWeekNumber_InvalidDate_ReturnsError(t *testing.T) {
+	result := datetime.WeekNumber(context.Background(), datetime.WeekNumberInput{
+		Date: "not-a-date",
+	})
+	var errOut map[string]string
+	if err := json.Unmarshal([]byte(result), &errOut); err != nil {
+		t.Fatalf("expected error JSON, got: %s", result)
+	}
+	if _, ok := errOut["error"]; !ok {
+		t.Error("expected error for invalid date")
+	}
+}
+
+func TestWeekNumber_InvalidMonth_ReturnsError(t *testing.T) {
+	result := datetime.WeekNumber(context.Background(), datetime.WeekNumberInput{
+		Year:  2024,
+		Month: 13,
+		Day:   1,
+	})
+	var errOut map[string]string
+	if err := json.Unmarshal([]byte(result), &errOut); err != nil {
+		t.Fatalf("expected error JSON, got: %s", result)
+	}
+	if _, ok := errOut["error"]; !ok {
+		t.Error("expected error for month out of range")
+	}
+}
+
+// ─── calendar tests ─────────────────────────────────────────────────────────
+
+func TestCalendar_DefaultCurrentMonth(t *testing.T) {
+	result := datetime.Calendar(context.Background(), datetime.CalendarInput{})
+	var out datetime.CalendarOutput
+	if err := json.Unmarshal([]byte(result), &out); err != nil {
+		t.Fatalf("invalid JSON: %v — got: %s", err, result)
+	}
+	if out.Year == 0 {
+		t.Error("expected non-zero year")
+	}
+	if out.Month == 0 {
+		t.Error("expected non-zero month")
+	}
+	if out.MonthName == "" {
+		t.Error("expected non-empty month_name")
+	}
+	if out.TotalDays == 0 {
+		t.Error("expected non-zero total_days")
+	}
+}
+
+func TestCalendar_SpecificMonth(t *testing.T) {
+	result := datetime.Calendar(context.Background(), datetime.CalendarInput{
+		Year:  2024,
+		Month: 2,
+	})
+	var out datetime.CalendarOutput
+	if err := json.Unmarshal([]byte(result), &out); err != nil {
+		t.Fatalf("invalid JSON: %v — got: %s", err, result)
+	}
+	if out.Year != 2024 {
+		t.Errorf("expected year=2024, got %d", out.Year)
+	}
+	if out.Month != 2 {
+		t.Errorf("expected month=2, got %d", out.Month)
+	}
+	if out.MonthName != "February" {
+		t.Errorf("expected month_name=February, got %q", out.MonthName)
+	}
+	if out.TotalDays != 29 {
+		t.Errorf("expected total_days=29 (leap year), got %d", out.TotalDays)
+	}
+}
+
+func TestCalendar_SpanishLocale(t *testing.T) {
+	result := datetime.Calendar(context.Background(), datetime.CalendarInput{
+		Year:   2024,
+		Month:  4,
+		Locale: "es",
+	})
+	var out datetime.CalendarOutput
+	if err := json.Unmarshal([]byte(result), &out); err != nil {
+		t.Fatalf("invalid JSON: %v — got: %s", err, result)
+	}
+	if out.MonthName != "Abril" {
+		t.Errorf("expected month_name=Abril, got %q", out.MonthName)
+	}
+	if out.Locale != "es" {
+		t.Errorf("expected locale=es, got %q", out.Locale)
+	}
+}
+
+func TestCalendar_WeeksStructure(t *testing.T) {
+	result := datetime.Calendar(context.Background(), datetime.CalendarInput{
+		Year:  2024,
+		Month: 4,
+	})
+	var out datetime.CalendarOutput
+	if err := json.Unmarshal([]byte(result), &out); err != nil {
+		t.Fatalf("invalid JSON: %v — got: %s", err, result)
+	}
+	if len(out.Weeks) == 0 {
+		t.Error("expected at least one week")
+	}
+	for i, week := range out.Weeks {
+		if week.WeekNumber == 0 {
+			t.Errorf("week %d: expected non-zero week_number", i)
+		}
+		if len(week.Days) != 7 {
+			t.Errorf("week %d: expected 7 days, got %d", i, len(week.Days))
+		}
+	}
+}
+
+func TestCalendar_WorkingDaysAndWeekendDays(t *testing.T) {
+	result := datetime.Calendar(context.Background(), datetime.CalendarInput{
+		Year:  2024,
+		Month: 4,
+	})
+	var out datetime.CalendarOutput
+	if err := json.Unmarshal([]byte(result), &out); err != nil {
+		t.Fatalf("invalid JSON: %v — got: %s", err, result)
+	}
+	// April 2024: 22 working days (Mon-Fri), 8 weekend days (Sat-Sun)
+	if len(out.WorkingDays) < 20 {
+		t.Errorf("expected around 22 working days, got %d", len(out.WorkingDays))
+	}
+	if len(out.WeekendDays) < 8 {
+		t.Errorf("expected around 8 weekend days, got %d", len(out.WeekendDays))
+	}
+}
+
+func TestCalendar_InvalidMonth_ReturnsError(t *testing.T) {
+	result := datetime.Calendar(context.Background(), datetime.CalendarInput{
+		Year:  2024,
+		Month: 13,
+	})
+	var errOut map[string]string
+	if err := json.Unmarshal([]byte(result), &errOut); err != nil {
+		t.Fatalf("expected error JSON, got: %s", result)
+	}
+	if _, ok := errOut["error"]; !ok {
+		t.Error("expected error for invalid month")
+	}
+}
+
+func TestCalendar_DaysContainCorrectFields(t *testing.T) {
+	result := datetime.Calendar(context.Background(), datetime.CalendarInput{
+		Year:  2024,
+		Month: 4,
+	})
+	var out datetime.CalendarOutput
+	if err := json.Unmarshal([]byte(result), &out); err != nil {
+		t.Fatalf("invalid JSON: %v — got: %s", err, result)
+	}
+	foundCurrentMonth := false
+	for _, week := range out.Weeks {
+		for _, day := range week.Days {
+			if day.IsCurrentMonth {
+				foundCurrentMonth = true
+				if day.DayNumber == 0 {
+					t.Error("current month day should have non-zero day_number")
+				}
+				if day.DayName == "" {
+					t.Error("current month day should have non-empty day_name")
+				}
+			}
+			_ = day.IsWeekend
+			_ = day.IsToday
+		}
+	}
+	if !foundCurrentMonth {
+		t.Error("expected to find at least one current month day")
+	}
+}

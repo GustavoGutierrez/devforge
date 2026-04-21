@@ -45,8 +45,8 @@ func registerCryptoUtilTools(s *mcpserver.MCPServer, _ *mcpApp) {
 		return mcp.NewToolResultText(cryptoutil.HMAC(ctx, in)), nil
 	})
 
-	// ── crypto_jwt ───────────────────────────────────────────────
-	s.AddTool(mcp.NewTool("crypto_jwt",
+	// ── jwt ──────────────────────────────────────────────────────
+	s.AddTool(mcp.NewTool("jwt",
 		mcp.WithDescription("Generate, decode, or verify JWT tokens using HS256 or HS512."),
 		mcp.WithString("operation", mcp.Required(), mcp.Description("Operation: decode | verify | generate")),
 		mcp.WithString("token", mcp.Description("JWT token string (required for decode/verify)")),
@@ -154,5 +154,24 @@ func registerCryptoUtilTools(s *mcpserver.MCPServer, _ *mcpApp) {
 			json.Unmarshal(data, &in.Patterns)
 		}
 		return mcp.NewToolResultText(cryptoutil.Mask(ctx, in)), nil
+	})
+
+	// ── password_generate ────────────────────────────────────────
+	s.AddTool(mcp.NewTool("password_generate",
+		mcp.WithDescription("Generate strong, secure, and random passwords. Configure length (1-50) and character sets: uppercase (A-Z), lowercase (a-z), numbers (0-9), symbols (!@#$%^&*). Returns password with entropy bits."),
+		mcp.WithNumber("length", mcp.Required(), mcp.Description("Password length (1-50, default 16)")),
+		mcp.WithBoolean("include_uppercase", mcp.Description("Include uppercase letters A-Z (default true)")),
+		mcp.WithBoolean("include_lowercase", mcp.Description("Include lowercase letters a-z (default true)")),
+		mcp.WithBoolean("include_numbers", mcp.Description("Include numbers 0-9 (default true)")),
+		mcp.WithBoolean("include_symbols", mcp.Description("Include symbols !@#$%^&* (default true)")),
+	), func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		in := cryptoutil.PasswordGenerateInput{
+			Length:           mcp.ParseInt(req, "length", 16),
+			IncludeUppercase: mcp.ParseBoolean(req, "include_uppercase", true),
+			IncludeLowercase: mcp.ParseBoolean(req, "include_lowercase", true),
+			IncludeNumbers:   mcp.ParseBoolean(req, "include_numbers", true),
+			IncludeSymbols:   mcp.ParseBoolean(req, "include_symbols", true),
+		}
+		return mcp.NewToolResultText(cryptoutil.PasswordGenerate(ctx, in)), nil
 	})
 }

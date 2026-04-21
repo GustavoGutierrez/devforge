@@ -133,4 +133,17 @@ func registerTextEncTools(s *mcpserver.MCPServer, _ *mcpApp) {
 			})), nil
 		},
 	)
+
+	// ── text_stats ───────────────────────────────────────────────────────────
+	s.AddTool(
+		mcp.NewTool("text_stats",
+			mcp.WithDescription("Count words, characters, sentences, and paragraphs in text. Returns word count, character count (with and without spaces), sentence count, paragraph count, unique words, most frequent word, and average word length."),
+			mcp.WithString("text", mcp.Required(), mcp.Description("Input text to analyze")),
+		),
+		func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+			return mcp.NewToolResultText(textenc.TextStats(ctx, textenc.TextStatsInput{
+				Text: mcp.ParseString(req, "text", ""),
+			})), nil
+		},
+	)
 }

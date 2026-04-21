@@ -597,3 +597,104 @@ func TestNormalize_MultipleOps(t *testing.T) {
 		t.Errorf("unexpected result %q, want something containing %q", val, want)
 	}
 }
+
+// ─── text_stats tests ─────────────────────────────────────────────────────────
+
+func TestTextStats_Basic(t *testing.T) {
+	ctx := context.Background()
+	input := "This is a simple example text to test the word counter tool."
+	result := textenc.TextStats(ctx, textenc.TextStatsInput{Text: input})
+	var out textenc.TextStatsOutput
+	if err := json.Unmarshal([]byte(result), &out); err != nil {
+		t.Fatalf("invalid JSON: %v — got: %s", err, result)
+	}
+	if out.WordCount != 12 {
+		t.Errorf("expected word_count=12, got %d", out.WordCount)
+	}
+	if out.CharacterCount != 60 {
+		t.Errorf("expected character_count=60, got %d", out.CharacterCount)
+	}
+	if out.CharacterCountNoSpaces != 49 {
+		t.Errorf("expected character_count_no_spaces=49, got %d", out.CharacterCountNoSpaces)
+	}
+	if out.SentenceCount != 1 {
+		t.Errorf("expected sentence_count=1, got %d", out.SentenceCount)
+	}
+	if out.UniqueWords != 12 {
+		t.Errorf("expected unique_words=12, got %d", out.UniqueWords)
+	}
+	if out.Text != input {
+		t.Errorf("expected text=%q, got %q", input, out.Text)
+	}
+}
+
+func TestTextStats_MultipleSentences(t *testing.T) {
+	ctx := context.Background()
+	input := "Hello world! How are you today? I am fine."
+	result := textenc.TextStats(ctx, textenc.TextStatsInput{Text: input})
+	var out textenc.TextStatsOutput
+	if err := json.Unmarshal([]byte(result), &out); err != nil {
+		t.Fatalf("invalid JSON: %v — got: %s", err, result)
+	}
+	if out.SentenceCount != 3 {
+		t.Errorf("expected sentence_count=3, got %d", out.SentenceCount)
+	}
+	if out.WordCount != 9 {
+		t.Errorf("expected word_count=9, got %d", out.WordCount)
+	}
+}
+
+func TestTextStats_RepeatedWords(t *testing.T) {
+	ctx := context.Background()
+	input := "the cat sat on the mat the cat was fat"
+	result := textenc.TextStats(ctx, textenc.TextStatsInput{Text: input})
+	var out textenc.TextStatsOutput
+	if err := json.Unmarshal([]byte(result), &out); err != nil {
+		t.Fatalf("invalid JSON: %v — got: %s", err, result)
+	}
+	if out.UniqueWords != 7 {
+		t.Errorf("expected unique_words=7, got %d", out.UniqueWords)
+	}
+	if out.MostFrequentWord != "the" {
+		t.Errorf("expected most_frequent_word='the', got %q", out.MostFrequentWord)
+	}
+}
+
+func TestTextStats_MultipleParagraphs(t *testing.T) {
+	ctx := context.Background()
+	input := "First paragraph.\n\nSecond paragraph.\n\nThird paragraph."
+	result := textenc.TextStats(ctx, textenc.TextStatsInput{Text: input})
+	var out textenc.TextStatsOutput
+	if err := json.Unmarshal([]byte(result), &out); err != nil {
+		t.Fatalf("invalid JSON: %v — got: %s", err, result)
+	}
+	if out.ParagraphCount != 3 {
+		t.Errorf("expected paragraph_count=3, got %d", out.ParagraphCount)
+	}
+}
+
+func TestTextStats_AverageWordLength(t *testing.T) {
+	ctx := context.Background()
+	input := "a bb ccc dddd"
+	result := textenc.TextStats(ctx, textenc.TextStatsInput{Text: input})
+	var out textenc.TextStatsOutput
+	if err := json.Unmarshal([]byte(result), &out); err != nil {
+		t.Fatalf("invalid JSON: %v — got: %s", err, result)
+	}
+	// (1 + 2 + 3 + 4) / 4 = 2.5
+	if out.AverageWordLength != 2.5 {
+		t.Errorf("expected average_word_length=2.5, got %f", out.AverageWordLength)
+	}
+}
+
+func TestTextStats_EmptyText_ReturnsError(t *testing.T) {
+	ctx := context.Background()
+	result := textenc.TextStats(ctx, textenc.TextStatsInput{Text: ""})
+	var errOut map[string]string
+	if err := json.Unmarshal([]byte(result), &errOut); err != nil {
+		t.Fatalf("expected error JSON, got: %s", result)
+	}
+	if _, ok := errOut["error"]; !ok {
+		t.Error("expected error key in response")
+	}
+}

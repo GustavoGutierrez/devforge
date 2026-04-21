@@ -42,7 +42,7 @@ func assertResultString(t *testing.T, result string) string {
 	return s
 }
 
-// ─── data_json_format ─────────────────────────────────────────────────────────
+// ─── json_format ─────────────────────────────────────────────────────────────
 
 func TestFormatJSON(t *testing.T) {
 	ctx := context.Background()
@@ -670,4 +670,260 @@ func TestDiff(t *testing.T) {
 			tc.checkFn(t, result)
 		})
 	}
+}
+
+// ─── fake_data (JSON Schema Faker) ───────────────────────────────────────────
+
+func TestFakeData_SimpleObject(t *testing.T) {
+	ctx := context.Background()
+	schema := `{
+		"type": "object",
+		"properties": {
+			"name": { "type": "string" },
+			"email": { "type": "string", "format": "email" },
+			"age": { "type": "integer", "minimum": 18, "maximum": 80 }
+		},
+		"required": ["name", "email"]
+	}`
+
+	result := datafmt.FakeData(ctx, datafmt.FakeDataInput{Schema: schema})
+	var out datafmt.FakeDataOutput
+	if err := json.Unmarshal([]byte(result), &out); err != nil {
+		t.Fatalf("invalid JSON: %v — got: %s", err, result)
+	}
+
+	if out.Count != 1 {
+		t.Errorf("expected count=1, got %d", out.Count)
+	}
+
+	data, ok := out.Data.(map[string]any)
+	if !ok {
+		t.Fatalf("expected object data, got: %T", out.Data)
+	}
+	if data["name"] == nil || data["name"] == "" {
+		t.Error("expected non-empty name")
+	}
+	if data["email"] == nil || data["email"] == "" {
+		t.Error("expected non-empty email")
+	}
+}
+
+func TestFakeData_CountGreaterThanOne(t *testing.T) {
+	ctx := context.Background()
+	schema := `{"type": "string"}`
+
+	result := datafmt.FakeData(ctx, datafmt.FakeDataInput{Schema: schema, Count: 5})
+	var out datafmt.FakeDataOutput
+	if err := json.Unmarshal([]byte(result), &out); err != nil {
+		t.Fatalf("invalid JSON: %v — got: %s", err, result)
+	}
+
+	if out.Count != 5 {
+		t.Errorf("expected count=5, got %d", out.Count)
+	}
+
+	data, ok := out.Data.([]any)
+	if !ok {
+		t.Fatalf("expected array data, got: %T", out.Data)
+	}
+	if len(data) != 5 {
+		t.Errorf("expected 5 items, got %d", len(data))
+	}
+}
+
+func TestFakeData_ArraySchema(t *testing.T) {
+	ctx := context.Background()
+	schema := `{
+		"type": "array",
+		"items": {
+			"type": "object",
+			"properties": {
+				"id": { "type": "integer" },
+				"name": { "type": "string" }
+			}
+		},
+		"minItems": 2,
+		"maxItems": 4
+	}`
+
+	result := datafmt.FakeData(ctx, datafmt.FakeDataInput{Schema: schema})
+	var out datafmt.FakeDataOutput
+	if err := json.Unmarshal([]byte(result), &out); err != nil {
+		t.Fatalf("invalid JSON: %v — got: %s", err, result)
+	}
+
+	data, ok := out.Data.([]any)
+	if !ok {
+		t.Fatalf("expected array data, got: %T", out.Data)
+	}
+	if len(data) < 2 || len(data) > 4 {
+		t.Errorf("expected 2-4 items, got %d", len(data))
+	}
+}
+
+func TestFakeData_EnumSchema(t *testing.T) {
+	ctx := context.Background()
+	schema := `{
+		"type": "object",
+		"properties": {
+			"status": { "type": "string", "enum": ["active", "inactive", "pending"] },
+			"role": { "type": "string", "enum": ["admin", "user", "guest"] }
+		}
+	}`
+
+	result := datafmt.FakeData(ctx, datafmt.FakeDataInput{Schema: schema})
+	var out datafmt.FakeDataOutput
+	if err := json.Unmarshal([]byte(result), &out); err != nil {
+		t.Fatalf("invalid JSON: %v — got: %s", err, result)
+	}
+
+	data, ok := out.Data.(map[string]any)
+	if !ok {
+		t.Fatalf("expected object data, got: %T", out.Data)
+	}
+
+	validStatuses := map[string]bool{"active": true, "inactive": true, "pending": true}
+	validRoles := map[string]bool{"admin": true, "user": true, "guest": true}
+
+	if !validStatuses[data["status"].(string)] {
+		t.Errorf("invalid status value: %v", data["status"])
+	}
+	if !validRoles[data["role"].(string)] {
+		t.Errorf("invalid role value: %v", data["role"])
+	}
+}
+
+func TestFakeData_EmptySchema_ReturnsError(t *testing.T) {
+	ctx := context.Background()
+	result := datafmt.FakeData(ctx, datafmt.FakeDataInput{Schema: ""})
+	var errOut map[string]string
+	if err := json.Unmarshal([]byte(result), &errOut); err != nil {
+		t.Fatalf("expected error JSON, got: %s", result)
+	}
+	if _, ok := errOut["error"]; !ok {
+		t.Error("expected error for empty schema")
+	}
+}
+
+func TestFakeData_InvalidSchema_ReturnsError(t *testing.T) {
+	ctx := context.Background()
+	result := datafmt.FakeData(ctx, datafmt.FakeDataInput{Schema: `{bad schema}`})
+	var errOut map[string]string
+	if err := json.Unmarshal([]byte(result), &errOut); err != nil {
+		t.Fatalf("expected error JSON, got: %s", result)
+	}
+	if _, ok := errOut["error"]; !ok {
+		t.Error("expected error for invalid schema")
+	}
+}
+
+func TestFakeData_CountZeroOrNegative_UsesOne(t *testing.T) {
+	ctx := context.Background()
+	schema := `{"type": "string"}`
+
+	result := datafmt.FakeData(ctx, datafmt.FakeDataInput{Schema: schema, Count: 0})
+	var out datafmt.FakeDataOutput
+	if err := json.Unmarshal([]byte(result), &out); err != nil {
+		t.Fatalf("invalid JSON: %v — got: %s", err, result)
+	}
+	if out.Count != 1 {
+		t.Errorf("expected count=1 for zero input, got %d", out.Count)
+	}
+}
+
+func TestFakeData_CountExceedsLimit_ReturnsError(t *testing.T) {
+	ctx := context.Background()
+	schema := `{"type": "string"}`
+	result := datafmt.FakeData(ctx, datafmt.FakeDataInput{Schema: schema, Count: 101})
+	var errOut map[string]string
+	if err := json.Unmarshal([]byte(result), &errOut); err != nil {
+		t.Fatalf("expected error JSON, got: %s", result)
+	}
+	if _, ok := errOut["error"]; !ok {
+		t.Error("expected error for count > 100")
+	}
+}
+
+func TestFakeData_AutoFormatsRealNames(t *testing.T) {
+	ctx := context.Background()
+	schema := `{
+		"type": "object",
+		"properties": {
+			"name": { "type": "string" },
+			"email": { "type": "string" },
+			"first_name": { "type": "string" },
+			"last_name": { "type": "string" },
+			"phone": { "type": "string" },
+			"city": { "type": "string" },
+			"age": { "type": "integer" }
+		}
+	}`
+
+	result := datafmt.FakeData(ctx, datafmt.FakeDataInput{Schema: schema})
+	var out datafmt.FakeDataOutput
+	if err := json.Unmarshal([]byte(result), &out); err != nil {
+		t.Fatalf("invalid JSON: %v — got: %s", err, result)
+	}
+
+	data, ok := out.Data.(map[string]any)
+	if !ok {
+		t.Fatalf("expected object data, got: %T", out.Data)
+	}
+
+	if data["name"] == nil || data["name"] == "" {
+		t.Error("expected non-empty name")
+	}
+	if data["email"] == nil || data["email"] == "" {
+		t.Error("expected non-empty email")
+	}
+	if data["first_name"] == nil || data["first_name"] == "" {
+		t.Error("expected non-empty first_name")
+	}
+	if data["last_name"] == nil || data["last_name"] == "" {
+		t.Error("expected non-empty last_name")
+	}
+
+	t.Logf("Generated: name=%v, email=%v, first_name=%v, last_name=%v, phone=%v, city=%v",
+		data["name"], data["email"], data["first_name"], data["last_name"], data["phone"], data["city"])
+}
+
+func TestFakeData_NestedObjectAutoFormats(t *testing.T) {
+	ctx := context.Background()
+	schema := `{
+		"type": "object",
+		"properties": {
+			"user": {
+				"type": "object",
+				"properties": {
+					"name": { "type": "string" },
+					"email": { "type": "string" }
+				}
+			}
+		}
+	}`
+
+	result := datafmt.FakeData(ctx, datafmt.FakeDataInput{Schema: schema})
+	var out datafmt.FakeDataOutput
+	if err := json.Unmarshal([]byte(result), &out); err != nil {
+		t.Fatalf("invalid JSON: %v — got: %s", err, result)
+	}
+
+	data, ok := out.Data.(map[string]any)
+	if !ok {
+		t.Fatalf("expected object data, got: %T", out.Data)
+	}
+
+	user, ok := data["user"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected nested user object, got: %T", data["user"])
+	}
+
+	if user["name"] == nil || user["name"] == "" {
+		t.Error("expected non-empty nested name")
+	}
+	if user["email"] == nil || user["email"] == "" {
+		t.Error("expected non-empty nested email")
+	}
+
+	t.Logf("Generated nested: user.name=%v, user.email=%v", user["name"], user["email"])
 }

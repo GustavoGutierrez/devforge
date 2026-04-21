@@ -13,8 +13,8 @@ import (
 
 // registerBackendTools registers all backend utility tools with the MCP server.
 func registerBackendTools(s *mcpserver.MCPServer, _ *mcpApp) {
-	// ── backend_sql_format ────────────────────────────────────────
-	s.AddTool(mcp.NewTool("backend_sql_format",
+	// ── sql_format ───────────────────────────────────────────────
+	s.AddTool(mcp.NewTool("sql_format",
 		mcp.WithDescription("Format and lint a SQL statement with configurable indentation, keyword casing, and dialect-aware warnings."),
 		mcp.WithString("sql", mcp.Required(), mcp.Description("SQL statement to format")),
 		mcp.WithString("dialect", mcp.Description("SQL dialect: postgresql | mysql | sqlite | generic (default: generic)")),

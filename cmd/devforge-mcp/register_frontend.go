@@ -188,8 +188,8 @@ func registerFrontendTools(s *mcpserver.MCPServer, _ *mcpApp) {
 		return mcp.NewToolResultText(frontend.Breakpoint(ctx, in)), nil
 	})
 
-	// ── frontend_regex ──────────────────────────────────────────
-	s.AddTool(mcp.NewTool("frontend_regex",
+	// ── regex_test ─────────────────────────────────────────────
+	s.AddTool(mcp.NewTool("regex_test",
 		mcp.WithDescription("Test, match, or replace using a regular expression. Flags: 'i' for case-insensitive, 'm' for multiline, 'g' for global (all matches). Operations: 'test' returns {matches, count}; 'match' returns array of {full, groups, index}; 'replace' returns {result, count}."),
 		mcp.WithString("pattern", mcp.Required(), mcp.Description("Regular expression pattern (without delimiters)")),
 		mcp.WithString("input", mcp.Required(), mcp.Description("Input string to test against")),

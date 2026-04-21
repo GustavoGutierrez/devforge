@@ -1,5 +1,5 @@
 // Package backend implements MCP tools for backend development utilities.
-// Tools: backend_sql_format, backend_conn_string, backend_log_parse,
+// Tools: sql_format, backend_conn_string, backend_log_parse,
 // backend_env_inspect, backend_mq_payload.
 package backend
 
@@ -33,9 +33,9 @@ func resultJSON(v any) string {
 	return string(b)
 }
 
-// ─── backend_sql_format ──────────────────────────────────────────────────────
+// ─── sql_format ─────────────────────────────────────────────────────────────
 
-// SQLFormatInput is the input schema for the backend_sql_format tool.
+// SQLFormatInput is the input schema for the sql_format tool.
 type SQLFormatInput struct {
 	SQL              string `json:"sql"`
 	Dialect          string `json:"dialect"`            // postgresql | mysql | sqlite | generic
@@ -43,7 +43,7 @@ type SQLFormatInput struct {
 	UppercaseKeyword bool   `json:"uppercase_keywords"` // default true
 }
 
-// SQLFormatOutput is the output for the backend_sql_format tool.
+// SQLFormatOutput is the output for the sql_format tool.
 type SQLFormatOutput struct {
 	Result   string   `json:"result"`
 	Warnings []string `json:"warnings"`

@@ -1,5 +1,5 @@
 // Package datetime implements MCP tools for date and time operations.
-// Tools: time_convert, time_diff, time_cron, time_date_range.
+// Tools: time_convert, time_diff, time_cron, time_date_range, current_date, current_week, week_number, calendar.
 package datetime
 
 import (
@@ -739,4 +739,557 @@ func formatDate(t time.Time, format string) (string, error) {
 		return t.Format("Jan 2, 2006"), nil
 	}
 	return "", fmt.Errorf("unsupported format %q (valid: iso8601, unix, human)", format)
+}
+
+// ─── current_date ─────────────────────────────────────────────────────────
+
+// CurrentDateInput is the input schema for the current_date tool.
+type CurrentDateInput struct {
+	Locale string `json:"locale"`
+}
+
+// CurrentDateOutput is the output schema for the current_date tool.
+type CurrentDateOutput struct {
+	Date              string `json:"date"`
+	DayOfWeek         string `json:"day_of_week"`
+	DayOfWeekShort    string `json:"day_of_week_short"`
+	DayNumber         int    `json:"day_number"`
+	Month             string `json:"month"`
+	MonthShort        string `json:"month_short"`
+	Year              int    `json:"year"`
+	WeekOfYear        int    `json:"week_of_year"`
+	WeekOfMonth       int    `json:"week_of_month"`
+	IsWeekend         bool   `json:"is_weekend"`
+	ISO8601           string `json:"iso8601"`
+	UnixTimestamp     int64  `json:"unix_timestamp"`
+}
+
+// dayNamesEN are English weekday names (Sunday=0).
+var dayNamesEN = []string{"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"}
+
+// dayNamesES are Spanish weekday names (Sunday=0).
+var dayNamesES = []string{"Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"}
+
+// dayNamesESShort are Spanish abbreviated weekday names.
+var dayNamesESShort = []string{"Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"}
+
+// monthNamesEN are English month names (January=1).
+var monthNamesEN = []string{"", "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"}
+
+// monthNamesES are Spanish month names.
+var monthNamesES = []string{"", "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"}
+
+// monthNamesESShort are Spanish abbreviated month names.
+var monthNamesESShort = []string{"", "Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"}
+
+// getDayNames returns day names based on locale.
+func getDayNames(locale string) []string {
+	if strings.ToLower(locale) == "es" {
+		return dayNamesES
+	}
+	return dayNamesEN
+}
+
+// getDayNamesShort returns short day names based on locale.
+func getDayNamesShort(locale string) []string {
+	if strings.ToLower(locale) == "es" {
+		return dayNamesESShort
+	}
+	return []string{"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"}
+}
+
+// getMonthNames returns month names based on locale.
+func getMonthNames(locale string) []string {
+	if strings.ToLower(locale) == "es" {
+		return monthNamesES
+	}
+	return monthNamesEN
+}
+
+// getMonthNamesShort returns short month names based on locale.
+func getMonthNamesShort(locale string) []string {
+	if strings.ToLower(locale) == "es" {
+		return monthNamesESShort
+	}
+	return []string{"", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"}
+}
+
+// weekOfYear returns the ISO week number (1-53) for a given date.
+func weekOfYear(t time.Time) int {
+	_, week := t.ISOWeek()
+	return week
+}
+
+// weekOfMonth returns the week number within the month (1-5) for a given date.
+func weekOfMonth(t time.Time) int {
+	firstDay := time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, t.Location())
+	firstWeekday := int(firstDay.Weekday())
+	dayOfMonth := t.Day()
+
+	if firstWeekday == 0 {
+		firstWeekday = 7
+	}
+	weekNum := (dayOfMonth + firstWeekday - 2) / 7
+	return weekNum + 1
+}
+
+// CurrentDate implements the current_date MCP tool.
+// Returns the current date with full details in a human-readable format.
+func CurrentDate(_ context.Context, input CurrentDateInput) string {
+	locale := strings.ToLower(strings.TrimSpace(input.Locale))
+	if locale == "" {
+		locale = "en"
+	}
+
+	now := time.Now()
+	dayIndex := int(now.Weekday())
+	dayNames := getDayNames(locale)
+	dayNamesShort := getDayNamesShort(locale)
+	monthNames := getMonthNames(locale)
+	monthNamesShort := getMonthNamesShort(locale)
+
+	dayName := dayNames[dayIndex]
+	dayNameShort := dayNamesShort[dayIndex]
+	monthName := monthNames[now.Month()]
+	monthNameShort := monthNamesShort[now.Month()]
+	isWeekend := dayIndex == 0 || dayIndex == 6
+
+	weekdayFormatted := dayName
+	if locale == "es" {
+		weekdayFormatted = dayName + " " + strconv.Itoa(now.Day()) + " de " + monthName + " de " + strconv.Itoa(now.Year())
+	} else {
+		weekdayFormatted = dayName + ", " + monthName + " " + strconv.Itoa(now.Day()) + ", " + strconv.Itoa(now.Year())
+	}
+
+	return resultJSON(CurrentDateOutput{
+		Date:          weekdayFormatted,
+		DayOfWeek:     dayName,
+		DayOfWeekShort: dayNameShort,
+		DayNumber:     now.Day(),
+		Month:         monthName,
+		MonthShort:    monthNameShort,
+		Year:          now.Year(),
+		WeekOfYear:    weekOfYear(now),
+		WeekOfMonth:   weekOfMonth(now),
+		IsWeekend:     isWeekend,
+		ISO8601:       now.Format("2006-01-02"),
+		UnixTimestamp: now.Unix(),
+	})
+}
+
+// ─── current_week ─────────────────────────────────────────────────────────
+
+// CurrentWeekInput is the input schema for the current_week tool.
+type CurrentWeekInput struct {
+	Locale    string `json:"locale"`
+	Year      int    `json:"year"`
+	WeekOfYear int   `json:"week_of_year"`
+}
+
+// CurrentWeekDay represents a single day in the week output.
+type CurrentWeekDay struct {
+	Date         string `json:"date"`
+	DayName      string `json:"day_name"`
+	DayNameShort string `json:"day_name_short"`
+	DayNumber    int    `json:"day_number"`
+	Month        string `json:"month"`
+	MonthShort   string `json:"month_short"`
+	Year         int    `json:"year"`
+	IsWeekend   bool   `json:"is_weekend"`
+	IsToday     bool   `json:"is_today"`
+}
+
+// CurrentWeekOutput is the output schema for the current_week tool.
+type CurrentWeekOutput struct {
+	WeekNumber    int            `json:"week_number"`
+	WeekOfYear    int            `json:"week_of_year"`
+	StartDate     string         `json:"start_date"`
+	EndDate       string         `json:"end_date"`
+	Locale        string         `json:"locale"`
+	Days          []CurrentWeekDay `json:"days"`
+	WorkingDays   []string       `json:"working_days"`
+	WeekendDays   []string       `json:"weekend_days"`
+}
+
+// CurrentWeek implements the current_week MCP tool.
+// Returns the days of the current week (or specified week) with working days highlighted.
+func CurrentWeek(_ context.Context, input CurrentWeekInput) string {
+	locale := strings.ToLower(strings.TrimSpace(input.Locale))
+	if locale == "" {
+		locale = "en"
+	}
+
+	now := time.Now()
+	year := input.Year
+	weekOfYearParam := input.WeekOfYear
+
+	if year == 0 {
+		year = now.Year()
+	}
+	if weekOfYearParam == 0 {
+		_, weekOfYearParam = now.ISOWeek()
+	}
+
+	startOfWeek := getWeekStartDate(year, weekOfYearParam, locale)
+	endOfWeek := startOfWeek.AddDate(0, 0, 6)
+
+	dayNames := getDayNames(locale)
+	dayNamesShort := getDayNamesShort(locale)
+	monthNames := getMonthNames(locale)
+	monthNamesShort := getMonthNamesShort(locale)
+
+	days := make([]CurrentWeekDay, 7)
+	workingDays := make([]string, 0, 5)
+	weekendDays := make([]string, 0, 2)
+
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
+	weekdayFormatted := ""
+
+	for i := 0; i < 7; i++ {
+		currentDay := startOfWeek.AddDate(0, 0, i)
+		dayIndex := int(currentDay.Weekday())
+		isWeekend := dayIndex == 0 || dayIndex == 6
+		isToday := currentDay.Equal(today)
+
+		dayName := dayNames[dayIndex]
+		dayNameShort := dayNamesShort[dayIndex]
+		monthName := monthNames[currentDay.Month()]
+		monthNameShort := monthNamesShort[currentDay.Month()]
+
+		dayDateStr := dayName + " " + strconv.Itoa(currentDay.Day()) + " " + monthNameShort
+		if locale == "es" {
+			dayDateStr = dayName + " " + strconv.Itoa(currentDay.Day()) + " " + monthNameShort
+		}
+
+		if isToday {
+			weekdayFormatted = dayName + " " + strconv.Itoa(currentDay.Day()) + " de " + monthName + " de " + strconv.Itoa(currentDay.Year())
+			if locale == "en" {
+				weekdayFormatted = dayName + ", " + monthName + " " + strconv.Itoa(currentDay.Day()) + ", " + strconv.Itoa(currentDay.Year())
+			}
+		}
+
+		days[i] = CurrentWeekDay{
+			Date:         currentDay.Format("2006-01-02"),
+			DayName:      dayName,
+			DayNameShort: dayNameShort,
+			DayNumber:    currentDay.Day(),
+			Month:        monthName,
+			MonthShort:   monthNameShort,
+			Year:         currentDay.Year(),
+			IsWeekend:   isWeekend,
+			IsToday:     isToday,
+		}
+
+		if isWeekend {
+			weekendDays = append(weekendDays, dayDateStr)
+		} else {
+			workingDays = append(workingDays, dayDateStr)
+		}
+	}
+
+	result := CurrentWeekOutput{
+		WeekNumber:   weekOfMonth(startOfWeek.AddDate(0, 0, 3)),
+		WeekOfYear:   weekOfYearParam,
+		StartDate:    startOfWeek.Format("2006-01-02"),
+		EndDate:      endOfWeek.Format("2006-01-02"),
+		Locale:       locale,
+		Days:         days,
+		WorkingDays:  workingDays,
+		WeekendDays:  weekendDays,
+	}
+
+	if locale == "es" {
+		result.WeekNumber = weekOfMonth(startOfWeek.AddDate(0, 0, 3))
+	}
+
+	_ = weekdayFormatted
+
+	return resultJSON(result)
+}
+
+// getWeekStartDate returns the first day (Monday) of the given ISO week.
+func getWeekStartDate(year, week int, locale string) time.Time {
+	thursday := time.Date(year, 1, 1, 0, 0, 0, 0, time.UTC)
+	isoWeek := week
+
+	isoWeekMonday := thursday.AddDate(0, 0, (isoWeek-1)*7)
+	daysFromThursday := (int(isoWeekMonday.Weekday()) - 4) % 7
+	if daysFromThursday < 0 {
+		daysFromThursday += 7
+	}
+	weekStart := isoWeekMonday.AddDate(0, 0, -daysFromThursday)
+
+	if locale == "es" {
+		weekStart = thursday.AddDate(0, 0, (isoWeek-1)*7)
+		daysFromThursday = (int(weekStart.Weekday()) - 1) % 7
+		if daysFromThursday < 0 {
+			daysFromThursday += 7
+		}
+		weekStart = weekStart.AddDate(0, 0, -daysFromThursday)
+	}
+
+	return weekStart
+}
+
+// ─── week_number ──────────────────────────────────────────────────────────
+
+// WeekNumberInput is the input schema for the week_number tool.
+type WeekNumberInput struct {
+	Date   string `json:"date"`
+	Year   int    `json:"year"`
+	Month  int    `json:"month"`
+	Day    int    `json:"day"`
+	Scope  string `json:"scope"`
+}
+
+// WeekNumberOutput is the output schema for the week_number tool.
+type WeekNumberOutput struct {
+	WeekOfYear     int    `json:"week_of_year"`
+	WeekOfMonth    int    `json:"week_of_month"`
+	Year           int    `json:"year"`
+	Month          int    `json:"month"`
+	Day            int    `json:"day"`
+	Scope          string `json:"scope"`
+	ISOWeekString  string `json:"iso_week_string"`
+}
+
+// WeekNumber implements the week_number MCP tool.
+// Returns the week number for a given date or the current date.
+func WeekNumber(_ context.Context, input WeekNumberInput) string {
+	scope := strings.ToLower(strings.TrimSpace(input.Scope))
+	if scope == "" {
+		scope = "year"
+	}
+
+	var t time.Time
+	var err error
+
+	if strings.TrimSpace(input.Date) != "" {
+		t, _, err = parseTimestamp(input.Date, "auto", time.UTC)
+		if err != nil {
+			return errResult("could not parse date: " + err.Error())
+		}
+	} else if input.Year != 0 && input.Month != 0 && input.Day != 0 {
+		if input.Month < 1 || input.Month > 12 {
+			return errResult("month must be between 1 and 12")
+		}
+		if input.Day < 1 || input.Day > 31 {
+			return errResult("day must be between 1 and 31")
+		}
+		t = time.Date(input.Year, time.Month(input.Month), input.Day, 0, 0, 0, 0, time.UTC)
+	} else {
+		t = time.Now()
+	}
+
+	year, week := t.ISOWeek()
+	weekNumOfMonth := weekOfMonth(t)
+
+	isoWeekString := fmt.Sprintf("%d-W%02d", year, week)
+
+	return resultJSON(WeekNumberOutput{
+		WeekOfYear:    week,
+		WeekOfMonth:   weekNumOfMonth,
+		Year:          t.Year(),
+		Month:         int(t.Month()),
+		Day:           t.Day(),
+		Scope:         scope,
+		ISOWeekString: isoWeekString,
+	})
+}
+
+// ─── calendar ─────────────────────────────────────────────────────────────
+
+// CalendarInput is the input schema for the calendar tool.
+type CalendarInput struct {
+	Year         int    `json:"year"`
+	Month        int    `json:"month"`
+	Locale       string `json:"locale"`
+	StartOfWeek  string `json:"start_of_week"`
+}
+
+// CalendarDay represents a single day in the calendar output.
+type CalendarDay struct {
+	Date         string `json:"date"`
+	DayNumber    int    `json:"day_number"`
+	DayName      string `json:"day_name"`
+	DayNameShort string `json:"day_name_short"`
+	Month        int    `json:"month"`
+	Year         int    `json:"year"`
+	IsWeekend   bool   `json:"is_weekend"`
+	IsToday     bool   `json:"is_today"`
+	IsCurrentMonth bool `json:"is_current_month"`
+	WeekNumber   int    `json:"week_number"`
+}
+
+// CalendarWeek represents a week row in the calendar.
+type CalendarWeek struct {
+	WeekNumber int          `json:"week_number"`
+	Days       []CalendarDay `json:"days"`
+}
+
+// CalendarOutput is the output schema for the calendar tool.
+type CalendarOutput struct {
+	Year         int            `json:"year"`
+	Month        int            `json:"month"`
+	MonthName    string         `json:"month_name"`
+	Locale       string         `json:"locale"`
+	StartOfWeek  string         `json:"start_of_week"`
+	TotalDays    int            `json:"total_days"`
+	FirstDayOfWeek int          `json:"first_day_of_week"`
+	Weeks        []CalendarWeek `json:"weeks"`
+	WorkingDays  []string       `json:"working_days"`
+	WeekendDays  []string       `json:"weekend_days"`
+}
+
+// Calendar implements the calendar MCP tool.
+// Returns a monthly calendar with days organized by week.
+func Calendar(_ context.Context, input CalendarInput) string {
+	locale := strings.ToLower(strings.TrimSpace(input.Locale))
+	if locale == "" {
+		locale = "en"
+	}
+
+	startOfWeek := strings.ToLower(strings.TrimSpace(input.StartOfWeek))
+	if startOfWeek == "" {
+		startOfWeek = "monday"
+	}
+
+	now := time.Now()
+	year := input.Year
+	month := input.Month
+
+	if year == 0 {
+		year = now.Year()
+	}
+	if month == 0 {
+		month = int(now.Month())
+	}
+
+	if month < 1 || month > 12 {
+		return errResult("month must be between 1 and 12")
+	}
+	if year < 1 || year > 9999 {
+		return errResult("year must be between 1 and 9999")
+	}
+
+	monthNames := getMonthNames(locale)
+	monthName := monthNames[time.Month(month)]
+
+	firstDay := time.Date(year, time.Month(month), 1, 0, 0, 0, 0, time.UTC)
+	lastDay := time.Date(year, time.Month(month)+1, 0, 0, 0, 0, 0, time.UTC)
+	totalDays := lastDay.Day()
+
+	dayNames := getDayNames(locale)
+	dayNamesShort := getDayNamesShort(locale)
+
+	firstWeekday := int(firstDay.Weekday())
+	if startOfWeek == "monday" {
+		if firstWeekday == 0 {
+			firstWeekday = 7
+		}
+		firstWeekday--
+	}
+
+	weeks := []CalendarWeek{}
+	workingDays := make([]string, 0, 23)
+	weekendDays := make([]string, 0, 10)
+
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
+
+	weekNum, _ := firstDay.ISOWeek()
+	currentWeek := 0
+	dayCount := 0
+	emptyDaysBefore := firstWeekday
+	if emptyDaysBefore < 0 {
+		emptyDaysBefore = 0
+	}
+
+	weeks = append(weeks, CalendarWeek{
+		WeekNumber: weekNum,
+		Days:       []CalendarDay{},
+	})
+
+	for dayCount < totalDays+emptyDaysBefore {
+		if dayCount > 0 && (dayCount-emptyDaysBefore)%7 == 0 {
+			currentWeek++
+			weekNum++
+			weeks = append(weeks, CalendarWeek{
+				WeekNumber: weekNum,
+				Days:       []CalendarDay{},
+			})
+		}
+
+		dayInMonth := dayCount - emptyDaysBefore + 1
+		if dayInMonth < 1 || dayInMonth > totalDays {
+			weeks[currentWeek].Days = append(weeks[currentWeek].Days, CalendarDay{
+				Date:          "",
+				DayNumber:     0,
+				DayName:       "",
+				DayNameShort:  "",
+				Month:         month,
+				Year:          year,
+				IsWeekend:     false,
+				IsToday:       false,
+				IsCurrentMonth: false,
+				WeekNumber:    weekNum,
+			})
+		} else {
+			currentDate := time.Date(year, time.Month(month), dayInMonth, 0, 0, 0, 0, time.UTC)
+			dayIndex := int(currentDate.Weekday())
+			isWeekend := dayIndex == 0 || dayIndex == 6
+			isToday := currentDate.Equal(today)
+
+			dayDateStr := dayNames[dayIndex] + " " + strconv.Itoa(dayInMonth)
+
+			calendarDay := CalendarDay{
+				Date:           currentDate.Format("2006-01-02"),
+				DayNumber:      dayInMonth,
+				DayName:        dayNames[dayIndex],
+				DayNameShort:   dayNamesShort[dayIndex],
+				Month:          month,
+				Year:           year,
+				IsWeekend:      isWeekend,
+				IsToday:        isToday,
+				IsCurrentMonth: true,
+				WeekNumber:     weekNum,
+			}
+			weeks[currentWeek].Days = append(weeks[currentWeek].Days, calendarDay)
+
+			if isWeekend {
+				weekendDays = append(weekendDays, dayDateStr)
+			} else {
+				workingDays = append(workingDays, dayDateStr)
+			}
+		}
+		dayCount++
+	}
+
+	for len(weeks) > 0 && len(weeks[len(weeks)-1].Days) < 7 {
+		emptyDay := CalendarDay{
+			Date:          "",
+			DayNumber:     0,
+			DayName:       "",
+			DayNameShort:  "",
+			Month:         month,
+			Year:          year,
+			IsWeekend:     false,
+			IsToday:       false,
+			IsCurrentMonth: false,
+			WeekNumber:    weeks[len(weeks)-1].WeekNumber,
+		}
+		weeks[len(weeks)-1].Days = append(weeks[len(weeks)-1].Days, emptyDay)
+	}
+
+	return resultJSON(CalendarOutput{
+		Year:            year,
+		Month:           month,
+		MonthName:       monthName,
+		Locale:          locale,
+		StartOfWeek:    startOfWeek,
+		TotalDays:       totalDays,
+		FirstDayOfWeek: firstWeekday,
+		Weeks:           weeks,
+		WorkingDays:     workingDays,
+		WeekendDays:     weekendDays,
+	})
 }

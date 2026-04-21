@@ -44,7 +44,7 @@ func getError(t *testing.T, s string) string {
 	return ""
 }
 
-// ── backend_sql_format ────────────────────────────────────────────────────────
+// ── sql_format ───────────────────────────────────────────────────────────────
 
 func TestSQLFormat(t *testing.T) {
 	ctx := context.Background()

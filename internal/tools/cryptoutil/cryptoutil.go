@@ -1,6 +1,6 @@
 // Package cryptoutil implements MCP tools for cryptographic operations:
 // hashing, HMAC, JWT (HS256/HS512), password hashing, key generation,
-// random value generation, and secret masking.
+// random value generation, secret masking, and password generation.
 package cryptoutil
 
 import (
@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
+	"math"
 	"math/big"
 	"regexp"
 	"strings"
@@ -156,9 +157,9 @@ func HMAC(_ context.Context, in HMACInput) string {
 	return resultJSON(HMACOutput{HMAC: encoded, Algorithm: algo})
 }
 
-// ── crypto_jwt ───────────────────────────────────────────────────────────────
+// ── jwt ─────────────────────────────────────────────────────────────────────
 
-// JWTInput is the input schema for crypto_jwt.
+// JWTInput is the input schema for jwt.
 type JWTInput struct {
 	Token         string `json:"token"`
 	Operation     string `json:"operation"`      // decode | verify | generate
@@ -848,4 +849,74 @@ func encodeBytes(raw []byte, encoding string) (string, error) {
 	default:
 		return "", fmt.Errorf("unsupported encoding: %s (hex|base64|base64url)", encoding)
 	}
+}
+
+// ─── password_generate ───────────────────────────────────────────────────────
+
+const (
+	uppercaseChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	lowercaseChars = "abcdefghijklmnopqrstuvwxyz"
+	numberChars    = "0123456789"
+	symbolChars    = "!@#$%^&*()_+-=[]{}|;:,.<>?"
+)
+
+// PasswordGenerateInput is the input schema for the password_generate tool.
+type PasswordGenerateInput struct {
+	Length           int  `json:"length"`
+	IncludeUppercase bool `json:"include_uppercase"`
+	IncludeLowercase bool `json:"include_lowercase"`
+	IncludeNumbers   bool `json:"include_numbers"`
+	IncludeSymbols   bool `json:"include_symbols"`
+}
+
+// PasswordGenerateOutput is the output schema for the password_generate tool.
+type PasswordGenerateOutput struct {
+	Password string `json:"password"`
+	Length   int    `json:"length"`
+	Entropy  float64 `json:"entropy_bits"`
+}
+
+// PasswordGenerate creates a secure random password with configurable character sets.
+func PasswordGenerate(_ context.Context, input PasswordGenerateInput) string {
+	length := input.Length
+	if length < 1 || length > 50 {
+		return errResult("length must be between 1 and 50")
+	}
+
+	charPool := ""
+	if input.IncludeUppercase {
+		charPool += uppercaseChars
+	}
+	if input.IncludeLowercase {
+		charPool += lowercaseChars
+	}
+	if input.IncludeNumbers {
+		charPool += numberChars
+	}
+	if input.IncludeSymbols {
+		charPool += symbolChars
+	}
+
+	if charPool == "" {
+		return errResult("at least one character set must be selected (uppercase, lowercase, numbers, or symbols)")
+	}
+
+	poolLen := len(charPool)
+	entropy := math.Log2(math.Pow(float64(poolLen), float64(length)))
+	entropy = math.Round(entropy*100) / 100
+
+	password := make([]byte, length)
+	if _, err := rand.Read(password); err != nil {
+		return errResult("failed to generate random password: " + err.Error())
+	}
+
+	for i := range password {
+		password[i] = charPool[int(password[i])%poolLen]
+	}
+
+	return resultJSON(PasswordGenerateOutput{
+		Password: string(password),
+		Length:   length,
+		Entropy:  entropy,
+	})
 }

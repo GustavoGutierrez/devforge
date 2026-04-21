@@ -598,9 +598,9 @@ func Breakpoint(_ context.Context, in BreakpointInput) string {
 	return resultJSON(res)
 }
 
-// ── frontend_regex ────────────────────────────────────────────────────────────
+// ── regex_test ───────────────────────────────────────────────────────────────
 
-// RegexInput holds the parameters for the frontend_regex tool.
+// RegexInput holds the parameters for the regex_test tool.
 type RegexInput struct {
 	Pattern     string
 	Input       string

@@ -12,9 +12,9 @@ import (
 
 // registerDataFmtTools registers all data-formatting tools with the MCP server.
 func registerDataFmtTools(s *mcpserver.MCPServer, _ *mcpApp) {
-	// ── data_json_format ─────────────────────────────────────────────────────
+	// ── json_format ─────────────────────────────────────────────────────────
 	s.AddTool(
-		mcp.NewTool("data_json_format",
+		mcp.NewTool("json_format",
 			mcp.WithDescription("Pretty-print or re-indent a JSON string. Returns line/column info on syntax errors."),
 			mcp.WithString("json", mcp.Required(), mcp.Description("Raw JSON string to format")),
 			mcp.WithString("indent", mcp.Description("Indent string (default: two spaces)")),
@@ -110,6 +110,21 @@ func registerDataFmtTools(s *mcpserver.MCPServer, _ *mcpApp) {
 				A:      mcp.ParseString(req, "a", ""),
 				B:      mcp.ParseString(req, "b", ""),
 				Format: mcp.ParseString(req, "format", "json"),
+			})), nil
+		},
+	)
+
+	// ── fake_data (JSON Schema Faker) ──────────────────────────────────────
+	s.AddTool(
+		mcp.NewTool("fake_data",
+			mcp.WithDescription("JSON Schema Faker — Generate fake data from a JSON Schema. Supports strings (email, ipv4, etc.), numbers, integers, booleans, objects, arrays, enums, and nested schemas. Returns 1-100 generated records."),
+			mcp.WithString("schema", mcp.Required(), mcp.Description("JSON Schema definition to generate data from")),
+			mcp.WithNumber("count", mcp.Description("Number of records to generate (1-100, default: 1)")),
+		),
+		func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+			return mcp.NewToolResultText(datafmt.FakeData(ctx, datafmt.FakeDataInput{
+				Schema: mcp.ParseString(req, "schema", ""),
+				Count:  mcp.ParseInt(req, "count", 1),
 			})), nil
 		},
 	)

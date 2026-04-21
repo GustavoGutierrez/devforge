@@ -158,7 +158,7 @@ func TestHMAC_MissingKey_ReturnsError(t *testing.T) {
 	}
 }
 
-// ── crypto_jwt ───────────────────────────────────────────────────────────────
+// ── jwt ─────────────────────────────────────────────────────────────────────
 
 func TestJWT_Generate_HS256(t *testing.T) {
 	in := cryptoutil.JWTInput{
@@ -716,4 +716,164 @@ func min(a, b int) int {
 		return a
 	}
 	return b
+}
+
+// ─── password_generate tests ──────────────────────────────────────────────────
+
+func TestPasswordGenerate_DefaultParams(t *testing.T) {
+	in := cryptoutil.PasswordGenerateInput{
+		Length:           16,
+		IncludeUppercase: true,
+		IncludeLowercase: true,
+		IncludeNumbers:   true,
+		IncludeSymbols:   true,
+	}
+	result := cryptoutil.PasswordGenerate(context.Background(), in)
+	var out cryptoutil.PasswordGenerateOutput
+	if err := json.Unmarshal([]byte(result), &out); err != nil {
+		t.Fatalf("invalid JSON: %v — got: %s", err, result)
+	}
+	if len(out.Password) != 16 {
+		t.Errorf("expected password length 16, got %d", len(out.Password))
+	}
+	if out.Length != 16 {
+		t.Errorf("expected length field 16, got %d", out.Length)
+	}
+	if out.Entropy <= 0 {
+		t.Errorf("expected positive entropy, got %f", out.Entropy)
+	}
+}
+
+func TestPasswordGenerate_CustomLength(t *testing.T) {
+	in := cryptoutil.PasswordGenerateInput{
+		Length:           32,
+		IncludeUppercase: true,
+		IncludeLowercase: true,
+		IncludeNumbers:   true,
+		IncludeSymbols:   false,
+	}
+	result := cryptoutil.PasswordGenerate(context.Background(), in)
+	var out cryptoutil.PasswordGenerateOutput
+	if err := json.Unmarshal([]byte(result), &out); err != nil {
+		t.Fatalf("invalid JSON: %v — got: %s", err, result)
+	}
+	if len(out.Password) != 32 {
+		t.Errorf("expected password length 32, got %d", len(out.Password))
+	}
+}
+
+func TestPasswordGenerate_OnlyLowercase(t *testing.T) {
+	in := cryptoutil.PasswordGenerateInput{
+		Length:           20,
+		IncludeUppercase: false,
+		IncludeLowercase: true,
+		IncludeNumbers:   false,
+		IncludeSymbols:   false,
+	}
+	result := cryptoutil.PasswordGenerate(context.Background(), in)
+	var out cryptoutil.PasswordGenerateOutput
+	if err := json.Unmarshal([]byte(result), &out); err != nil {
+		t.Fatalf("invalid JSON: %v — got: %s", err, result)
+	}
+	// Should only contain lowercase letters
+	for _, c := range out.Password {
+		if !strings.ContainsRune("abcdefghijklmnopqrstuvwxyz", c) {
+			t.Errorf("password contains non-lowercase char: %c", c)
+		}
+	}
+}
+
+func TestPasswordGenerate_OnlyNumbers(t *testing.T) {
+	in := cryptoutil.PasswordGenerateInput{
+		Length:           10,
+		IncludeUppercase: false,
+		IncludeLowercase: false,
+		IncludeNumbers:   true,
+		IncludeSymbols:   false,
+	}
+	result := cryptoutil.PasswordGenerate(context.Background(), in)
+	var out cryptoutil.PasswordGenerateOutput
+	if err := json.Unmarshal([]byte(result), &out); err != nil {
+		t.Fatalf("invalid JSON: %v — got: %s", err, result)
+	}
+	// Should only contain digits
+	for _, c := range out.Password {
+		if !strings.ContainsRune("0123456789", c) {
+			t.Errorf("password contains non-digit char: %c", c)
+		}
+	}
+}
+
+func TestPasswordGenerate_InvalidLength_ReturnsError(t *testing.T) {
+	in := cryptoutil.PasswordGenerateInput{
+		Length:           0,
+		IncludeUppercase: true,
+		IncludeLowercase: true,
+		IncludeNumbers:   true,
+		IncludeSymbols:   true,
+	}
+	result := cryptoutil.PasswordGenerate(context.Background(), in)
+	var errOut map[string]string
+	if err := json.Unmarshal([]byte(result), &errOut); err != nil {
+		t.Fatalf("expected error JSON, got: %s", result)
+	}
+	if _, ok := errOut["error"]; !ok {
+		t.Error("expected error for invalid length")
+	}
+}
+
+func TestPasswordGenerate_LengthTooLong_ReturnsError(t *testing.T) {
+	in := cryptoutil.PasswordGenerateInput{
+		Length:           51,
+		IncludeUppercase: true,
+		IncludeLowercase: true,
+		IncludeNumbers:   true,
+		IncludeSymbols:   true,
+	}
+	result := cryptoutil.PasswordGenerate(context.Background(), in)
+	var errOut map[string]string
+	if err := json.Unmarshal([]byte(result), &errOut); err != nil {
+		t.Fatalf("expected error JSON, got: %s", result)
+	}
+	if _, ok := errOut["error"]; !ok {
+		t.Error("expected error for length > 50")
+	}
+}
+
+func TestPasswordGenerate_NoCharacterSets_ReturnsError(t *testing.T) {
+	in := cryptoutil.PasswordGenerateInput{
+		Length:           16,
+		IncludeUppercase: false,
+		IncludeLowercase: false,
+		IncludeNumbers:   false,
+		IncludeSymbols:   false,
+	}
+	result := cryptoutil.PasswordGenerate(context.Background(), in)
+	var errOut map[string]string
+	if err := json.Unmarshal([]byte(result), &errOut); err != nil {
+		t.Fatalf("expected error JSON, got: %s", result)
+	}
+	if _, ok := errOut["error"]; !ok {
+		t.Error("expected error when no character sets selected")
+	}
+}
+
+func TestPasswordGenerate_Uniqueness(t *testing.T) {
+	in := cryptoutil.PasswordGenerateInput{
+		Length:           32,
+		IncludeUppercase: true,
+		IncludeLowercase: true,
+		IncludeNumbers:   true,
+		IncludeSymbols:   true,
+	}
+	passwords := make(map[string]bool)
+	for i := 0; i < 100; i++ {
+		result := cryptoutil.PasswordGenerate(context.Background(), in)
+		var out cryptoutil.PasswordGenerateOutput
+		json.Unmarshal([]byte(result), &out)
+		if passwords[out.Password] {
+			t.Errorf("duplicate password generated: %s", out.Password)
+		}
+		passwords[out.Password] = true
+	}
 }

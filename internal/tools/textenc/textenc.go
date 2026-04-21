@@ -1,4 +1,6 @@
 // Package textenc implements MCP tools for text manipulation and encoding.
+// Tools: text_escape, text_slug, text_uuid, text_base64, text_url_encode, text_normalize,
+// text_case, text_stats.
 // All functions are stateless and safe for concurrent use.
 package textenc
 
@@ -10,6 +12,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"html"
+	"math"
 	"math/big"
 	"net/url"
 	"regexp"
@@ -615,4 +618,103 @@ func capitalize(s string) string {
 	runes := []rune(s)
 	runes[0] = unicode.ToUpper(runes[0])
 	return string(runes)
+}
+
+// ─── text_stats ─────────────────────────────────────────────────────────────
+
+// TextStatsInput is the input schema for the text_stats tool.
+type TextStatsInput struct {
+	Text string `json:"text"`
+}
+
+// TextStatsOutput is the output schema for the text_stats tool.
+type TextStatsOutput struct {
+	WordCount               int     `json:"word_count"`
+	CharacterCount          int     `json:"character_count"`
+	CharacterCountNoSpaces   int     `json:"character_count_no_spaces"`
+	SentenceCount           int     `json:"sentence_count"`
+	ParagraphCount          int     `json:"paragraph_count"`
+	UniqueWords             int     `json:"unique_words"`
+	MostFrequentWord        string  `json:"most_frequent_word"`
+	AverageWordLength       float64 `json:"average_word_length"`
+	Text                    string  `json:"text"`
+}
+
+// TextStats computes word count, character count, sentence count, paragraph count,
+// unique words, most frequent word, and average word length for the given text.
+func TextStats(_ context.Context, in TextStatsInput) string {
+	if in.Text == "" {
+		return errResult("text is required")
+	}
+
+	text := in.Text
+	charsWithSpaces := len(text)
+	charsNoSpaces := len(strings.Map(func(r rune) rune {
+		if unicode.IsSpace(r) {
+			return -1
+		}
+		return r
+	}, text))
+
+	words := strings.Fields(text)
+	wordCount := len(words)
+
+	paragraphs := strings.Split(strings.TrimSpace(text), "\n\n")
+	paragraphCount := len(paragraphs)
+	if paragraphCount == 0 && wordCount > 0 {
+		paragraphCount = 1
+	}
+
+	sentenceDelimiters := regexp.MustCompile(`[.!?]+`)
+	sentences := sentenceDelimiters.Split(strings.TrimSpace(text), -1)
+	sentenceCount := 0
+	for _, s := range sentences {
+		if strings.TrimSpace(s) != "" {
+			sentenceCount++
+		}
+	}
+	if sentenceCount == 0 && wordCount > 0 {
+		sentenceCount = 1
+	}
+
+	wordLower := make([]string, wordCount)
+	wordFreq := make(map[string]int)
+	for i, w := range words {
+		lower := strings.ToLower(w)
+		wordLower[i] = lower
+		wordFreq[lower]++
+	}
+
+	uniqueWords := len(wordFreq)
+
+	var mostFrequent string
+	maxFreq := 0
+	for word, freq := range wordFreq {
+		if freq > maxFreq || (freq == maxFreq && mostFrequent == "") {
+			maxFreq = freq
+			mostFrequent = word
+		}
+	}
+
+	var avgWordLen float64
+	if wordCount > 0 {
+		totalLen := 0
+		for _, w := range words {
+			totalLen += len(w)
+		}
+		avgWordLen = float64(totalLen) / float64(wordCount)
+		avgWordLen = math.Round(avgWordLen*100) / 100
+	}
+
+	return resultJSON(TextStatsOutput{
+		WordCount:             wordCount,
+		CharacterCount:        charsWithSpaces,
+		CharacterCountNoSpaces: charsNoSpaces,
+		SentenceCount:         sentenceCount,
+		ParagraphCount:        paragraphCount,
+		UniqueWords:           uniqueWords,
+		MostFrequentWord:      mostFrequent,
+		AverageWordLength:      avgWordLen,
+		Text:                  text,
+	})
 }

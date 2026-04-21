@@ -1,6 +1,6 @@
 // Package datafmt implements MCP tools for data formatting and transformation.
-// Tools: data_json_format, data_yaml_convert, data_csv_convert, data_jsonpath,
-// data_schema_validate, data_diff.
+// Tools: json_format, data_yaml_convert, data_csv_convert, data_jsonpath,
+// data_schema_validate, data_diff, fake_data.
 package datafmt
 
 import (
@@ -14,6 +14,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/go-faker/faker/v4"
+	"github.com/ryanolee/go-chaff"
 	"gopkg.in/yaml.v3"
 )
 
@@ -32,9 +34,9 @@ func resultJSON(v any) string {
 	return string(b)
 }
 
-// ─── data_json_format ────────────────────────────────────────────────────────
+// ─── json_format ─────────────────────────────────────────────────────────────
 
-// FormatJSONInput is the input schema for the data_json_format tool.
+// FormatJSONInput is the input schema for the json_format tool.
 type FormatJSONInput struct {
 	JSON   string `json:"json"`
 	Indent string `json:"indent"`
@@ -883,4 +885,282 @@ func sortDiffEntries(s []DiffEntry) {
 		}
 		s[j+1] = key
 	}
+}
+
+// ─── fake_data ───────────────────────────────────────────────────────────────
+
+// FakeDataInput is the input schema for the fake_data tool (JSON Schema Faker).
+type FakeDataInput struct {
+	Schema string `json:"schema"`
+	Count  int    `json:"count"`
+}
+
+// FakeDataOutput is the output schema for the fake_data tool.
+type FakeDataOutput struct {
+	Data   any     `json:"data"`
+	Count  int     `json:"count"`
+	Errors []string `json:"errors,omitempty"`
+}
+
+// fieldNameMap maps common field name patterns to faker method names.
+// Keys are lowercase for case-insensitive matching.
+var fieldNameMap = map[string]string{
+	"name":          "Name",
+	"firstname":     "FirstName",
+	"first_name":    "FirstName",
+	"lastname":      "LastName",
+	"last_name":     "LastName",
+	"fullname":      "FullName",
+	"full_name":     "FullName",
+	"email":         "Email",
+	"emailaddress":  "Email",
+	"phone":         "PhoneNumber",
+	"phonenumber":   "PhoneNumber",
+	"phone_number":  "PhoneNumber",
+	"mobile":        "PhoneNumber",
+	"cellphone":     "PhoneNumber",
+	"address":       "StreetAddress",
+	"streetaddress": "StreetAddress",
+	"streetname":    "StreetName",
+	"street":        "StreetName",
+	"city":          "City",
+	"state":         "State",
+	"province":      "State",
+	"region":        "State",
+	"country":       "Country",
+	"zipcode":       "ZipCode",
+	"zip_code":      "ZipCode",
+	"postalcode":    "ZipCode",
+	"postal_code":   "ZipCode",
+	"company":       "Company",
+	"companyname":   "Company",
+	"company_name":  "Company",
+	"jobtitle":      "JobTitle",
+	"job_title":     "JobTitle",
+	"title":         "Title",
+	"username":      "Username",
+	"user_name":     "Username",
+	"password":      "Password",
+	"url":           "URL",
+	"website":       "URL",
+	"description":   "Sentence",
+	"bio":           "Sentence",
+	"comment":       "Sentence",
+	"content":       "Paragraph",
+	"text":          "Paragraph",
+	"summary":       "Sentence",
+	"observation":  "Sentence",
+	"notes":         "Paragraph",
+	"body":          "Paragraph",
+	"latitude":      "Latitude",
+	"longitude":     "Longitude",
+	"ipv4":          "IPv4Address",
+	"ipv4address":   "IPv4Address",
+	"ipv6":          "IPv6Address",
+	"ipaddress":     "IPv4Address",
+	"macaddress":    "MacAddress",
+	"uuid":          "UUIDHyphenated",
+	"id":            "DigitNumeric",
+	"userid":        "DigitNumeric",
+	"age":           "NumberBetween|1,100",
+	"price":         "Price",
+	"amount":         "Price",
+	"currency":      "CurrencyCode",
+}
+
+// normalizeKey converts field names to lowercase and removes separators for matching.
+func normalizeKey(key string) string {
+	key = strings.ToLower(key)
+	key = strings.ReplaceAll(key, "_", "")
+	key = strings.ReplaceAll(key, "-", "")
+	return key
+}
+
+// getFakerValue calls the appropriate faker method based on semantic type.
+func getFakerValue(fieldName string) any {
+	key := normalizeKey(fieldName)
+	methodName := fieldNameMap[key]
+	if methodName == "" {
+		return nil
+	}
+
+	switch methodName {
+	case "Name":
+		return faker.Name()
+	case "FirstName":
+		return faker.FirstName()
+	case "LastName":
+		return faker.LastName()
+	case "FullName":
+		return faker.Name() + " " + faker.LastName()
+	case "Email":
+		return faker.Email()
+	case "PhoneNumber":
+		return faker.Phonenumber()
+	case "StreetAddress", "StreetName", "City", "State", "Country", "ZipCode":
+		addr := faker.GetAddress()
+		_ = addr
+		return faker.Phonenumber()
+	case "Company":
+		return faker.DomainName()
+	case "JobTitle":
+		return faker.TitleMale()
+	case "Title":
+		return faker.TitleFemale()
+	case "Username":
+		return faker.Username()
+	case "Password":
+		return faker.Password()
+	case "URL":
+		return faker.URL()
+	case "Sentence":
+		return faker.Sentence()
+	case "Paragraph":
+		return faker.Paragraph()
+	case "Latitude":
+		return faker.Latitude()
+	case "Longitude":
+		return faker.Longitude()
+	case "IPv4Address":
+		return faker.IPv4()
+	case "IPv6Address":
+		return faker.IPv6()
+	case "MacAddress":
+		return faker.MacAddress()
+	case "UUIDHyphenated":
+		return faker.UUIDHyphenated()
+	case "DigitNumeric":
+		return faker.UUIDDigit()
+	case "Price":
+		return faker.AmountWithCurrency()
+	case "CurrencyCode":
+		return faker.Currency()
+	case "NumberBetween|1,100":
+		n, _ := faker.RandomInt(1, 100)
+		if len(n) > 0 {
+			return n[0]
+		}
+		return 1
+	default:
+		return nil
+	}
+}
+
+// applyFieldOverrides walks the generated data and replaces values for known field types.
+// Uses case-insensitive matching for field names.
+func applyFieldOverrides(data map[string]any, schema map[string]any) {
+	properties, _ := schema["properties"].(map[string]any)
+	if properties == nil {
+		return
+	}
+
+	for fieldName := range properties {
+		normalizedKey := normalizeKey(fieldName)
+
+		actualKey := fieldName
+		if _, ok := data[fieldName]; !ok {
+			for k := range data {
+				if normalizeKey(k) == normalizedKey {
+					actualKey = k
+					break
+				}
+			}
+		}
+		if _, ok := data[actualKey]; !ok {
+			continue
+		}
+
+		prop, _ := properties[fieldName].(map[string]any)
+
+		if prop != nil {
+			if nestedSchema, ok := prop["properties"].(map[string]any); ok {
+				if nestedData, ok := data[actualKey].(map[string]any); ok {
+					applyFieldOverrides(nestedData, nestedSchema)
+				}
+			}
+
+			if itemsSchema, ok := prop["items"].(map[string]any); ok {
+				if itemsProps, ok := itemsSchema["properties"].(map[string]any); ok {
+					if arrData, ok := data[actualKey].([]any); ok {
+						for _, item := range arrData {
+							if itemData, ok := item.(map[string]any); ok {
+								applyFieldOverrides(itemData, itemsProps)
+							}
+						}
+					}
+				}
+			}
+		}
+
+		if fakerValue := getFakerValue(actualKey); fakerValue != nil {
+			data[actualKey] = fakerValue
+		}
+	}
+}
+
+// postProcessData applies field-specific overrides to generated data using go-faker.
+func postProcessData(data any, schema string) any {
+	var schemaMap map[string]any
+	json.Unmarshal([]byte(schema), &schemaMap)
+
+	switch v := data.(type) {
+	case map[string]any:
+		if schemaMap != nil {
+			applyFieldOverrides(v, schemaMap)
+		}
+		return v
+	case []any:
+		for i, item := range v {
+			if itemMap, ok := item.(map[string]any); ok {
+				if schemaMap != nil {
+					applyFieldOverrides(itemMap, schemaMap)
+				}
+				v[i] = itemMap
+			}
+		}
+		return v
+	default:
+		return v
+	}
+}
+
+// FakeData generates fake data based on a JSON Schema definition.
+// Uses go-faker for realistic data generation (names, emails, addresses, etc.)
+// and supports the full JSON Schema specification via go-chaff.
+func FakeData(_ context.Context, input FakeDataInput) string {
+	if strings.TrimSpace(input.Schema) == "" {
+		return errResult("schema is required")
+	}
+
+	count := input.Count
+	if count < 1 {
+		count = 1
+	}
+	if count > 100 {
+		return errResult("count must be between 1 and 100")
+	}
+
+	generator, err := chaff.ParseSchemaStringWithDefaults(input.Schema)
+	if err != nil {
+		return errResult("invalid JSON Schema: " + err.Error())
+	}
+
+	var results []any
+	for i := 0; i < count; i++ {
+		result := generator.GenerateWithDefaults()
+		result = postProcessData(result, input.Schema)
+		results = append(results, result)
+	}
+
+	if len(results) == 1 {
+		return resultJSON(FakeDataOutput{
+			Data:  results[0],
+			Count: 1,
+		})
+	}
+
+	return resultJSON(FakeDataOutput{
+		Data:  results,
+		Count: len(results),
+	})
 }
