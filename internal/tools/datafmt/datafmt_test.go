@@ -957,6 +957,53 @@ func TestFakeData_StreetAddressFormat(t *testing.T) {
 	t.Logf("Generated: address=%v, street=%v", data["address"], data["street"])
 }
 
+func TestFakeData_NestedAddressStreet(t *testing.T) {
+	ctx := context.Background()
+	schema := `{
+		"type": "object",
+		"properties": {
+			"name": { "type": "string" },
+			"address": {
+				"type": "object",
+				"properties": {
+					"street": { "type": "string" },
+					"city": { "type": "string" },
+					"country": { "type": "string" }
+				}
+			}
+		}
+	}`
+
+	result := datafmt.FakeData(ctx, datafmt.FakeDataInput{Schema: schema, Count: 3})
+	var out datafmt.FakeDataOutput
+	if err := json.Unmarshal([]byte(result), &out); err != nil {
+		t.Fatalf("invalid JSON: %v — got: %s", err, result)
+	}
+
+	data, ok := out.Data.([]any)
+	if !ok {
+		t.Fatalf("expected array data, got: %T", out.Data)
+	}
+
+	for i, item := range data {
+		record := item.(map[string]any)
+		addr, ok := record["address"].(map[string]any)
+		if !ok {
+			t.Fatalf("[record %d] expected address object, got: %T", i, record["address"])
+		}
+		if addr["street"] == nil || addr["street"] == "" {
+			t.Errorf("[record %d] street is null or empty: %v", i, addr["street"])
+		}
+		if addr["city"] == nil || addr["city"] == "" {
+			t.Errorf("[record %d] city is null or empty: %v", i, addr["city"])
+		}
+		if addr["country"] == nil || addr["country"] == "" {
+			t.Errorf("[record %d] country is null or empty: %v", i, addr["country"])
+		}
+		t.Logf("[record %d] name=%v address=%v", i, record["name"], addr)
+	}
+}
+
 func TestFakeData_IntegerMinMaxConstraint(t *testing.T) {
 	ctx := context.Background()
 	schema := `{

@@ -924,6 +924,9 @@ var fieldNameMap = map[string]string{
 	"streetaddress":  "StreetAddress",
 	"street_address": "StreetAddress",
 	"streetname":     "StreetAddress",
+	"street":         "StreetAddress",
+	"adress":         "StreetAddress",
+	"addressline":    "StreetAddress",
 	"city":           "City",
 	"state":          "State",
 	"province":       "State",
@@ -933,6 +936,7 @@ var fieldNameMap = map[string]string{
 	"zip_code":       "ZipCode",
 	"postalcode":     "ZipCode",
 	"postal_code":    "ZipCode",
+	"zip":            "ZipCode",
 	"company":        "Company",
 	"companyname":    "Company",
 	"company_name":   "Company",
@@ -982,6 +986,7 @@ var formatMap = map[string]string{
 	"phone_number":   "PhoneNumber",
 	"streetaddress":  "StreetAddress",
 	"street_address": "StreetAddress",
+	"street":         "StreetAddress",
 	"city":           "City",
 	"state":          "State",
 	"country":        "Country",
@@ -989,6 +994,7 @@ var formatMap = map[string]string{
 	"zip_code":       "ZipCode",
 	"postalcode":     "ZipCode",
 	"postal_code":    "ZipCode",
+	"zip":            "ZipCode",
 	"company":        "Company",
 	"jobtitle":       "JobTitle",
 	"job_title":      "JobTitle",
@@ -1196,7 +1202,26 @@ func generateFromSchema(schema map[string]any) any {
 // generateObject generates a fake object from properties schema.
 func generateObject(properties map[string]any) map[string]any {
 	result := make(map[string]any)
+
+	addr := faker.GetRealAddress()
+
 	for name, prop := range properties {
+		if name == "street" || name == "streetaddress" || name == "street_address" {
+			result[name] = addr.Address
+			continue
+		}
+		if name == "city" {
+			result[name] = addr.City
+			continue
+		}
+		if name == "state" || name == "province" || name == "region" {
+			result[name] = addr.State
+			continue
+		}
+		if name == "zip" || name == "zipcode" || name == "zip_code" || name == "postalcode" || name == "postal_code" {
+			result[name] = addr.PostalCode
+			continue
+		}
 		result[name] = generateValue(name, prop)
 	}
 	return result
