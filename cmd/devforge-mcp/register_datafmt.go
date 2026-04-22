@@ -117,7 +117,29 @@ func registerDataFmtTools(s *mcpserver.MCPServer, _ *mcpApp) {
 	// ── fake_data (JSON Schema Faker) ──────────────────────────────────────
 	s.AddTool(
 		mcp.NewTool("fake_data",
-			mcp.WithDescription("JSON Schema Faker — Generate fake data from a JSON Schema. Supports strings (email, ipv4, etc.), numbers, integers, booleans, objects, arrays, enums, and nested schemas. Returns 1-100 generated records."),
+			mcp.WithDescription(`JSON Schema Faker — Generate fake data from a JSON Schema.
+
+**Supported types:** object, array, string, integer, number, boolean
+
+**Field name auto-detection (no format/faker needed):**
+name, first_name, last_name, full_name, email, phone, address, street, city, state, country, zip, zip_code, company, job_title, username, password, url, website, description, bio, comment, content, text, notes, avatar, photo, picture, image, latitude, longitude, ipv4, ipv6, macaddress, uuid, id, userid, price, amount, currency, age
+
+**String formats (use "format" key):**
+email, phone_number, street_address, city, state, country, zip_code, zipcode, company, job_title, jobtitle, username, password, url, website, sentence, paragraph, latitude, longitude, ipv4, ipv4address, ipv6, ipaddress, macaddress, uuid, uuid4, avatar, price, amount, currency, age, date, datetime, created_at, updated_at, timestamp, is_active, is_verified
+
+**Faker attribute (use "faker" key):**
+person.full_name, person.first_name, person.last_name, internet.email, internet.username, internet.url, phone.number, location.street_address, location.city, location.country, location.zip_code, company.name, uuid, avatar, image.url, image.photo, image.grayscale, image.seed, image.id, image.id.grayscale, image.id.blur, image.webp, image.jpg, image.avatar
+
+**Constraints:** minimum, maximum (for integer/number), enum (for any type), minItems/maxItems (for arrays), required (array of required field names)
+
+**Examples:**
+- Auto-detect: {"name": {"type": "string"}} → "Dr. Wendy Shields Senger"
+- Format: {"email": {"type": "string", "format": "email"}} → "rbRlXLP@MEYlCOi.ru"
+- Faker: {"avatar": {"faker": "avatar"}} → "https://i.pravatar.cc/150?u=..."
+- Enum: {"status": {"type": "string", "enum": ["active", "inactive"]}} → "active"
+- Range: {"age": {"type": "integer", "minimum": 18, "maximum": 99}} → 42
+- Nested: {"address": {"type": "object", "properties": {"city": {"type": "string"}}}} → {"address": {"city": "Fayetteville"}}
+- Array: {"tags": {"type": "array", "items": {"type": "string", "enum": ["a","b"]}, "minItems": 2, "maxItems": 4}}`),
 			mcp.WithString("schema", mcp.Required(), mcp.Description("JSON Schema definition to generate data from")),
 			mcp.WithNumber("count", mcp.Description("Number of records to generate (1-100, default: 1)")),
 		),

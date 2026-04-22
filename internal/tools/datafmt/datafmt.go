@@ -1197,11 +1197,17 @@ func generateFromSchema(schema map[string]any) any {
 		}
 		return arr
 	case "string":
+		if fakerAttr, ok := schema["faker"].(string); ok {
+			return getFakerValueByFakerAttr(fakerAttr)
+		}
 		if enum, ok := schema["enum"].([]any); ok && len(enum) > 0 {
 			return enum[rand.Intn(len(enum))]
 		}
 		return ""
 	case "integer", "number":
+		if fakerAttr, ok := schema["faker"].(string); ok {
+			return getFakerValueByFakerAttr(fakerAttr)
+		}
 		if enum, ok := schema["enum"].([]any); ok && len(enum) > 0 {
 			return enum[rand.Intn(len(enum))]
 		}
@@ -1461,8 +1467,12 @@ func getFakerValueByFormat(format string) any {
 		return "https://picsum.photos/200/300?grayscale"
 	case "PicsumAvatar":
 		return fmt.Sprintf("https://picsum.photos/id/%d/150/150", rand.Intn(1000))
-	case "image.url", "image":
+case "image.url", "image":
 		return "https://i.pravatar.cc/150?u=" + faker.UUIDHyphenated()
+	case "DateTime":
+		now := time.Now()
+		offset := time.Duration(rand.Intn(365*24*60*60*10)) * time.Second
+		return now.Add(-offset).Format(time.RFC3339)
 	}
 	return nil
 }
@@ -1521,6 +1531,10 @@ case "image.avatar":
 		return "https://i.pravatar.cc/150?u=" + faker.UUIDHyphenated()
 	case "photo.avatar":
 		return "https://i.pravatar.cc/150?u=" + faker.UUIDHyphenated()
+	case "datetime", "date", "created_at", "updated_at", "timestamp":
+		now := time.Now()
+		offset := time.Duration(rand.Intn(365*24*60*60*10)) * time.Second
+		return now.Add(-offset).Format(time.RFC3339)
 	default:
 		return fakerAttr
 	}
