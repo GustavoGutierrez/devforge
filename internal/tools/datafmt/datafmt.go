@@ -1056,7 +1056,7 @@ func getFakerValue(fieldName string) any {
 	}
 }
 
-// applyFieldOverrides walks the generated data and replaces values for known field types.
+// applyFieldOverrides walks the generated data and replaces/creates values for known field types.
 // Uses case-insensitive matching for field names.
 func applyFieldOverrides(data map[string]any, schema map[string]any) {
 	properties, _ := schema["properties"].(map[string]any)
@@ -1075,9 +1075,6 @@ func applyFieldOverrides(data map[string]any, schema map[string]any) {
 					break
 				}
 			}
-		}
-		if _, ok := data[actualKey]; !ok {
-			continue
 		}
 
 		prop, _ := properties[fieldName].(map[string]any)
