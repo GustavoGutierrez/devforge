@@ -3,6 +3,7 @@ package tui
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 	"unicode"
 
@@ -17,6 +18,10 @@ var dateTimeOps = []string{
 	"Diff / Add / Subtract",
 	"Cron Describe & Next Runs",
 	"Date Range",
+	"Current Date",
+	"Current Week",
+	"Week Number",
+	"Calendar",
 }
 
 type dateTimeModel struct {
@@ -150,8 +155,38 @@ func (m dateTimeModel) execute() string {
 			Step:   m.values["step"],
 			Format: m.values["format"],
 		})
+	case 4:
+		return datetime.CurrentDate(ctx, datetime.CurrentDateInput{
+			Locale: m.values["locale"],
+		})
+	case 5:
+		return datetime.CurrentWeek(ctx, datetime.CurrentWeekInput{
+			Locale: m.values["locale"],
+		})
+	case 6:
+		return datetime.WeekNumber(ctx, datetime.WeekNumberInput{
+			Date:  m.values["date"],
+			Year:  toInt(m.values["year"]),
+			Month: toInt(m.values["month"]),
+			Day:   toInt(m.values["day"]),
+		})
+	case 7:
+		return datetime.Calendar(ctx, datetime.CalendarInput{
+			Year:        toInt(m.values["year"]),
+			Month:       toInt(m.values["month"]),
+			Locale:      m.values["locale"],
+			StartOfWeek: m.values["start_of_week"],
+		})
 	}
 	return `{"error":"unknown operation"}`
+}
+
+func toInt(s string) int {
+	if s == "" {
+		return 0
+	}
+	n, _ := strconv.Atoi(s)
+	return n
 }
 
 func dateTimeFields(opIdx int) []fieldDef {
@@ -181,6 +216,30 @@ func dateTimeFields(opIdx int) []fieldDef {
 			{"end", "End Date", true, "end date (ISO 8601 or human)", false},
 			{"step", "Step", false, "day | week | month (default: day)", false},
 			{"format", "Format", false, "iso8601 | unix | human (default: iso8601)", false},
+		}
+	case 4:
+		return []fieldDef{
+			{"locale", "Locale", false, "en (English) | es (Spanish) (default: en)", false},
+		}
+	case 5:
+		return []fieldDef{
+			{"locale", "Locale", false, "en (English) | es (Spanish) (default: en)", false},
+			{"week_of_year", "Week of Year", false, "ISO week number 1-53 (default: current week)", false},
+			{"year", "Year", false, "year (default: current year)", false},
+		}
+	case 6:
+		return []fieldDef{
+			{"date", "Date", false, "any parseable date (default: today)", false},
+			{"year", "Year", false, "year (required if date not provided)", false},
+			{"month", "Month", false, "month 1-12 (required if date not provided)", false},
+			{"day", "Day", false, "day 1-31 (required if date not provided)", false},
+		}
+	case 7:
+		return []fieldDef{
+			{"year", "Year", false, "year (default: current year)", false},
+			{"month", "Month", false, "month 1-12 (default: current month)", false},
+			{"locale", "Locale", false, "en (English) | es (Spanish) (default: en)", false},
+			{"start_of_week", "Start of Week", false, "monday | sunday (default: monday)", false},
 		}
 	}
 	return nil

@@ -997,10 +997,20 @@ func getFakerValue(fieldName string) any {
 		return faker.Email()
 	case "PhoneNumber":
 		return faker.Phonenumber()
-	case "StreetAddress", "StreetName", "City", "State", "Country", "ZipCode":
-		addr := faker.GetAddress()
-		_ = addr
-		return faker.Phonenumber()
+	case "StreetName":
+		ra := faker.GetRealAddress()
+		return ra.Address
+	case "City":
+		ra := faker.GetRealAddress()
+		return ra.City
+	case "State":
+		ra := faker.GetRealAddress()
+		return ra.State
+	case "Country":
+		return faker.GetCountryInfo().Name
+	case "ZipCode":
+		ra := faker.GetRealAddress()
+		return ra.PostalCode
 	case "Company":
 		return faker.DomainName()
 	case "JobTitle":
