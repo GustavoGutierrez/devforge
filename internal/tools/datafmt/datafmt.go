@@ -18,22 +18,9 @@ import (
 
 	"github.com/go-faker/faker/v4"
 	"gopkg.in/yaml.v3"
+
+	"dev-forge-mcp/internal/tools/toolsutil"
 )
-
-// errResult returns a JSON-encoded error response.
-func errResult(msg string) string {
-	b, _ := json.Marshal(map[string]string{"error": msg})
-	return string(b)
-}
-
-// resultJSON marshals v to JSON or returns an error JSON.
-func resultJSON(v any) string {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return errResult("marshal failed: " + err.Error())
-	}
-	return string(b)
-}
 
 // ─── json_format ─────────────────────────────────────────────────────────────
 
@@ -47,7 +34,7 @@ type FormatJSONInput struct {
 // On parse failure it returns {"error":"...", "line":N, "column":N}.
 func FormatJSON(_ context.Context, input FormatJSONInput) string {
 	if strings.TrimSpace(input.JSON) == "" {
-		return errResult("json is required")
+		return toolsutil.ErrResult("json is required")
 	}
 	indent := input.Indent
 	if indent == "" {
@@ -65,14 +52,14 @@ func FormatJSON(_ context.Context, input FormatJSONInput) string {
 			})
 			return string(b)
 		}
-		return errResult("invalid JSON: " + err.Error())
+		return toolsutil.ErrResult("invalid JSON: " + err.Error())
 	}
 
 	out, err := json.MarshalIndent(v, "", indent)
 	if err != nil {
-		return errResult("marshal failed: " + err.Error())
+		return toolsutil.ErrResult("marshal failed: " + err.Error())
 	}
-	return resultJSON(map[string]string{"result": string(out)})
+	return toolsutil.ResultJSON(map[string]string{"result": string(out)})
 }
 
 // offsetToLineCol converts a byte offset into 1-based line/column numbers.
@@ -104,17 +91,17 @@ type YAMLConvertInput struct {
 // YAMLConvert converts between JSON and YAML formats.
 func YAMLConvert(_ context.Context, input YAMLConvertInput) string {
 	if strings.TrimSpace(input.Input) == "" {
-		return errResult("input is required")
+		return toolsutil.ErrResult("input is required")
 	}
 	if input.From == input.To {
-		return resultJSON(map[string]string{"result": input.Input})
+		return toolsutil.ResultJSON(map[string]string{"result": input.Input})
 	}
 
 	switch input.From + "->" + input.To {
 	case "json->yaml":
 		var v any
 		if err := json.Unmarshal([]byte(input.Input), &v); err != nil {
-			return errResult("invalid JSON: " + err.Error())
+			return toolsutil.ErrResult("invalid JSON: " + err.Error())
 		}
 		// Convert map[string]any to map[string]any — yaml.v3 requires this.
 		v = normalizeForYAML(v)
@@ -122,25 +109,25 @@ func YAMLConvert(_ context.Context, input YAMLConvertInput) string {
 		enc := yaml.NewEncoder(&buf)
 		enc.SetIndent(2)
 		if err := enc.Encode(v); err != nil {
-			return errResult("YAML encode failed: " + err.Error())
+			return toolsutil.ErrResult("YAML encode failed: " + err.Error())
 		}
 		enc.Close()
-		return resultJSON(map[string]string{"result": strings.TrimRight(buf.String(), "\n")})
+		return toolsutil.ResultJSON(map[string]string{"result": strings.TrimRight(buf.String(), "\n")})
 
 	case "yaml->json":
 		var v any
 		if err := yaml.Unmarshal([]byte(input.Input), &v); err != nil {
-			return errResult("invalid YAML: " + err.Error())
+			return toolsutil.ErrResult("invalid YAML: " + err.Error())
 		}
 		v = normalizeFromYAML(v)
 		out, err := json.MarshalIndent(v, "", "  ")
 		if err != nil {
-			return errResult("JSON encode failed: " + err.Error())
+			return toolsutil.ErrResult("JSON encode failed: " + err.Error())
 		}
-		return resultJSON(map[string]string{"result": string(out)})
+		return toolsutil.ResultJSON(map[string]string{"result": string(out)})
 
 	default:
-		return errResult(fmt.Sprintf("unsupported conversion: %s->%s (supported: json|yaml)", input.From, input.To))
+		return toolsutil.ErrResult(fmt.Sprintf("unsupported conversion: %s->%s (supported: json|yaml)", input.From, input.To))
 	}
 }
 
@@ -203,13 +190,13 @@ type CSVConvertInput struct {
 // CSVConvert converts between CSV and JSON formats.
 func CSVConvert(_ context.Context, input CSVConvertInput) string {
 	if strings.TrimSpace(input.Input) == "" {
-		return errResult("input is required")
+		return toolsutil.ErrResult("input is required")
 	}
 	sep := ','
 	if input.Separator != "" {
 		runes := []rune(input.Separator)
 		if len(runes) != 1 {
-			return errResult("separator must be a single character")
+			return toolsutil.ErrResult("separator must be a single character")
 		}
 		sep = runes[0]
 	}
@@ -219,19 +206,19 @@ func CSVConvert(_ context.Context, input CSVConvertInput) string {
 	case "csv->json":
 		result, err := csvToJSON(input.Input, sep, hasHeader)
 		if err != nil {
-			return errResult(err.Error())
+			return toolsutil.ErrResult(err.Error())
 		}
-		return resultJSON(map[string]string{"result": result})
+		return toolsutil.ResultJSON(map[string]string{"result": result})
 
 	case "json->csv":
 		result, err := jsonToCSV(input.Input, sep)
 		if err != nil {
-			return errResult(err.Error())
+			return toolsutil.ErrResult(err.Error())
 		}
-		return resultJSON(map[string]string{"result": result})
+		return toolsutil.ResultJSON(map[string]string{"result": result})
 
 	default:
-		return errResult(fmt.Sprintf("unsupported conversion: %s->%s (supported: csv|json)", input.From, input.To))
+		return toolsutil.ErrResult(fmt.Sprintf("unsupported conversion: %s->%s (supported: csv|json)", input.From, input.To))
 	}
 }
 
@@ -357,20 +344,20 @@ type JSONPathInput struct {
 // Supported: $, .field, [N], .*, [*]
 func JSONPath(_ context.Context, input JSONPathInput) string {
 	if strings.TrimSpace(input.JSON) == "" {
-		return errResult("json is required")
+		return toolsutil.ErrResult("json is required")
 	}
 	if strings.TrimSpace(input.Path) == "" {
-		return errResult("path is required")
+		return toolsutil.ErrResult("path is required")
 	}
 
 	var root any
 	if err := json.Unmarshal([]byte(input.JSON), &root); err != nil {
-		return errResult("invalid JSON: " + err.Error())
+		return toolsutil.ErrResult("invalid JSON: " + err.Error())
 	}
 
 	results, err := evalJSONPath(root, input.Path)
 	if err != nil {
-		return errResult(err.Error())
+		return toolsutil.ErrResult(err.Error())
 	}
 
 	// If a single result, unwrap it.
@@ -383,7 +370,7 @@ func JSONPath(_ context.Context, input JSONPathInput) string {
 
 	b, err := json.Marshal(map[string]any{"result": val})
 	if err != nil {
-		return errResult("marshal failed: " + err.Error())
+		return toolsutil.ErrResult("marshal failed: " + err.Error())
 	}
 	return string(b)
 }
@@ -523,26 +510,26 @@ type SchemaValidateInput struct {
 // SchemaValidate validates a JSON document against a JSON Schema (basic subset).
 func SchemaValidate(_ context.Context, input SchemaValidateInput) string {
 	if strings.TrimSpace(input.JSON) == "" {
-		return errResult("json is required")
+		return toolsutil.ErrResult("json is required")
 	}
 	if strings.TrimSpace(input.Schema) == "" {
-		return errResult("schema is required")
+		return toolsutil.ErrResult("schema is required")
 	}
 
 	var doc any
 	if err := json.Unmarshal([]byte(input.JSON), &doc); err != nil {
-		return errResult("invalid JSON document: " + err.Error())
+		return toolsutil.ErrResult("invalid JSON document: " + err.Error())
 	}
 	var schema map[string]any
 	if err := json.Unmarshal([]byte(input.Schema), &schema); err != nil {
-		return errResult("invalid JSON schema: " + err.Error())
+		return toolsutil.ErrResult("invalid JSON schema: " + err.Error())
 	}
 
 	errs := validateSchema(doc, schema, "$")
 	if len(errs) == 0 {
-		return resultJSON(map[string]any{"valid": true})
+		return toolsutil.ResultJSON(map[string]any{"valid": true})
 	}
-	return resultJSON(map[string]any{"valid": false, "errors": errs})
+	return toolsutil.ResultJSON(map[string]any{"valid": false, "errors": errs})
 }
 
 // validateSchema validates doc against schema at path, returning error descriptions.
@@ -795,10 +782,10 @@ type DiffOutput struct {
 // Diff performs a structural diff between two JSON or YAML documents.
 func Diff(_ context.Context, input DiffInput) string {
 	if strings.TrimSpace(input.A) == "" {
-		return errResult("a is required")
+		return toolsutil.ErrResult("a is required")
 	}
 	if strings.TrimSpace(input.B) == "" {
-		return errResult("b is required")
+		return toolsutil.ErrResult("b is required")
 	}
 	format := input.Format
 	if format == "" {
@@ -807,11 +794,11 @@ func Diff(_ context.Context, input DiffInput) string {
 
 	mapA, err := parseToMap(input.A, format)
 	if err != nil {
-		return errResult("could not parse 'a': " + err.Error())
+		return toolsutil.ErrResult("could not parse 'a': " + err.Error())
 	}
 	mapB, err := parseToMap(input.B, format)
 	if err != nil {
-		return errResult("could not parse 'b': " + err.Error())
+		return toolsutil.ErrResult("could not parse 'b': " + err.Error())
 	}
 
 	out := DiffOutput{
@@ -843,7 +830,7 @@ func Diff(_ context.Context, input DiffInput) string {
 	sortStrings(out.Removed)
 	sortDiffEntries(out.Changed)
 
-	return resultJSON(out)
+	return toolsutil.ResultJSON(out)
 }
 
 func parseToMap(s, format string) (map[string]any, error) {
@@ -1130,38 +1117,46 @@ func getFakerValue(fieldName string) any {
 
 // FakeData generates fake data based on a JSON Schema definition.
 // Uses go-faker for realistic data generation (names, emails, addresses, etc.).
-func FakeData(_ context.Context, input FakeDataInput) string {
+func FakeData(ctx context.Context, input FakeDataInput) string {
 	if strings.TrimSpace(input.Schema) == "" {
-		return errResult("schema is required")
+		return toolsutil.ErrResult("schema is required")
 	}
 
 	count := input.Count
 	if count < 1 {
 		count = 1
 	}
-	if count > 100 {
-		return errResult("count must be between 1 and 100")
+	if count > 10_000 {
+		return toolsutil.ErrResult("count must be between 1 and 10000")
 	}
 
 	var schemaMap map[string]any
 	if err := json.Unmarshal([]byte(input.Schema), &schemaMap); err != nil {
-		return errResult("invalid JSON Schema: " + err.Error())
+		return toolsutil.ErrResult("invalid JSON Schema: " + err.Error())
 	}
 
 	var results []any
 	for i := 0; i < count; i++ {
+		// Check for cancellation every 256 iterations to keep overhead negligible.
+		if i&0xFF == 0 {
+			select {
+			case <-ctx.Done():
+				return toolsutil.ErrResult("cancelled: " + ctx.Err().Error())
+			default:
+			}
+		}
 		result := generateFromSchema(schemaMap)
 		results = append(results, result)
 	}
 
 	if len(results) == 1 {
-		return resultJSON(FakeDataOutput{
+		return toolsutil.ResultJSON(FakeDataOutput{
 			Data:  results[0],
 			Count: 1,
 		})
 	}
 
-	return resultJSON(FakeDataOutput{
+	return toolsutil.ResultJSON(FakeDataOutput{
 		Data:  results,
 		Count: len(results),
 	})

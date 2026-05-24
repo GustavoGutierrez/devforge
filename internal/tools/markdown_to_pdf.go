@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"dev-forge-mcp/internal/dpf"
+	"dev-forge-mcp/internal/tools/toolsutil"
 )
 
 // MarkdownToPDFInput is the input schema for the markdown_to_pdf tool.
@@ -94,8 +95,8 @@ func (s *Server) MarkdownToPDF(ctx context.Context, input MarkdownToPDFInput) st
 		return errorJSON("custom page size dimensions must be positive")
 	}
 
-	if s.DPF == nil {
-		return errorJSON("dpf binary not available. Ensure bin/dpf is installed and executable.")
+	if msg, ok := toolsutil.RequireDPF(s.DPF); !ok {
+		return msg
 	}
 
 	job := &dpf.MarkdownToPDFJob{

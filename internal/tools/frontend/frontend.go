@@ -4,7 +4,6 @@ package frontend
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"math"
 	"regexp"
@@ -13,22 +12,9 @@ import (
 	"strings"
 	"time"
 	"unicode"
+
+	"dev-forge-mcp/internal/tools/toolsutil"
 )
-
-// errResult returns a JSON-encoded {"error": "..."} string.
-func errResult(msg string) string {
-	b, _ := json.Marshal(map[string]string{"error": msg})
-	return string(b)
-}
-
-// resultJSON marshals v to JSON or returns an error JSON.
-func resultJSON(v any) string {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return errResult("marshal failed: " + err.Error())
-	}
-	return string(b)
-}
 
 // ── frontend_color ────────────────────────────────────────────────────────────
 
@@ -54,7 +40,7 @@ type rgb struct{ r, g, b float64 }
 // Color converts a color string between formats and optionally computes WCAG contrast.
 func Color(_ context.Context, in ColorInput) string {
 	if in.Color == "" {
-		return errResult("color is required")
+		return toolsutil.ErrResult("color is required")
 	}
 	to := in.To
 	if to == "" {
@@ -67,7 +53,7 @@ func Color(_ context.Context, in ColorInput) string {
 
 	c, err := parseColor(in.Color)
 	if err != nil {
-		return errResult("invalid color: " + err.Error())
+		return toolsutil.ErrResult("invalid color: " + err.Error())
 	}
 
 	result := formatColor(c, to, alpha)
@@ -77,7 +63,7 @@ func Color(_ context.Context, in ColorInput) string {
 	if in.Against != "" {
 		c2, err := parseColor(in.Against)
 		if err != nil {
-			return errResult("invalid against color: " + err.Error())
+			return toolsutil.ErrResult("invalid against color: " + err.Error())
 		}
 		ratio := contrastRatio(c, c2)
 		rounded := math.Round(ratio*100) / 100
@@ -89,7 +75,7 @@ func Color(_ context.Context, in ColorInput) string {
 		res.WCAGAAA = &aaa
 	}
 
-	return resultJSON(res)
+	return toolsutil.ResultJSON(res)
 }
 
 // parseColor parses hex, rgb(), or hsl() strings into an rgb struct.
@@ -364,7 +350,7 @@ type CSSUnitInput struct {
 // CSSUnit converts a CSS value between units.
 func CSSUnit(_ context.Context, in CSSUnitInput) string {
 	if in.From == "" || in.To == "" {
-		return errResult("from and to are required")
+		return toolsutil.ErrResult("from and to are required")
 	}
 	base := in.BaseFontSize
 	if base <= 0 {
@@ -386,17 +372,17 @@ func CSSUnit(_ context.Context, in CSSUnitInput) string {
 	// Convert to px first
 	px, err := toPx(in.Value, in.From, base, vw, vh, parent)
 	if err != nil {
-		return errResult(err.Error())
+		return toolsutil.ErrResult(err.Error())
 	}
 	// Convert from px to target
 	result, err := fromPx(px, in.To, base, vw, vh, parent)
 	if err != nil {
-		return errResult(err.Error())
+		return toolsutil.ErrResult(err.Error())
 	}
 
 	formatted := formatCSSValue(result, in.To)
 
-	return resultJSON(map[string]any{
+	return toolsutil.ResultJSON(map[string]any{
 		"result":    result,
 		"from":      in.From,
 		"to":        in.To,
@@ -517,7 +503,7 @@ var bootstrapBreakpoints = []struct {
 // Breakpoint identifies the responsive breakpoint for a viewport width.
 func Breakpoint(_ context.Context, in BreakpointInput) string {
 	if in.Width < 0 {
-		return errResult("width must be non-negative")
+		return toolsutil.ErrResult("width must be non-negative")
 	}
 	system := in.System
 	if system == "" {
@@ -543,7 +529,7 @@ func Breakpoint(_ context.Context, in BreakpointInput) string {
 		}
 	case "custom":
 		if len(in.CustomBreakpoints) == 0 {
-			return errResult("custom_breakpoints must be provided when system is 'custom'")
+			return toolsutil.ErrResult("custom_breakpoints must be provided when system is 'custom'")
 		}
 		for name, minW := range in.CustomBreakpoints {
 			breakpoints = append(breakpoints, bp{name, minW})
@@ -553,7 +539,7 @@ func Breakpoint(_ context.Context, in BreakpointInput) string {
 			return breakpoints[i].minWidth < breakpoints[j].minWidth
 		})
 	default:
-		return errResult("unknown system: must be tailwind, bootstrap, or custom")
+		return toolsutil.ErrResult("unknown system: must be tailwind, bootstrap, or custom")
 	}
 
 	// Find the matching breakpoint (largest min-width ≤ in.Width)
@@ -595,7 +581,7 @@ func Breakpoint(_ context.Context, in BreakpointInput) string {
 		res.MediaQuery = &query
 	}
 
-	return resultJSON(res)
+	return toolsutil.ResultJSON(res)
 }
 
 // ── regex_test ───────────────────────────────────────────────────────────────
@@ -619,7 +605,7 @@ type RegexMatch struct {
 // Regex tests, matches, or replaces using a Go regexp.
 func Regex(_ context.Context, in RegexInput) string {
 	if in.Pattern == "" {
-		return errResult("pattern is required")
+		return toolsutil.ErrResult("pattern is required")
 	}
 	op := in.Operation
 	if op == "" {
@@ -630,7 +616,7 @@ func Regex(_ context.Context, in RegexInput) string {
 	prefix := buildFlagsPrefix(in.Flags)
 	compiled, err := regexp.Compile(prefix + in.Pattern)
 	if err != nil {
-		return errResult("invalid regex pattern: " + err.Error())
+		return toolsutil.ErrResult("invalid regex pattern: " + err.Error())
 	}
 
 	switch op {
@@ -641,7 +627,7 @@ func Regex(_ context.Context, in RegexInput) string {
 	case "replace":
 		return regexReplace(compiled, in.Input, in.Replacement, strings.Contains(in.Flags, "g"))
 	default:
-		return errResult("unknown operation: must be test, match, or replace")
+		return toolsutil.ErrResult("unknown operation: must be test, match, or replace")
 	}
 }
 
@@ -668,7 +654,7 @@ func regexTest(re *regexp.Regexp, input string) string {
 	all := re.FindAllStringIndex(input, -1)
 	count := len(all)
 	matches := count > 0
-	return resultJSON(map[string]any{
+	return toolsutil.ResultJSON(map[string]any{
 		"matches": matches,
 		"count":   count,
 	})
@@ -698,7 +684,7 @@ func regexMatch(re *regexp.Regexp, input string) string {
 			Index:  loc[0],
 		})
 	}
-	return resultJSON(map[string]any{"matches": results})
+	return toolsutil.ResultJSON(map[string]any{"matches": results})
 }
 
 // regexReplace replaces matches in input with replacement.
@@ -722,7 +708,7 @@ func regexReplace(re *regexp.Regexp, input, replacement string, global bool) str
 			result = input[:loc[0]] + replacement + input[loc[1]:]
 		}
 	}
-	return resultJSON(map[string]any{
+	return toolsutil.ResultJSON(map[string]any{
 		"result": result,
 		"count":  count,
 	})
@@ -742,10 +728,10 @@ type LocaleFormatInput struct {
 // LocaleFormat formats numbers, dates, and currency using locale conventions.
 func LocaleFormat(_ context.Context, in LocaleFormatInput) string {
 	if in.Value == "" {
-		return errResult("value is required")
+		return toolsutil.ErrResult("value is required")
 	}
 	if in.Kind == "" {
-		return errResult("kind is required")
+		return toolsutil.ErrResult("kind is required")
 	}
 	locale := in.Locale
 	if locale == "" {
@@ -760,7 +746,7 @@ func LocaleFormat(_ context.Context, in LocaleFormatInput) string {
 		formatted, err = formatNumber(in.Value, locale, in.Options)
 	case "currency":
 		if in.Currency == "" {
-			return errResult("currency code is required for kind=currency")
+			return toolsutil.ErrResult("currency code is required for kind=currency")
 		}
 		formatted, err = formatCurrency(in.Value, locale, in.Currency, in.Options)
 	case "date":
@@ -772,14 +758,14 @@ func LocaleFormat(_ context.Context, in LocaleFormatInput) string {
 	case "percent":
 		formatted, err = formatPercent(in.Value, locale, in.Options)
 	default:
-		return errResult("unknown kind: must be number, currency, date, time, datetime, or percent")
+		return toolsutil.ErrResult("unknown kind: must be number, currency, date, time, datetime, or percent")
 	}
 
 	if err != nil {
-		return errResult(err.Error())
+		return toolsutil.ErrResult(err.Error())
 	}
 
-	return resultJSON(map[string]string{
+	return toolsutil.ResultJSON(map[string]string{
 		"formatted": formatted,
 		"locale":    locale,
 		"kind":      in.Kind,
@@ -1057,7 +1043,7 @@ type ICUFormatInput struct {
 // {variable, select, key{...} other{...}}.
 func ICUFormat(_ context.Context, in ICUFormatInput) string {
 	if in.Template == "" {
-		return errResult("template is required")
+		return toolsutil.ErrResult("template is required")
 	}
 
 	locale := in.Locale
@@ -1067,10 +1053,10 @@ func ICUFormat(_ context.Context, in ICUFormatInput) string {
 
 	result, err := evaluateICU(in.Template, in.Values, locale)
 	if err != nil {
-		return errResult("icu format error: " + err.Error())
+		return toolsutil.ErrResult("icu format error: " + err.Error())
 	}
 
-	return resultJSON(map[string]string{"result": result})
+	return toolsutil.ResultJSON(map[string]string{"result": result})
 }
 
 // evaluateICU processes ICU message format template with variable bindings.

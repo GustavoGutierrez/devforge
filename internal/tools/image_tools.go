@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	"dev-forge-mcp/internal/dpf"
+	"dev-forge-mcp/internal/tools/toolsutil"
 )
 
 // ─── Image Tool Inputs ───────────────────────────────────────────────────────────
@@ -275,8 +276,8 @@ func (s *Server) ImageCrop(ctx context.Context, input ImageCropInput) string {
 	if input.Output == "" {
 		return errorJSON("output is required")
 	}
-	if s.DPF == nil {
-		return errorJSON("dpf binary not available. Ensure bin/dpf is installed and executable.")
+	if msg, ok := toolsutil.RequireDPF(s.DPF); !ok {
+		return msg
 	}
 
 	w, h := uint32(input.Width), uint32(input.Height)
@@ -314,8 +315,8 @@ func (s *Server) ImageRotate(ctx context.Context, input ImageRotateInput) string
 	if input.Output == "" {
 		return errorJSON("output is required")
 	}
-	if s.DPF == nil {
-		return errorJSON("dpf binary not available. Ensure bin/dpf is installed and executable.")
+	if msg, ok := toolsutil.RequireDPF(s.DPF); !ok {
+		return msg
 	}
 
 	job := &dpf.RotateJob{
@@ -357,8 +358,8 @@ func (s *Server) ImageWatermark(ctx context.Context, input ImageWatermarkInput) 
 	if input.Text == "" && input.ImagePath == "" {
 		return errorJSON("either text or image_path is required for watermark")
 	}
-	if s.DPF == nil {
-		return errorJSON("dpf binary not available. Ensure bin/dpf is installed and executable.")
+	if msg, ok := toolsutil.RequireDPF(s.DPF); !ok {
+		return msg
 	}
 
 	job := &dpf.WatermarkJob{
@@ -406,8 +407,8 @@ func (s *Server) ImageAdjust(ctx context.Context, input ImageAdjustInput) string
 	if input.Output == "" {
 		return errorJSON("output is required")
 	}
-	if s.DPF == nil {
-		return errorJSON("dpf binary not available. Ensure bin/dpf is installed and executable.")
+	if msg, ok := toolsutil.RequireDPF(s.DPF); !ok {
+		return msg
 	}
 
 	job := &dpf.AdjustJob{
@@ -454,8 +455,8 @@ func (s *Server) ImageQuality(ctx context.Context, input ImageQualityInput) stri
 	if input.TargetSizeKB <= 0 {
 		return errorJSON("target_size_kb must be a positive number")
 	}
-	if s.DPF == nil {
-		return errorJSON("dpf binary not available. Ensure bin/dpf is installed and executable.")
+	if msg, ok := toolsutil.RequireDPF(s.DPF); !ok {
+		return msg
 	}
 
 	job := &dpf.QualityJob{
@@ -495,8 +496,8 @@ func (s *Server) ImageSrcset(ctx context.Context, input ImageSrcsetInput) string
 	if input.OutputDir == "" {
 		return errorJSON("output_dir is required")
 	}
-	if s.DPF == nil {
-		return errorJSON("dpf binary not available. Ensure bin/dpf is installed and executable.")
+	if msg, ok := toolsutil.RequireDPF(s.DPF); !ok {
+		return msg
 	}
 
 	// Convert int widths to uint32
@@ -547,8 +548,8 @@ func (s *Server) ImageExif(ctx context.Context, input ImageExifInput) string {
 	if input.ExifOp == "" {
 		return errorJSON("exif_op is required (strip, preserve, extract, auto_orient)")
 	}
-	if s.DPF == nil {
-		return errorJSON("dpf binary not available. Ensure bin/dpf is installed and executable.")
+	if msg, ok := toolsutil.RequireDPF(s.DPF); !ok {
+		return msg
 	}
 
 	job := &dpf.ExifJob{
@@ -585,8 +586,8 @@ func (s *Server) ImageResize(ctx context.Context, input ImageResizeInput) string
 	if input.OutputDir == "" && input.ScalePercent == nil {
 		return errorJSON("either output_dir or scale_percent is required")
 	}
-	if s.DPF == nil {
-		return errorJSON("dpf binary not available. Ensure bin/dpf is installed and executable.")
+	if msg, ok := toolsutil.RequireDPF(s.DPF); !ok {
+		return msg
 	}
 
 	// Convert int widths to uint32
@@ -663,8 +664,8 @@ func (s *Server) ImageConvert(ctx context.Context, input ImageConvertInput) stri
 	if input.Format == "" {
 		return errorJSON("format is required (webp, jpeg, png, avif, gif)")
 	}
-	if s.DPF == nil {
-		return errorJSON("dpf binary not available. Ensure bin/dpf is installed and executable.")
+	if msg, ok := toolsutil.RequireDPF(s.DPF); !ok {
+		return msg
 	}
 
 	job := &dpf.ConvertJob{
@@ -710,8 +711,8 @@ func (s *Server) ImagePlaceholder(ctx context.Context, input ImagePlaceholderInp
 	if input.Input == "" {
 		return errorJSON("input is required")
 	}
-	if s.DPF == nil {
-		return errorJSON("dpf binary not available. Ensure bin/dpf is installed and executable.")
+	if msg, ok := toolsutil.RequireDPF(s.DPF); !ok {
+		return msg
 	}
 
 	output := input.Output
@@ -780,8 +781,8 @@ func (s *Server) ImagePalette(ctx context.Context, input ImagePaletteInput) stri
 	if input.OutputDir == "" {
 		return errorJSON("output_dir is required")
 	}
-	if s.DPF == nil {
-		return errorJSON("dpf binary not available. Ensure bin/dpf is installed and executable.")
+	if msg, ok := toolsutil.RequireDPF(s.DPF); !ok {
+		return msg
 	}
 
 	job := &dpf.PaletteJob{
@@ -834,8 +835,8 @@ func (s *Server) ImageSprite(ctx context.Context, input ImageSpriteInput) string
 	if input.Output == "" {
 		return errorJSON("output is required")
 	}
-	if s.DPF == nil {
-		return errorJSON("dpf binary not available. Ensure bin/dpf is installed and executable.")
+	if msg, ok := toolsutil.RequireDPF(s.DPF); !ok {
+		return msg
 	}
 
 	job := &dpf.SpriteJob{

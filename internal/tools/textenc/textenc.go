@@ -22,22 +22,9 @@ import (
 
 	"github.com/google/uuid"
 	"golang.org/x/text/unicode/norm"
+
+	"dev-forge-mcp/internal/tools/toolsutil"
 )
-
-// errResult returns a JSON-encoded {"error": "..."} string.
-func errResult(msg string) string {
-	b, _ := json.Marshal(map[string]string{"error": msg})
-	return string(b)
-}
-
-// resultJSON marshals v to JSON or returns an error JSON.
-func resultJSON(v any) string {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return errResult("marshal failed: " + err.Error())
-	}
-	return string(b)
-}
 
 // ── text_escape ──────────────────────────────────────────────────────────────
 
@@ -77,10 +64,10 @@ func Escape(_ context.Context, in EscapeInput) string {
 	case "sql":
 		result = escapeSQL(in.Text, op)
 	default:
-		return errResult("unknown target: must be one of json, js, html, sql")
+		return toolsutil.ErrResult("unknown target: must be one of json, js, html, sql")
 	}
 
-	return resultJSON(map[string]string{"result": result})
+	return toolsutil.ResultJSON(map[string]string{"result": result})
 }
 
 // escapeJSON escapes or unescapes a string as if it were a JSON string value.
@@ -175,7 +162,7 @@ var latinMap = map[rune]string{
 // Slug converts arbitrary text to a URL-safe slug.
 func Slug(_ context.Context, in SlugInput) string {
 	if in.Text == "" {
-		return errResult("text is required")
+		return toolsutil.ErrResult("text is required")
 	}
 	sep := in.Separator
 	if sep == "" {
@@ -216,7 +203,7 @@ func Slug(_ context.Context, in SlugInput) string {
 	}
 
 	slug := strings.Trim(out.String(), sep)
-	return resultJSON(map[string]string{"slug": slug})
+	return toolsutil.ResultJSON(map[string]string{"slug": slug})
 }
 
 // ── text_uuid ────────────────────────────────────────────────────────────────
@@ -247,23 +234,23 @@ func UUID(_ context.Context, in UUIDInput) string {
 		count = 1
 	}
 	if count > 1000 {
-		return errResult("count must be between 1 and 1000")
+		return toolsutil.ErrResult("count must be between 1 and 1000")
 	}
 
 	values := make([]string, 0, count)
 	for i := 0; i < count; i++ {
 		val, err := generateIdentifier(kind, length)
 		if err != nil {
-			return errResult(err.Error())
+			return toolsutil.ErrResult(err.Error())
 		}
 		values = append(values, val)
 	}
 
 	if count == 1 {
-		return resultJSON(map[string]string{"value": values[0]})
+		return toolsutil.ResultJSON(map[string]string{"value": values[0]})
 	}
 
-	return resultJSON(map[string]any{
+	return toolsutil.ResultJSON(map[string]any{
 		"values": values,
 		"count":  count,
 		"kind":   kind,
@@ -386,7 +373,7 @@ type Base64Input struct {
 // Base64 encodes or decodes a string using the specified Base64 variant.
 func Base64(_ context.Context, in Base64Input) string {
 	if in.Operation == "decode" && in.Text == "" {
-		return errResult("text is required for decode")
+		return toolsutil.ErrResult("text is required for decode")
 	}
 	variant := in.Variant
 	if variant == "" {
@@ -404,24 +391,24 @@ func Base64(_ context.Context, in Base64Input) string {
 	case "urlsafe":
 		enc = base64.URLEncoding
 	default:
-		return errResult("unknown variant: must be standard or urlsafe")
+		return toolsutil.ErrResult("unknown variant: must be standard or urlsafe")
 	}
 
 	switch op {
 	case "encode":
-		return resultJSON(map[string]string{"result": enc.EncodeToString([]byte(in.Text))})
+		return toolsutil.ResultJSON(map[string]string{"result": enc.EncodeToString([]byte(in.Text))})
 	case "decode":
 		decoded, err := enc.DecodeString(in.Text)
 		if err != nil {
 			// Also try without padding for convenience.
 			decoded, err = enc.WithPadding(base64.NoPadding).DecodeString(in.Text)
 			if err != nil {
-				return errResult("base64 decode failed: " + err.Error())
+				return toolsutil.ErrResult("base64 decode failed: " + err.Error())
 			}
 		}
-		return resultJSON(map[string]string{"result": string(decoded)})
+		return toolsutil.ResultJSON(map[string]string{"result": string(decoded)})
 	default:
-		return errResult("unknown operation: must be encode or decode")
+		return toolsutil.ErrResult("unknown operation: must be encode or decode")
 	}
 }
 
@@ -437,7 +424,7 @@ type URLEncodeInput struct {
 // URLEncode percent-encodes or decodes a URL component.
 func URLEncode(_ context.Context, in URLEncodeInput) string {
 	if in.Text == "" && in.Operation != "encode" {
-		return errResult("text is required")
+		return toolsutil.ErrResult("text is required")
 	}
 	op := in.Operation
 	if op == "" {
@@ -452,31 +439,31 @@ func URLEncode(_ context.Context, in URLEncodeInput) string {
 	case "encode":
 		switch mode {
 		case "query":
-			return resultJSON(map[string]string{"result": url.QueryEscape(in.Text)})
+			return toolsutil.ResultJSON(map[string]string{"result": url.QueryEscape(in.Text)})
 		case "path":
-			return resultJSON(map[string]string{"result": url.PathEscape(in.Text)})
+			return toolsutil.ResultJSON(map[string]string{"result": url.PathEscape(in.Text)})
 		default:
-			return errResult("unknown mode: must be query or path")
+			return toolsutil.ErrResult("unknown mode: must be query or path")
 		}
 	case "decode":
 		switch mode {
 		case "query":
 			decoded, err := url.QueryUnescape(in.Text)
 			if err != nil {
-				return errResult("query decode failed: " + err.Error())
+				return toolsutil.ErrResult("query decode failed: " + err.Error())
 			}
-			return resultJSON(map[string]string{"result": decoded})
+			return toolsutil.ResultJSON(map[string]string{"result": decoded})
 		case "path":
 			decoded, err := url.PathUnescape(in.Text)
 			if err != nil {
-				return errResult("path decode failed: " + err.Error())
+				return toolsutil.ErrResult("path decode failed: " + err.Error())
 			}
-			return resultJSON(map[string]string{"result": decoded})
+			return toolsutil.ResultJSON(map[string]string{"result": decoded})
 		default:
-			return errResult("unknown mode: must be query or path")
+			return toolsutil.ErrResult("unknown mode: must be query or path")
 		}
 	default:
-		return errResult("unknown operation: must be encode or decode")
+		return toolsutil.ErrResult("unknown operation: must be encode or decode")
 	}
 }
 
@@ -494,7 +481,7 @@ const utf8BOM = "\xef\xbb\xbf"
 // Normalize applies a sequence of normalization operations to the given text.
 func Normalize(_ context.Context, in NormalizeInput) string {
 	if len(in.Operations) == 0 {
-		return errResult("at least one operation is required")
+		return toolsutil.ErrResult("at least one operation is required")
 	}
 
 	text := in.Text
@@ -517,11 +504,11 @@ func Normalize(_ context.Context, in NormalizeInput) string {
 		case "nfkd":
 			text = norm.NFKD.String(text)
 		default:
-			return errResult("unknown operation: " + op + "; valid values are trim_whitespace, normalize_newlines, strip_bom, nfc, nfd, nfkc, nfkd")
+			return toolsutil.ErrResult("unknown operation: " + op + "; valid values are trim_whitespace, normalize_newlines, strip_bom, nfc, nfd, nfkc, nfkd")
 		}
 	}
 
-	return resultJSON(map[string]string{"result": text})
+	return toolsutil.ResultJSON(map[string]string{"result": text})
 }
 
 // ── text_case ────────────────────────────────────────────────────────────────
@@ -564,15 +551,15 @@ func tokenize(text string) []string {
 // Case converts text between common naming conventions.
 func Case(_ context.Context, in CaseInput) string {
 	if in.Text == "" {
-		return errResult("text is required")
+		return toolsutil.ErrResult("text is required")
 	}
 	if in.TargetCase == "" {
-		return errResult("target_case is required")
+		return toolsutil.ErrResult("target_case is required")
 	}
 
 	tokens := tokenize(in.Text)
 	if len(tokens) == 0 {
-		return resultJSON(map[string]string{"result": ""})
+		return toolsutil.ResultJSON(map[string]string{"result": ""})
 	}
 
 	var result string
@@ -604,10 +591,10 @@ func Case(_ context.Context, in CaseInput) string {
 		}
 		result = sb.String()
 	default:
-		return errResult("unknown target_case: must be one of camel, snake, kebab, pascal, screaming_snake")
+		return toolsutil.ErrResult("unknown target_case: must be one of camel, snake, kebab, pascal, screaming_snake")
 	}
 
-	return resultJSON(map[string]string{"result": result})
+	return toolsutil.ResultJSON(map[string]string{"result": result})
 }
 
 // capitalize returns the string with its first rune uppercased.
@@ -644,7 +631,7 @@ type TextStatsOutput struct {
 // unique words, most frequent word, and average word length for the given text.
 func TextStats(_ context.Context, in TextStatsInput) string {
 	if in.Text == "" {
-		return errResult("text is required")
+		return toolsutil.ErrResult("text is required")
 	}
 
 	text := in.Text
@@ -706,7 +693,7 @@ func TextStats(_ context.Context, in TextStatsInput) string {
 		avgWordLen = math.Round(avgWordLen*100) / 100
 	}
 
-	return resultJSON(TextStatsOutput{
+	return toolsutil.ResultJSON(TextStatsOutput{
 		WordCount:             wordCount,
 		CharacterCount:        charsWithSpaces,
 		CharacterCountNoSpaces: charsNoSpaces,

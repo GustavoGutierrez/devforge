@@ -15,22 +15,37 @@ import (
 	"strings"
 	"text/template"
 	"unicode"
+
+	"dev-forge-mcp/internal/tools/toolsutil"
 )
 
-// errResult returns a JSON-encoded error response.
-func errResult(msg string) string {
-	b, _ := json.Marshal(map[string]string{"error": msg})
-	return string(b)
-}
+// ─── compiled regexes (package-level cache) ───────────────────────────────────
+//
+// All patterns here are fixed literals — not derived from user input.
+// Compiling once at init avoids per-call overhead in countFunctionsRegex and
+// countComplexityRegex / countPattern.
 
-// resultJSON marshals v to JSON or returns an error JSON.
-func resultJSON(v any) string {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return errResult("marshal failed: " + err.Error())
-	}
-	return string(b)
-}
+var (
+	// countFunctionsRegex — JS/TS
+	reFuncJSTS = regexp.MustCompile(`\bfunction\s+\w+|\bfunction\s*\(|=>\s*{|=\s*\(.*?\)\s*=>`)
+	// countFunctionsRegex — Python
+	reFuncPython = regexp.MustCompile(`(?m)^\s*def\s+\w+`)
+	// countFunctionsRegex — default (go / generic)
+	reFuncDefault = regexp.MustCompile(`\bfunction\b|\bfunc\b|\bdef\b`)
+
+	// countComplexityRegex + metricsGo — shared keyword patterns
+	reKwIf      = regexp.MustCompile(`\bif\b`)
+	reKwElif    = regexp.MustCompile(`\belif\b`)
+	reKwFor     = regexp.MustCompile(`\bfor\b`)
+	reKwWhile   = regexp.MustCompile(`\bwhile\b`)
+	reKwCase    = regexp.MustCompile(`\bcase\b`)
+	reKwSelect  = regexp.MustCompile(`\bselect\b`)
+	reKwAnd     = regexp.MustCompile(`\band\b`)
+	reKwOr      = regexp.MustCompile(`\bor\b`)
+	reKwElseIf  = regexp.MustCompile(`\belse\s+if\b`)
+	reKwTernary = regexp.MustCompile(`\?\s`)
+	reKwFunc    = regexp.MustCompile(`\bfunc\b`)
+)
 
 // ─── code_format ─────────────────────────────────────────────────────────────
 
@@ -52,7 +67,7 @@ type FormatOutput struct {
 // Format formats source code for the given language.
 func Format(_ context.Context, input FormatInput) string {
 	if strings.TrimSpace(input.Code) == "" {
-		return errResult("code is required")
+		return toolsutil.ErrResult("code is required")
 	}
 
 	lang := strings.ToLower(strings.TrimSpace(input.Language))
@@ -68,13 +83,13 @@ func Format(_ context.Context, input FormatInput) string {
 	case "go":
 		result, err = formatGo(input.Code)
 		if err != nil {
-			return errResult("Go format error: " + err.Error())
+			return toolsutil.ErrResult("Go format error: " + err.Error())
 		}
 
 	case "json":
 		result, err = formatJSON(input.Code, indentSize, input.UseTabs)
 		if err != nil {
-			return errResult("JSON format error: " + err.Error())
+			return toolsutil.ErrResult("JSON format error: " + err.Error())
 		}
 
 	case "typescript", "javascript", "ts", "js":
@@ -88,10 +103,10 @@ func Format(_ context.Context, input FormatInput) string {
 		result = formatCSS(input.Code, indentSize, input.UseTabs)
 
 	default:
-		return errResult(fmt.Sprintf("unsupported language %q (supported: go, typescript, json, html, css)", input.Language))
+		return toolsutil.ErrResult(fmt.Sprintf("unsupported language %q (supported: go, typescript, json, html, css)", input.Language))
 	}
 
-	return resultJSON(FormatOutput{
+	return toolsutil.ResultJSON(FormatOutput{
 		Result:   result,
 		Language: lang,
 		Changed:  result != input.Code,
@@ -437,7 +452,7 @@ type MetricsOutput struct {
 // Metrics computes code metrics for the given source code.
 func Metrics(_ context.Context, input MetricsInput) string {
 	if strings.TrimSpace(input.Code) == "" {
-		return errResult("code is required")
+		return toolsutil.ErrResult("code is required")
 	}
 
 	lang := strings.ToLower(strings.TrimSpace(input.Language))
@@ -451,7 +466,7 @@ func Metrics(_ context.Context, input MetricsInput) string {
 	case "generic", "":
 		return metricsRegex(input.Code, "generic")
 	default:
-		return errResult(fmt.Sprintf("unsupported language %q (supported: go, typescript, python, generic)", input.Language))
+		return toolsutil.ErrResult(fmt.Sprintf("unsupported language %q (supported: go, typescript, python, generic)", input.Language))
 	}
 }
 
@@ -510,11 +525,11 @@ func metricsGo(code string) string {
 		complexity += countLogicalOps(code)
 	} else {
 		// Fallback: regex-based counting.
-		funcs = countPattern(code, `\bfunc\b`)
+		funcs = countPattern(code, reKwFunc)
 		complexity = countComplexityRegex(code, "go")
 	}
 
-	return resultJSON(MetricsOutput{
+	return toolsutil.ResultJSON(MetricsOutput{
 		LOC:                loc,
 		SLOC:               sloc,
 		BlankLines:         blank,
@@ -538,7 +553,7 @@ func metricsRegex(code, lang string) string {
 	funcs := countFunctionsRegex(code, lang)
 	complexity := countComplexityRegex(code, lang)
 
-	return resultJSON(MetricsOutput{
+	return toolsutil.ResultJSON(MetricsOutput{
 		LOC:                loc,
 		SLOC:               sloc,
 		BlankLines:         blank,
@@ -614,9 +629,8 @@ func countLogicalOps(code string) int {
 	return strings.Count(code, "&&") + strings.Count(code, "||")
 }
 
-// countPattern counts non-overlapping regex matches.
-func countPattern(code, pattern string) int {
-	re := regexp.MustCompile(pattern)
+// countPattern counts non-overlapping matches of a pre-compiled regex.
+func countPattern(code string, re *regexp.Regexp) int {
 	return len(re.FindAllString(code, -1))
 }
 
@@ -625,14 +639,11 @@ func countFunctionsRegex(code, lang string) int {
 	switch lang {
 	case "typescript", "javascript", "ts", "js":
 		// function foo, const foo = function, const foo = (...) =>, foo: function
-		re := regexp.MustCompile(`\bfunction\s+\w+|\bfunction\s*\(|=>\s*{|=\s*\(.*?\)\s*=>`)
-		return len(re.FindAllString(code, -1))
+		return len(reFuncJSTS.FindAllString(code, -1))
 	case "python":
-		re := regexp.MustCompile(`(?m)^\s*def\s+\w+`)
-		return len(re.FindAllString(code, -1))
+		return len(reFuncPython.FindAllString(code, -1))
 	default:
-		re := regexp.MustCompile(`\bfunction\b|\bfunc\b|\bdef\b`)
-		return len(re.FindAllString(code, -1))
+		return len(reFuncDefault.FindAllString(code, -1))
 	}
 }
 
@@ -641,29 +652,26 @@ func countComplexityRegex(code, lang string) int {
 	count := 0
 	switch lang {
 	case "python":
-		patterns := []string{
-			`\bif\b`, `\belif\b`, `\bfor\b`, `\bwhile\b`,
-			`\bcase\b`, `\band\b`, `\bor\b`,
-		}
-		for _, p := range patterns {
-			count += countPattern(code, p)
-		}
+		count += countPattern(code, reKwIf)
+		count += countPattern(code, reKwElif)
+		count += countPattern(code, reKwFor)
+		count += countPattern(code, reKwWhile)
+		count += countPattern(code, reKwCase)
+		count += countPattern(code, reKwAnd)
+		count += countPattern(code, reKwOr)
 	case "go":
-		patterns := []string{
-			`\bif\b`, `\bfor\b`, `\bcase\b`, `\bselect\b`,
-		}
-		for _, p := range patterns {
-			count += countPattern(code, p)
-		}
+		count += countPattern(code, reKwIf)
+		count += countPattern(code, reKwFor)
+		count += countPattern(code, reKwCase)
+		count += countPattern(code, reKwSelect)
 		count += strings.Count(code, "&&") + strings.Count(code, "||")
 	default: // typescript, javascript, generic
-		patterns := []string{
-			`\bif\b`, `\belse\s+if\b`, `\bfor\b`, `\bwhile\b`,
-			`\bcase\b`, `\?\s`, // ternary
-		}
-		for _, p := range patterns {
-			count += countPattern(code, p)
-		}
+		count += countPattern(code, reKwIf)
+		count += countPattern(code, reKwElseIf)
+		count += countPattern(code, reKwFor)
+		count += countPattern(code, reKwWhile)
+		count += countPattern(code, reKwCase)
+		count += countPattern(code, reKwTernary) // ternary
 		count += strings.Count(code, "&&") + strings.Count(code, "||")
 	}
 	return count
@@ -686,10 +694,10 @@ type TemplateOutput struct {
 // Template renders a template with the given context.
 func Template(_ context.Context, input TemplateInput) string {
 	if strings.TrimSpace(input.Template) == "" {
-		return errResult("template is required")
+		return toolsutil.ErrResult("template is required")
 	}
 	if strings.TrimSpace(input.Context) == "" {
-		return errResult("context is required")
+		return toolsutil.ErrResult("context is required")
 	}
 
 	engine := strings.ToLower(strings.TrimSpace(input.Engine))
@@ -700,26 +708,26 @@ func Template(_ context.Context, input TemplateInput) string {
 	// Parse context JSON.
 	var ctx map[string]any
 	if err := json.Unmarshal([]byte(input.Context), &ctx); err != nil {
-		return errResult("invalid context JSON: " + err.Error())
+		return toolsutil.ErrResult("invalid context JSON: " + err.Error())
 	}
 
 	switch engine {
 	case "go":
 		result, err := renderGoTemplate(input.Template, ctx)
 		if err != nil {
-			return errResult("template execution error: " + err.Error())
+			return toolsutil.ErrResult("template execution error: " + err.Error())
 		}
-		return resultJSON(TemplateOutput{Result: result})
+		return toolsutil.ResultJSON(TemplateOutput{Result: result})
 
 	case "mustache":
 		result, err := renderMustache(input.Template, ctx)
 		if err != nil {
-			return errResult("mustache error: " + err.Error())
+			return toolsutil.ErrResult("mustache error: " + err.Error())
 		}
-		return resultJSON(TemplateOutput{Result: result})
+		return toolsutil.ResultJSON(TemplateOutput{Result: result})
 
 	default:
-		return errResult(fmt.Sprintf("unsupported engine %q (supported: go, mustache)", input.Engine))
+		return toolsutil.ErrResult(fmt.Sprintf("unsupported engine %q (supported: go, mustache)", input.Engine))
 	}
 }
 

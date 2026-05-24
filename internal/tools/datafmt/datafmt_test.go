@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+	"time"
 
 	"dev-forge-mcp/internal/tools/datafmt"
 )
@@ -834,13 +835,13 @@ func TestFakeData_CountZeroOrNegative_UsesOne(t *testing.T) {
 func TestFakeData_CountExceedsLimit_ReturnsError(t *testing.T) {
 	ctx := context.Background()
 	schema := `{"type": "string"}`
-	result := datafmt.FakeData(ctx, datafmt.FakeDataInput{Schema: schema, Count: 101})
+	result := datafmt.FakeData(ctx, datafmt.FakeDataInput{Schema: schema, Count: 10_001})
 	var errOut map[string]string
 	if err := json.Unmarshal([]byte(result), &errOut); err != nil {
 		t.Fatalf("expected error JSON, got: %s", result)
 	}
 	if _, ok := errOut["error"]; !ok {
-		t.Error("expected error for count > 100")
+		t.Error("expected error for count > 10000")
 	}
 }
 
@@ -1240,4 +1241,31 @@ func TestFakeData_DateTimeFields(t *testing.T) {
 	}
 
 	t.Logf("createdAt=%s updatedAt=%s birthDate=%s", data["createdAt"], data["updatedAt"], data["birthDate"])
+}
+
+// ─── context cancellation ──────────────────────────────────────────────────────
+
+// TestFakeData_ContextCancellation verifies that FakeData respects context
+// cancellation when generating a large number of rows. The test cancels the
+// context after 5ms and expects FakeData to return an error envelope containing
+// the word "cancelled" before completing all 5000 rows.
+func TestFakeData_ContextCancellation(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		time.Sleep(5 * time.Millisecond)
+		cancel()
+	}()
+
+	schema := `{"type":"object","properties":{"name":{"type":"string"},"email":{"type":"string"},"address":{"type":"string"}}}`
+	result := datafmt.FakeData(ctx, datafmt.FakeDataInput{Schema: schema, Count: 5000})
+
+	m := mustUnmarshal(t, result)
+	errVal, hasErr := m["error"]
+	if !hasErr {
+		t.Fatalf("expected an error envelope after cancellation, got success: %s", result)
+	}
+	errStr, _ := errVal.(string)
+	if !strings.Contains(strings.ToLower(errStr), "cancelled") {
+		t.Errorf("expected error to contain 'cancelled', got: %s", errStr)
+	}
 }

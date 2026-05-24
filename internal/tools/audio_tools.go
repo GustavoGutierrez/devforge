@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"dev-forge-mcp/internal/dpf"
+	"dev-forge-mcp/internal/tools/toolsutil"
 )
 
 // ─── Audio Tool Inputs ─────────────────────────────────────────────────────────
@@ -86,8 +87,8 @@ func (s *Server) AudioTranscode(ctx context.Context, input AudioTranscodeInput) 
 	if input.Codec == "" {
 		return errorJSON("codec is required (mp3, aac, opus, vorbis, flac, wav)")
 	}
-	if s.DPF == nil {
-		return errorJSON("dpf binary not available. Ensure bin/dpf is installed and executable.")
+	if msg, ok := toolsutil.RequireDPF(s.DPF); !ok {
+		return msg
 	}
 
 	job := &dpf.AudioTranscodeJob{
@@ -131,8 +132,8 @@ func (s *Server) AudioTrim(ctx context.Context, input AudioTrimInput) string {
 	if input.End <= input.Start {
 		return errorJSON("end must be greater than start")
 	}
-	if s.DPF == nil {
-		return errorJSON("dpf binary not available. Ensure bin/dpf is installed and executable.")
+	if msg, ok := toolsutil.RequireDPF(s.DPF); !ok {
+		return msg
 	}
 
 	job := &dpf.AudioTrimJob{
@@ -163,8 +164,8 @@ func (s *Server) AudioNormalize(ctx context.Context, input AudioNormalizeInput) 
 	if input.Output == "" {
 		return errorJSON("output is required")
 	}
-	if s.DPF == nil {
-		return errorJSON("dpf binary not available. Ensure bin/dpf is installed and executable.")
+	if msg, ok := toolsutil.RequireDPF(s.DPF); !ok {
+		return msg
 	}
 
 	job := &dpf.AudioNormalizeJob{
@@ -194,8 +195,8 @@ func (s *Server) AudioSilenceTrim(ctx context.Context, input AudioSilenceTrimInp
 	if input.Output == "" {
 		return errorJSON("output is required")
 	}
-	if s.DPF == nil {
-		return errorJSON("dpf binary not available. Ensure bin/dpf is installed and executable.")
+	if msg, ok := toolsutil.RequireDPF(s.DPF); !ok {
+		return msg
 	}
 
 	job := &dpf.AudioSilenceTrimJob{

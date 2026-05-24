@@ -12,22 +12,9 @@ import (
 	"time"
 
 	"github.com/robfig/cron/v3"
+
+	"dev-forge-mcp/internal/tools/toolsutil"
 )
-
-// errResult returns a JSON-encoded error response.
-func errResult(msg string) string {
-	b, _ := json.Marshal(map[string]string{"error": msg})
-	return string(b)
-}
-
-// resultJSON marshals v to JSON or returns an error JSON.
-func resultJSON(v any) string {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return errResult("marshal failed: " + err.Error())
-	}
-	return string(b)
-}
 
 // humanLayout is the readable timestamp format used for "human" mode.
 const humanLayout = "Jan 2, 2006 15:04:05 MST"
@@ -72,7 +59,7 @@ type TimeConvertOutput struct {
 // It parses a timestamp in one format and converts it to another.
 func TimeConvert(_ context.Context, input TimeConvertInput) string {
 	if strings.TrimSpace(input.Input) == "" {
-		return errResult("input is required")
+		return toolsutil.ErrResult("input is required")
 	}
 
 	// Resolve timezone
@@ -82,7 +69,7 @@ func TimeConvert(_ context.Context, input TimeConvertInput) string {
 	}
 	loc, err := time.LoadLocation(tzName)
 	if err != nil {
-		return errResult("unknown timezone: " + tzName)
+		return toolsutil.ErrResult("unknown timezone: " + tzName)
 	}
 
 	fromFmt := strings.ToLower(strings.TrimSpace(input.FromFormat))
@@ -97,7 +84,7 @@ func TimeConvert(_ context.Context, input TimeConvertInput) string {
 	// Parse the input timestamp
 	t, detectedFmt, parseErr := parseTimestamp(input.Input, fromFmt, loc)
 	if parseErr != nil {
-		return errResult("could not parse input: " + parseErr.Error())
+		return toolsutil.ErrResult("could not parse input: " + parseErr.Error())
 	}
 
 	// Apply requested output timezone
@@ -106,10 +93,10 @@ func TimeConvert(_ context.Context, input TimeConvertInput) string {
 	// Format the output
 	result, fmtErr := formatTimestamp(t, toFmt)
 	if fmtErr != nil {
-		return errResult("could not format output: " + fmtErr.Error())
+		return toolsutil.ErrResult("could not format output: " + fmtErr.Error())
 	}
 
-	return resultJSON(TimeConvertOutput{
+	return toolsutil.ResultJSON(TimeConvertOutput{
 		Result:     result,
 		FromFormat: detectedFmt,
 		ToFormat:   toFmt,
@@ -237,7 +224,7 @@ type TimeAddResult struct {
 // TimeDiff implements the time_diff MCP tool.
 func TimeDiff(_ context.Context, input TimeDiffInput) string {
 	if strings.TrimSpace(input.Start) == "" {
-		return errResult("start is required")
+		return toolsutil.ErrResult("start is required")
 	}
 
 	op := strings.ToLower(strings.TrimSpace(input.Operation))
@@ -248,17 +235,17 @@ func TimeDiff(_ context.Context, input TimeDiffInput) string {
 	// Parse start time
 	startT, _, err := parseTimestamp(input.Start, "auto", time.UTC)
 	if err != nil {
-		return errResult("could not parse start: " + err.Error())
+		return toolsutil.ErrResult("could not parse start: " + err.Error())
 	}
 
 	switch op {
 	case "add", "subtract":
 		if strings.TrimSpace(input.Duration) == "" {
-			return errResult("duration is required for add/subtract operations")
+			return toolsutil.ErrResult("duration is required for add/subtract operations")
 		}
 		dur, durErr := parseDuration(input.Duration)
 		if durErr != nil {
-			return errResult("could not parse duration: " + durErr.Error())
+			return toolsutil.ErrResult("could not parse duration: " + durErr.Error())
 		}
 		var resultT time.Time
 		if op == "add" {
@@ -266,15 +253,15 @@ func TimeDiff(_ context.Context, input TimeDiffInput) string {
 		} else {
 			resultT = startT.Add(-dur)
 		}
-		return resultJSON(TimeAddResult{Result: resultT.UTC().Format(time.RFC3339)})
+		return toolsutil.ResultJSON(TimeAddResult{Result: resultT.UTC().Format(time.RFC3339)})
 
 	case "diff":
 		if strings.TrimSpace(input.End) == "" {
-			return errResult("end is required for diff operation")
+			return toolsutil.ErrResult("end is required for diff operation")
 		}
 		endT, _, err := parseTimestamp(input.End, "auto", time.UTC)
 		if err != nil {
-			return errResult("could not parse end: " + err.Error())
+			return toolsutil.ErrResult("could not parse end: " + err.Error())
 		}
 		diff := endT.Sub(startT)
 		secs := diff.Seconds()
@@ -282,7 +269,7 @@ func TimeDiff(_ context.Context, input TimeDiffInput) string {
 		hours := diff.Hours()
 		days := hours / 24
 
-		return resultJSON(TimeDiffResult{
+		return toolsutil.ResultJSON(TimeDiffResult{
 			Seconds: math.Round(secs*1000) / 1000,
 			Minutes: math.Round(mins*1000) / 1000,
 			Hours:   math.Round(hours*1000) / 1000,
@@ -291,7 +278,7 @@ func TimeDiff(_ context.Context, input TimeDiffInput) string {
 		})
 
 	default:
-		return errResult("unsupported operation: " + op + " (valid: diff, add, subtract)")
+		return toolsutil.ErrResult("unsupported operation: " + op + " (valid: diff, add, subtract)")
 	}
 }
 
@@ -398,7 +385,7 @@ type TimeCronNextOutput struct {
 // TimeCron implements the time_cron MCP tool.
 func TimeCron(_ context.Context, input TimeCronInput) string {
 	if strings.TrimSpace(input.Expression) == "" {
-		return errResult("expression is required")
+		return toolsutil.ErrResult("expression is required")
 	}
 
 	op := strings.ToLower(strings.TrimSpace(input.Operation))
@@ -433,14 +420,14 @@ func TimeCron(_ context.Context, input TimeCronInput) string {
 			return string(b)
 		}
 		desc := describeCron(expr)
-		return resultJSON(TimeCronDescribeOutput{
+		return toolsutil.ResultJSON(TimeCronDescribeOutput{
 			Description: desc,
 			Valid:       true,
 		})
 
 	case "next":
 		if parseErr != nil {
-			return errResult("invalid cron expression: " + parseErr.Error())
+			return toolsutil.ErrResult("invalid cron expression: " + parseErr.Error())
 		}
 
 		count := input.Count
@@ -452,7 +439,7 @@ func TimeCron(_ context.Context, input TimeCronInput) string {
 		if strings.TrimSpace(input.From) != "" {
 			t, _, err := parseTimestamp(input.From, "auto", time.UTC)
 			if err != nil {
-				return errResult("could not parse from: " + err.Error())
+				return toolsutil.ErrResult("could not parse from: " + err.Error())
 			}
 			fromT = t
 		} else {
@@ -469,13 +456,13 @@ func TimeCron(_ context.Context, input TimeCronInput) string {
 			nexts = append(nexts, current.UTC().Format(time.RFC3339))
 		}
 
-		return resultJSON(TimeCronNextOutput{
+		return toolsutil.ResultJSON(TimeCronNextOutput{
 			Next:  nexts,
 			Count: len(nexts),
 		})
 
 	default:
-		return errResult("unsupported operation: " + op + " (valid: describe, next)")
+		return toolsutil.ErrResult("unsupported operation: " + op + " (valid: describe, next)")
 	}
 }
 
@@ -636,10 +623,10 @@ const maxDateRangeCount = 1000
 // TimeDateRange implements the time_date_range MCP tool.
 func TimeDateRange(_ context.Context, input TimeDateRangeInput) string {
 	if strings.TrimSpace(input.Start) == "" {
-		return errResult("start is required")
+		return toolsutil.ErrResult("start is required")
 	}
 	if strings.TrimSpace(input.End) == "" {
-		return errResult("end is required")
+		return toolsutil.ErrResult("end is required")
 	}
 
 	step := strings.ToLower(strings.TrimSpace(input.Step))
@@ -654,11 +641,11 @@ func TimeDateRange(_ context.Context, input TimeDateRangeInput) string {
 
 	startT, _, err := parseTimestamp(input.Start, "auto", time.UTC)
 	if err != nil {
-		return errResult("could not parse start: " + err.Error())
+		return toolsutil.ErrResult("could not parse start: " + err.Error())
 	}
 	endT, _, err := parseTimestamp(input.End, "auto", time.UTC)
 	if err != nil {
-		return errResult("could not parse end: " + err.Error())
+		return toolsutil.ErrResult("could not parse end: " + err.Error())
 	}
 
 	// Normalize to start of day
@@ -666,13 +653,13 @@ func TimeDateRange(_ context.Context, input TimeDateRangeInput) string {
 	endT = time.Date(endT.Year(), endT.Month(), endT.Day(), 0, 0, 0, 0, time.UTC)
 
 	if endT.Before(startT) {
-		return errResult("end must be on or after start")
+		return toolsutil.ErrResult("end must be on or after start")
 	}
 
 	// Estimate count to prevent huge allocations
 	estimated := estimateDateCount(startT, endT, step)
 	if estimated > maxDateRangeCount {
-		return errResult(fmt.Sprintf(
+		return toolsutil.ErrResult(fmt.Sprintf(
 			"date range would produce more than %d dates (%d estimated); narrow the range or use a larger step",
 			maxDateRangeCount, estimated,
 		))
@@ -683,7 +670,7 @@ func TimeDateRange(_ context.Context, input TimeDateRangeInput) string {
 	for !current.After(endT) {
 		d, fmtErr := formatDate(current, format)
 		if fmtErr != nil {
-			return errResult(fmtErr.Error())
+			return toolsutil.ErrResult(fmtErr.Error())
 		}
 		dates = append(dates, d)
 
@@ -695,7 +682,7 @@ func TimeDateRange(_ context.Context, input TimeDateRangeInput) string {
 		current = advanceDate(current, step)
 	}
 
-	return resultJSON(TimeDateRangeOutput{
+	return toolsutil.ResultJSON(TimeDateRangeOutput{
 		Dates: dates,
 		Count: len(dates),
 	})
@@ -861,7 +848,7 @@ func CurrentDate(_ context.Context, input CurrentDateInput) string {
 		weekdayFormatted = dayName + ", " + monthName + " " + strconv.Itoa(now.Day()) + ", " + strconv.Itoa(now.Year())
 	}
 
-	return resultJSON(CurrentDateOutput{
+	return toolsutil.ResultJSON(CurrentDateOutput{
 		Date:          weekdayFormatted,
 		DayOfWeek:     dayName,
 		DayOfWeekShort: dayNameShort,
@@ -1004,7 +991,7 @@ func CurrentWeek(_ context.Context, input CurrentWeekInput) string {
 
 	_ = weekdayFormatted
 
-	return resultJSON(result)
+	return toolsutil.ResultJSON(result)
 }
 
 // getWeekStartDate returns the first day (Monday) of the given ISO week.
@@ -1067,14 +1054,14 @@ func WeekNumber(_ context.Context, input WeekNumberInput) string {
 	if strings.TrimSpace(input.Date) != "" {
 		t, _, err = parseTimestamp(input.Date, "auto", time.UTC)
 		if err != nil {
-			return errResult("could not parse date: " + err.Error())
+			return toolsutil.ErrResult("could not parse date: " + err.Error())
 		}
 	} else if input.Year != 0 && input.Month != 0 && input.Day != 0 {
 		if input.Month < 1 || input.Month > 12 {
-			return errResult("month must be between 1 and 12")
+			return toolsutil.ErrResult("month must be between 1 and 12")
 		}
 		if input.Day < 1 || input.Day > 31 {
-			return errResult("day must be between 1 and 31")
+			return toolsutil.ErrResult("day must be between 1 and 31")
 		}
 		t = time.Date(input.Year, time.Month(input.Month), input.Day, 0, 0, 0, 0, time.UTC)
 	} else {
@@ -1086,7 +1073,7 @@ func WeekNumber(_ context.Context, input WeekNumberInput) string {
 
 	isoWeekString := fmt.Sprintf("%d-W%02d", year, week)
 
-	return resultJSON(WeekNumberOutput{
+	return toolsutil.ResultJSON(WeekNumberOutput{
 		WeekOfYear:    week,
 		WeekOfMonth:   weekNumOfMonth,
 		Year:          t.Year(),
@@ -1166,10 +1153,10 @@ func Calendar(_ context.Context, input CalendarInput) string {
 	}
 
 	if month < 1 || month > 12 {
-		return errResult("month must be between 1 and 12")
+		return toolsutil.ErrResult("month must be between 1 and 12")
 	}
 	if year < 1 || year > 9999 {
-		return errResult("year must be between 1 and 9999")
+		return toolsutil.ErrResult("year must be between 1 and 9999")
 	}
 
 	monthNames := getMonthNames(locale)
@@ -1280,7 +1267,7 @@ func Calendar(_ context.Context, input CalendarInput) string {
 		weeks[len(weeks)-1].Days = append(weeks[len(weeks)-1].Days, emptyDay)
 	}
 
-	return resultJSON(CalendarOutput{
+	return toolsutil.ResultJSON(CalendarOutput{
 		Year:            year,
 		Month:           month,
 		MonthName:       monthName,

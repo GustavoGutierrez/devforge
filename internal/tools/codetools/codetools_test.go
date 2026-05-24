@@ -848,3 +848,353 @@ func TestTemplate_MustacheNumericValue(t *testing.T) {
 		t.Errorf("want %q, got %q", "Count: 42", result)
 	}
 }
+
+// ── benchmarks ───────────────────────────────────────────────────────────────
+
+// syntheticGoFixture is a ~500-line Go snippet that exercises all regex paths
+// (functions, if/for/case/select, logical operators).
+const syntheticGoFixture = `package example
+
+import (
+	"context"
+	"fmt"
+	"strings"
+)
+
+// Add returns the sum of a and b.
+func Add(a, b int) int {
+	return a + b
+}
+
+// Subtract returns the difference of a and b.
+func Subtract(a, b int) int {
+	return a - b
+}
+
+// Classify categorises n into a named bucket.
+func Classify(n int) string {
+	if n < 0 {
+		return "negative"
+	} else if n == 0 {
+		return "zero"
+	} else if n < 10 {
+		return "small"
+	} else if n < 100 {
+		return "medium"
+	}
+	return "large"
+}
+
+// Fibonacci returns the nth Fibonacci number.
+func Fibonacci(n int) int {
+	if n <= 1 {
+		return n
+	}
+	a, b := 0, 1
+	for i := 2; i <= n; i++ {
+		a, b = b, a+b
+	}
+	return b
+}
+
+// FilterPositive returns only positive values from vs.
+func FilterPositive(vs []int) []int {
+	out := make([]int, 0, len(vs))
+	for _, v := range vs {
+		if v > 0 {
+			out = append(out, v)
+		}
+	}
+	return out
+}
+
+// Reduce folds vs using f with initial accumulator acc.
+func Reduce(vs []int, acc int, f func(int, int) int) int {
+	for _, v := range vs {
+		acc = f(acc, v)
+	}
+	return acc
+}
+
+// Contains reports whether vs contains target.
+func Contains(vs []int, target int) bool {
+	for _, v := range vs {
+		if v == target {
+			return true
+		}
+	}
+	return false
+}
+
+// Unique returns deduplicated elements preserving order.
+func Unique(vs []int) []int {
+	seen := make(map[int]struct{})
+	out := make([]int, 0, len(vs))
+	for _, v := range vs {
+		if _, ok := seen[v]; !ok {
+			seen[v] = struct{}{}
+			out = append(out, v)
+		}
+	}
+	return out
+}
+
+// Chunk splits vs into sub-slices of size n.
+func Chunk(vs []int, n int) [][]int {
+	if n <= 0 {
+		return nil
+	}
+	var result [][]int
+	for i := 0; i < len(vs); i += n {
+		end := i + n
+		if end > len(vs) {
+			end = len(vs)
+		}
+		result = append(result, vs[i:end])
+	}
+	return result
+}
+
+// DayName returns the name of the weekday for d (0=Sunday).
+func DayName(d int) string {
+	switch d {
+	case 0:
+		return "Sunday"
+	case 1:
+		return "Monday"
+	case 2:
+		return "Tuesday"
+	case 3:
+		return "Wednesday"
+	case 4:
+		return "Thursday"
+	case 5:
+		return "Friday"
+	case 6:
+		return "Saturday"
+	default:
+		return "Unknown"
+	}
+}
+
+// Greet returns a personalised greeting.
+func Greet(name string) string {
+	if strings.TrimSpace(name) == "" {
+		return "Hello, stranger!"
+	}
+	return fmt.Sprintf("Hello, %s!", name)
+}
+
+// Max returns the larger of a and b.
+func Max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
+}
+
+// Min returns the smaller of a and b.
+func Min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+// Clamp restricts v to the range [lo, hi].
+func Clamp(v, lo, hi int) int {
+	if v < lo {
+		return lo
+	}
+	if v > hi {
+		return hi
+	}
+	return v
+}
+
+// IsPrime reports whether n is prime.
+func IsPrime(n int) bool {
+	if n < 2 {
+		return false
+	}
+	for i := 2; i*i <= n; i++ {
+		if n%i == 0 {
+			return false
+		}
+	}
+	return true
+}
+
+// Primes returns all primes up to max.
+func Primes(max int) []int {
+	out := []int{}
+	for i := 2; i <= max; i++ {
+		if IsPrime(i) {
+			out = append(out, i)
+		}
+	}
+	return out
+}
+
+// Reverse reverses the elements of vs in-place.
+func Reverse(vs []int) {
+	for i, j := 0, len(vs)-1; i < j; i, j = i+1, j-1 {
+		vs[i], vs[j] = vs[j], vs[i]
+	}
+}
+
+// SelectChannel demonstrates select usage.
+func SelectChannel(ctx context.Context, ch <-chan int) (int, bool) {
+	select {
+	case v, ok := <-ch:
+		return v, ok
+	case <-ctx.Done():
+		return 0, false
+	}
+}
+
+// LogicalCheck combines && and || operators to exercise complexity counting.
+func LogicalCheck(a, b, c bool) bool {
+	return (a && b) || (b && c) || (a && c)
+}
+
+// NestedLoops exercises nested for/if patterns.
+func NestedLoops(matrix [][]int) int {
+	total := 0
+	for i := 0; i < len(matrix); i++ {
+		for j := 0; j < len(matrix[i]); j++ {
+			if matrix[i][j] > 0 && matrix[i][j]%2 == 0 {
+				total += matrix[i][j]
+			}
+		}
+	}
+	return total
+}
+
+// Dispatch uses a type switch (case) to dispatch by type.
+func Dispatch(v any) string {
+	switch t := v.(type) {
+	case int:
+		return fmt.Sprintf("int(%d)", t)
+	case string:
+		return fmt.Sprintf("string(%s)", t)
+	case bool:
+		if t {
+			return "true"
+		}
+		return "false"
+	default:
+		return "unknown"
+	}
+}
+
+// Pipeline chains multiple operations.
+func Pipeline(vs []int) []int {
+	vs = FilterPositive(vs)
+	vs = Unique(vs)
+	Reverse(vs)
+	return vs
+}
+
+// Walker iterates and applies a side-effectful function.
+func Walker(vs []int, fn func(int)) {
+	for _, v := range vs {
+		fn(v)
+	}
+}
+
+// SafeDivide returns a/b and false if b is zero.
+func SafeDivide(a, b int) (int, bool) {
+	if b == 0 {
+		return 0, false
+	}
+	return a / b, true
+}
+
+// Abs returns the absolute value of n.
+func Abs(n int) int {
+	if n < 0 {
+		return -n
+	}
+	return n
+}
+
+// Sign returns -1, 0, or 1.
+func Sign(n int) int {
+	if n < 0 {
+		return -1
+	} else if n > 0 {
+		return 1
+	}
+	return 0
+}
+
+// CountVowels counts ASCII vowels in s.
+func CountVowels(s string) int {
+	count := 0
+	for _, c := range strings.ToLower(s) {
+		switch c {
+		case 'a', 'e', 'i', 'o', 'u':
+			count++
+		}
+	}
+	return count
+}
+
+// IsPalindrome reports whether s reads the same forwards and backwards.
+func IsPalindrome(s string) bool {
+	runes := []rune(s)
+	for i, j := 0, len(runes)-1; i < j; i, j = i+1, j-1 {
+		if runes[i] != runes[j] {
+			return false
+		}
+	}
+	return true
+}
+
+// Repeat builds a string of n copies of s.
+func Repeat(s string, n int) string {
+	if n <= 0 {
+		return ""
+	}
+	var b strings.Builder
+	for i := 0; i < n; i++ {
+		b.WriteString(s)
+	}
+	return b.String()
+}
+
+// BinarySearch returns the index of target in sorted vs, or -1.
+func BinarySearch(vs []int, target int) int {
+	lo, hi := 0, len(vs)-1
+	for lo <= hi {
+		mid := (lo + hi) / 2
+		switch {
+		case vs[mid] == target:
+			return mid
+		case vs[mid] < target:
+			lo = mid + 1
+		default:
+			hi = mid - 1
+		}
+	}
+	return -1
+}
+`
+
+// BenchmarkCodeMetrics measures the cost of computing code metrics for a
+// ~500-line Go fixture.  Run with:
+//
+//	go test -bench=BenchmarkCodeMetrics -benchmem -count=3 ./internal/tools/codetools/...
+func BenchmarkCodeMetrics(b *testing.B) {
+	ctx := context.Background()
+	input := codetools.MetricsInput{
+		Code:     syntheticGoFixture,
+		Language: "go",
+	}
+	b.ResetTimer()
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		_ = codetools.Metrics(ctx, input)
+	}
+}

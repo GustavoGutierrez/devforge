@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"dev-forge-mcp/internal/dpf"
+	"dev-forge-mcp/internal/tools/toolsutil"
 )
 
 // GenerateFaviconInput is the input schema for the generate_favicon tool.
@@ -35,8 +36,8 @@ func (s *Server) GenerateFavicon(ctx context.Context, input GenerateFaviconInput
 	if strings.TrimSpace(input.SourcePath) == "" {
 		return errorJSON("source_path is required")
 	}
-	if s.DPF == nil {
-		return errorJSON("dpf binary not available. Ensure bin/dpf is installed and executable.")
+	if msg, ok := toolsutil.RequireDPF(s.DPF); !ok {
+		return msg
 	}
 
 	bgColor := input.BackgroundColor

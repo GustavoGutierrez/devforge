@@ -14,29 +14,15 @@ import (
 	"crypto/sha512"
 	"encoding/base64"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"hash"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"dev-forge-mcp/internal/tools/toolsutil"
 )
-
-// errResult returns a JSON-encoded {"error": "..."} string.
-func errResult(msg string) string {
-	b, _ := json.Marshal(map[string]string{"error": msg})
-	return string(b)
-}
-
-// resultJSON marshals v to JSON or returns an error JSON.
-func resultJSON(v any) string {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return errResult("marshal failed: " + err.Error())
-	}
-	return string(b)
-}
 
 // ── file_checksum ─────────────────────────────────────────────────────────────
 
@@ -58,7 +44,7 @@ type ChecksumResult struct {
 // selected hash. The entire file is never loaded into memory at once.
 func Checksum(_ context.Context, in ChecksumInput) string {
 	if in.Path == "" {
-		return errResult("path is required")
+		return toolsutil.ErrResult("path is required")
 	}
 	algo := in.Algorithm
 	if algo == "" {
@@ -74,25 +60,25 @@ func Checksum(_ context.Context, in ChecksumInput) string {
 	case "sha512":
 		h = sha512.New()
 	default:
-		return errResult("unknown algorithm: must be md5, sha256, or sha512")
+		return toolsutil.ErrResult("unknown algorithm: must be md5, sha256, or sha512")
 	}
 
 	f, err := os.Open(in.Path)
 	if err != nil {
-		return errResult("cannot open file: " + err.Error())
+		return toolsutil.ErrResult("cannot open file: " + err.Error())
 	}
 	defer f.Close()
 
 	stat, err := f.Stat()
 	if err != nil {
-		return errResult("cannot stat file: " + err.Error())
+		return toolsutil.ErrResult("cannot stat file: " + err.Error())
 	}
 
 	if _, err := io.Copy(h, f); err != nil {
-		return errResult("read error: " + err.Error())
+		return toolsutil.ErrResult("read error: " + err.Error())
 	}
 
-	return resultJSON(ChecksumResult{
+	return toolsutil.ResultJSON(ChecksumResult{
 		Checksum:  hex.EncodeToString(h.Sum(nil)),
 		Algorithm: algo,
 		Path:      in.Path,
@@ -133,7 +119,7 @@ func Archive(_ context.Context, in ArchiveInput) string {
 		format = "zip"
 	}
 	if format != "zip" && format != "tar.gz" {
-		return errResult("unknown format: must be zip or tar.gz")
+		return toolsutil.ErrResult("unknown format: must be zip or tar.gz")
 	}
 
 	switch in.Operation {
@@ -142,7 +128,7 @@ func Archive(_ context.Context, in ArchiveInput) string {
 	case "extract":
 		return archiveExtract(in, format)
 	default:
-		return errResult("unknown operation: must be create or extract")
+		return toolsutil.ErrResult("unknown operation: must be create or extract")
 	}
 }
 
@@ -164,20 +150,20 @@ func matchesExclude(path string, patterns []string) bool {
 // archiveCreate builds a new archive from in.Source and writes it to in.Output.
 func archiveCreate(in ArchiveInput, format string) string {
 	if in.Source == "" {
-		return errResult("source is required for create operation")
+		return toolsutil.ErrResult("source is required for create operation")
 	}
 	if in.Output == "" {
-		return errResult("output is required for create operation")
+		return toolsutil.ErrResult("output is required for create operation")
 	}
 
 	// Ensure parent directory of output exists.
 	if err := os.MkdirAll(filepath.Dir(in.Output), 0o755); err != nil {
-		return errResult("cannot create output directory: " + err.Error())
+		return toolsutil.ErrResult("cannot create output directory: " + err.Error())
 	}
 
 	outFile, err := os.Create(in.Output)
 	if err != nil {
-		return errResult("cannot create archive file: " + err.Error())
+		return toolsutil.ErrResult("cannot create archive file: " + err.Error())
 	}
 	defer outFile.Close()
 
@@ -191,18 +177,18 @@ func archiveCreate(in ArchiveInput, format string) string {
 	}
 	if err != nil {
 		os.Remove(in.Output)
-		return errResult("archive creation failed: " + err.Error())
+		return toolsutil.ErrResult("archive creation failed: " + err.Error())
 	}
 	if err := outFile.Close(); err != nil {
-		return errResult("failed to finalise archive: " + err.Error())
+		return toolsutil.ErrResult("failed to finalise archive: " + err.Error())
 	}
 
 	stat, err := os.Stat(in.Output)
 	if err != nil {
-		return errResult("cannot stat output archive: " + err.Error())
+		return toolsutil.ErrResult("cannot stat output archive: " + err.Error())
 	}
 
-	return resultJSON(ArchiveCreateResult{
+	return toolsutil.ResultJSON(ArchiveCreateResult{
 		Archive:    in.Output,
 		FilesAdded: filesAdded,
 		SizeBytes:  stat.Size(),
@@ -364,14 +350,14 @@ func createTarGz(w io.Writer, root string, exclude []string) (int, error) {
 // archiveExtract extracts an archive to in.Dest.
 func archiveExtract(in ArchiveInput, format string) string {
 	if in.Archive == "" {
-		return errResult("archive is required for extract operation")
+		return toolsutil.ErrResult("archive is required for extract operation")
 	}
 	if in.Dest == "" {
-		return errResult("dest is required for extract operation")
+		return toolsutil.ErrResult("dest is required for extract operation")
 	}
 
 	if err := os.MkdirAll(in.Dest, 0o755); err != nil {
-		return errResult("cannot create dest directory: " + err.Error())
+		return toolsutil.ErrResult("cannot create dest directory: " + err.Error())
 	}
 
 	var filesExtracted int
@@ -384,10 +370,10 @@ func archiveExtract(in ArchiveInput, format string) string {
 		filesExtracted, err = extractTarGz(in.Archive, in.Dest, in.Exclude)
 	}
 	if err != nil {
-		return errResult("extraction failed: " + err.Error())
+		return toolsutil.ErrResult("extraction failed: " + err.Error())
 	}
 
-	return resultJSON(ArchiveExtractResult{
+	return toolsutil.ResultJSON(ArchiveExtractResult{
 		Dest:           in.Dest,
 		FilesExtracted: filesExtracted,
 	})
@@ -558,15 +544,15 @@ func Diff(_ context.Context, in DiffInput) string {
 	switch mode {
 	case "file":
 		if in.A == "" || in.B == "" {
-			return errResult("a and b file paths are required")
+			return toolsutil.ErrResult("a and b file paths are required")
 		}
 		aBytes, err := os.ReadFile(in.A)
 		if err != nil {
-			return errResult("cannot read file a: " + err.Error())
+			return toolsutil.ErrResult("cannot read file a: " + err.Error())
 		}
 		bBytes, err := os.ReadFile(in.B)
 		if err != nil {
-			return errResult("cannot read file b: " + err.Error())
+			return toolsutil.ErrResult("cannot read file b: " + err.Error())
 		}
 		aText = string(aBytes)
 		bText = string(bBytes)
@@ -580,11 +566,11 @@ func Diff(_ context.Context, in DiffInput) string {
 		bLabel = "b"
 
 	default:
-		return errResult("unknown mode: must be file or text")
+		return toolsutil.ErrResult("unknown mode: must be file or text")
 	}
 
 	diff, additions, deletions := unifiedDiff(aLabel, bLabel, aText, bText, ctxLines)
-	return resultJSON(DiffResult{
+	return toolsutil.ResultJSON(DiffResult{
 		Diff:      diff,
 		Additions: additions,
 		Deletions: deletions,
@@ -868,24 +854,24 @@ func LineEndings(_ context.Context, in LineEndingsInput) string {
 	}
 
 	if target != "lf" && target != "crlf" {
-		return errResult("unknown target: must be lf or crlf")
+		return toolsutil.ErrResult("unknown target: must be lf or crlf")
 	}
 
 	var content string
 	switch mode {
 	case "file":
 		if in.Input == "" {
-			return errResult("input file path is required")
+			return toolsutil.ErrResult("input file path is required")
 		}
 		b, err := os.ReadFile(in.Input)
 		if err != nil {
-			return errResult("cannot read file: " + err.Error())
+			return toolsutil.ErrResult("cannot read file: " + err.Error())
 		}
 		content = string(b)
 	case "text":
 		content = in.Input
 	default:
-		return errResult("unknown mode: must be file or text")
+		return toolsutil.ErrResult("unknown mode: must be file or text")
 	}
 
 	switch op {
@@ -895,7 +881,7 @@ func LineEndings(_ context.Context, in LineEndingsInput) string {
 	case "normalize", "convert":
 		converted, count := convertLineEndings(content, target)
 		if mode == "text" {
-			return resultJSON(LineEndingsTextResult{Result: converted})
+			return toolsutil.ResultJSON(LineEndingsTextResult{Result: converted})
 		}
 		// File mode: write to output path.
 		outPath := in.Output
@@ -903,12 +889,12 @@ func LineEndings(_ context.Context, in LineEndingsInput) string {
 			outPath = in.Input // overwrite in place
 		}
 		if err := os.WriteFile(outPath, []byte(converted), 0o644); err != nil {
-			return errResult("cannot write output file: " + err.Error())
+			return toolsutil.ErrResult("cannot write output file: " + err.Error())
 		}
-		return resultJSON(LineEndingsFileResult{Output: outPath, LinesConverted: count})
+		return toolsutil.ResultJSON(LineEndingsFileResult{Output: outPath, LinesConverted: count})
 
 	default:
-		return errResult("unknown operation: must be normalize, detect, or convert")
+		return toolsutil.ErrResult("unknown operation: must be normalize, detect, or convert")
 	}
 }
 
@@ -929,7 +915,7 @@ func detectLineEndings(content string) string {
 		ending = "lf"
 	}
 
-	return resultJSON(LineEndingsDetectResult{
+	return toolsutil.ResultJSON(LineEndingsDetectResult{
 		LineEnding: ending,
 		LFCount:    lfCount,
 		CRLFCount:  crlfCount,
@@ -994,17 +980,17 @@ func HexView(_ context.Context, in HexViewInput) string {
 	switch mode {
 	case "file":
 		if in.Input == "" {
-			return errResult("input file path is required")
+			return toolsutil.ErrResult("input file path is required")
 		}
 		f, err := os.Open(in.Input)
 		if err != nil {
-			return errResult("cannot open file: " + err.Error())
+			return toolsutil.ErrResult("cannot open file: " + err.Error())
 		}
 		defer f.Close()
 
 		stat, err := f.Stat()
 		if err != nil {
-			return errResult("cannot stat file: " + err.Error())
+			return toolsutil.ErrResult("cannot stat file: " + err.Error())
 		}
 		total := int(stat.Size())
 
@@ -1013,11 +999,11 @@ func HexView(_ context.Context, in HexViewInput) string {
 			offset = 0
 		}
 		if offset >= total && total > 0 {
-			return errResult(fmt.Sprintf("offset %d exceeds file size %d", offset, total))
+			return toolsutil.ErrResult(fmt.Sprintf("offset %d exceeds file size %d", offset, total))
 		}
 
 		if _, err := f.Seek(int64(offset), io.SeekStart); err != nil {
-			return errResult("seek failed: " + err.Error())
+			return toolsutil.ErrResult("seek failed: " + err.Error())
 		}
 		toRead := length
 		if offset+toRead > total {
@@ -1026,11 +1012,11 @@ func HexView(_ context.Context, in HexViewInput) string {
 		data = make([]byte, toRead)
 		n, err := io.ReadFull(f, data)
 		if err != nil && err != io.ErrUnexpectedEOF {
-			return errResult("read error: " + err.Error())
+			return toolsutil.ErrResult("read error: " + err.Error())
 		}
 		data = data[:n]
 
-		return resultJSON(HexViewResult{
+		return toolsutil.ResultJSON(HexViewResult{
 			HexView:    formatHexDump(data, in.Offset, width),
 			Offset:     in.Offset,
 			BytesShown: len(data),
@@ -1039,14 +1025,14 @@ func HexView(_ context.Context, in HexViewInput) string {
 
 	case "base64":
 		if in.Input == "" {
-			return errResult("input base64 data is required")
+			return toolsutil.ErrResult("input base64 data is required")
 		}
 		decoded, err := base64.StdEncoding.DecodeString(in.Input)
 		if err != nil {
 			// Try URL-safe encoding as fallback.
 			decoded, err = base64.URLEncoding.DecodeString(in.Input)
 			if err != nil {
-				return errResult("base64 decode failed: " + err.Error())
+				return toolsutil.ErrResult("base64 decode failed: " + err.Error())
 			}
 		}
 		total := len(decoded)
@@ -1063,7 +1049,7 @@ func HexView(_ context.Context, in HexViewInput) string {
 		}
 		data = decoded[offset:end]
 
-		return resultJSON(HexViewResult{
+		return toolsutil.ResultJSON(HexViewResult{
 			HexView:    formatHexDump(data, offset, width),
 			Offset:     offset,
 			BytesShown: len(data),
@@ -1071,7 +1057,7 @@ func HexView(_ context.Context, in HexViewInput) string {
 		})
 
 	default:
-		return errResult("unknown mode: must be file or base64")
+		return toolsutil.ErrResult("unknown mode: must be file or base64")
 	}
 }
 

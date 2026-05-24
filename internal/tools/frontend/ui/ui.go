@@ -4,27 +4,15 @@ package ui
 import (
 	"context"
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	"dev-forge-mcp/internal/tools/toolsutil"
 )
-
-func errJSON(msg string) string {
-	b, _ := json.Marshal(map[string]string{"error": msg})
-	return string(b)
-}
-
-func resultJSON(v any) string {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return errJSON("marshal failed: " + err.Error())
-	}
-	return string(b)
-}
 
 // SVGOptimizeInput defines SVG optimization input.
 type SVGOptimizeInput struct {
@@ -44,10 +32,10 @@ type SVGOptimizeOutput struct {
 func SVGOptimize(_ context.Context, in SVGOptimizeInput) string {
 	svg := strings.TrimSpace(in.SVG)
 	if svg == "" {
-		return errJSON("svg is required")
+		return toolsutil.ErrResult("svg is required")
 	}
 	if !strings.Contains(strings.ToLower(svg), "<svg") {
-		return errJSON("input must contain an <svg> root element")
+		return toolsutil.ErrResult("input must contain an <svg> root element")
 	}
 
 	before := len(svg)
@@ -60,7 +48,7 @@ func SVGOptimize(_ context.Context, in SVGOptimizeInput) string {
 		reductionPct = float64(reduction) * 100.0 / float64(before)
 	}
 
-	return resultJSON(SVGOptimizeOutput{
+	return toolsutil.ResultJSON(SVGOptimizeOutput{
 		OptimizedSVG:   optimized,
 		BytesBefore:    before,
 		BytesAfter:     after,
@@ -143,15 +131,15 @@ type ImageBase64Output struct {
 func ImageBase64(_ context.Context, in ImageBase64Input) string {
 	path := strings.TrimSpace(in.Path)
 	if path == "" {
-		return errJSON("path is required")
+		return toolsutil.ErrResult("path is required")
 	}
 
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return errJSON("failed to read file: " + err.Error())
+		return toolsutil.ErrResult("failed to read file: " + err.Error())
 	}
 	if len(data) == 0 {
-		return errJSON("file is empty")
+		return toolsutil.ErrResult("file is empty")
 	}
 
 	mime := strings.TrimSpace(in.MimeType)
@@ -171,7 +159,7 @@ func ImageBase64(_ context.Context, in ImageBase64Input) string {
 		out.DataURI = fmt.Sprintf("data:%s;base64,%s", mime, b64)
 	}
 
-	return resultJSON(out)
+	return toolsutil.ResultJSON(out)
 }
 
 func detectMime(path string, data []byte) string {

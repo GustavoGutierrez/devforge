@@ -6,11 +6,12 @@ package harmony
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"math"
 	"strconv"
 	"strings"
+
+	"dev-forge-mcp/internal/tools/toolsutil"
 )
 
 // GenerateInput is the MCP input schema for color harmony generation.
@@ -44,9 +45,9 @@ type hsv struct {
 func Generate(_ context.Context, in GenerateInput) string {
 	out, err := Compute(in.BaseColor, in.Harmony, in.Spread)
 	if err != nil {
-		return errJSON(err.Error())
+		return toolsutil.ErrResult(err.Error())
 	}
-	return resultJSON(out)
+	return toolsutil.ResultJSON(out)
 }
 
 // Compute computes a 5-color palette for the requested harmony type.
@@ -318,15 +319,3 @@ func clamp(v, lo, hi float64) float64 {
 	return v
 }
 
-func errJSON(msg string) string {
-	b, _ := json.Marshal(map[string]string{"error": msg})
-	return string(b)
-}
-
-func resultJSON(v any) string {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return errJSON("marshal failed: " + err.Error())
-	}
-	return string(b)
-}

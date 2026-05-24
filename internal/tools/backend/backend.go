@@ -16,22 +16,9 @@ import (
 	"strings"
 	"time"
 	"unicode"
+
+	"dev-forge-mcp/internal/tools/toolsutil"
 )
-
-// errResult returns a JSON-encoded error response.
-func errResult(msg string) string {
-	b, _ := json.Marshal(map[string]string{"error": msg})
-	return string(b)
-}
-
-// resultJSON marshals v to JSON or returns an error JSON.
-func resultJSON(v any) string {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return errResult("marshal failed: " + err.Error())
-	}
-	return string(b)
-}
 
 // ─── sql_format ─────────────────────────────────────────────────────────────
 
@@ -347,7 +334,7 @@ func lintSQL(sql string, upperTokens []sqlToken) []string {
 // SQLFormat formats and lints a SQL statement.
 func SQLFormat(_ context.Context, input SQLFormatInput) string {
 	if strings.TrimSpace(input.SQL) == "" {
-		return errResult("sql is required")
+		return toolsutil.ErrResult("sql is required")
 	}
 
 	dialect := input.Dialect
@@ -356,7 +343,7 @@ func SQLFormat(_ context.Context, input SQLFormatInput) string {
 	}
 	validDialects := map[string]bool{"postgresql": true, "mysql": true, "sqlite": true, "generic": true}
 	if !validDialects[dialect] {
-		return errResult("dialect must be one of: postgresql, mysql, sqlite, generic")
+		return toolsutil.ErrResult("dialect must be one of: postgresql, mysql, sqlite, generic")
 	}
 
 	indent := input.Indent
@@ -382,7 +369,7 @@ func SQLFormat(_ context.Context, input SQLFormatInput) string {
 	if out.Warnings == nil {
 		out.Warnings = []string{}
 	}
-	return resultJSON(out)
+	return toolsutil.ResultJSON(out)
 }
 
 // ─── backend_conn_string ─────────────────────────────────────────────────────
@@ -421,13 +408,13 @@ func ConnString(_ context.Context, input ConnStringInput) string {
 		op = "build"
 	}
 	if op != "build" && op != "parse" {
-		return errResult("operation must be 'build' or 'parse'")
+		return toolsutil.ErrResult("operation must be 'build' or 'parse'")
 	}
 
 	dbType := strings.ToLower(input.DBType)
 	validTypes := map[string]bool{"postgresql": true, "mysql": true, "mongodb": true, "redis": true}
 	if !validTypes[dbType] {
-		return errResult("db_type must be one of: postgresql, mysql, mongodb, redis")
+		return toolsutil.ErrResult("db_type must be one of: postgresql, mysql, mongodb, redis")
 	}
 
 	if op == "build" {
@@ -519,13 +506,13 @@ func buildConnString(input ConnStringInput, dbType string) string {
 		dsn = fmt.Sprintf("redis://%s%s:%d/%s", pw, host, port, db)
 	}
 
-	return resultJSON(ConnStringBuildOutput{ConnectionString: dsn})
+	return toolsutil.ResultJSON(ConnStringBuildOutput{ConnectionString: dsn})
 }
 
 func parseConnString(input ConnStringInput, dbType string) string {
 	cs := strings.TrimSpace(input.ConnectionString)
 	if cs == "" {
-		return errResult("connection_string is required for parse operation")
+		return toolsutil.ErrResult("connection_string is required for parse operation")
 	}
 
 	out := ConnStringParseOutput{
@@ -537,7 +524,7 @@ func parseConnString(input ConnStringInput, dbType string) string {
 		// Format: scheme://user:pass@host:port/dbname?opts
 		u, err := url.Parse(cs)
 		if err != nil {
-			return errResult("failed to parse connection string: " + err.Error())
+			return toolsutil.ErrResult("failed to parse connection string: " + err.Error())
 		}
 		out.Host = u.Hostname()
 		if p := u.Port(); p != "" {
@@ -561,7 +548,7 @@ func parseConnString(input ConnStringInput, dbType string) string {
 			// Try simple URL parse as fallback
 			u, err := url.Parse("mysql://" + cs)
 			if err != nil {
-				return errResult("failed to parse MySQL connection string: " + err.Error())
+				return toolsutil.ErrResult("failed to parse MySQL connection string: " + err.Error())
 			}
 			out.Host = u.Hostname()
 			if p := u.Port(); p != "" {
@@ -582,7 +569,7 @@ func parseConnString(input ConnStringInput, dbType string) string {
 		rest := cs[at+5:] // after "@tcp("
 		closeParen := strings.Index(rest, ")")
 		if closeParen < 0 {
-			return errResult("invalid MySQL connection string: missing closing paren in host")
+			return toolsutil.ErrResult("invalid MySQL connection string: missing closing paren in host")
 		}
 		hostPort := rest[:closeParen]
 		if colon := strings.LastIndex(hostPort, ":"); colon >= 0 {
@@ -611,7 +598,7 @@ func parseConnString(input ConnStringInput, dbType string) string {
 		// Format: redis://:pass@host:port/db
 		u, err := url.Parse(cs)
 		if err != nil {
-			return errResult("failed to parse Redis connection string: " + err.Error())
+			return toolsutil.ErrResult("failed to parse Redis connection string: " + err.Error())
 		}
 		out.Host = u.Hostname()
 		if p := u.Port(); p != "" {
@@ -623,7 +610,7 @@ func parseConnString(input ConnStringInput, dbType string) string {
 		out.Database = strings.TrimPrefix(u.Path, "/")
 	}
 
-	return resultJSON(out)
+	return toolsutil.ResultJSON(out)
 }
 
 // ─── backend_log_parse ───────────────────────────────────────────────────────
@@ -780,7 +767,7 @@ func matchesFilter(entry map[string]interface{}, filter map[string]interface{}) 
 // LogParse parses multiline log content and returns filtered entries.
 func LogParse(_ context.Context, input LogParseInput) string {
 	if strings.TrimSpace(input.Log) == "" {
-		return errResult("log is required")
+		return toolsutil.ErrResult("log is required")
 	}
 
 	limit := input.Limit
@@ -862,7 +849,7 @@ func LogParse(_ context.Context, input LogParseInput) string {
 		Matched:        len(matched),
 		FormatDetected: format,
 	}
-	return resultJSON(out)
+	return toolsutil.ResultJSON(out)
 }
 
 // ─── backend_env_inspect ─────────────────────────────────────────────────────
@@ -968,7 +955,7 @@ func unquoteEnvValue(val string) string {
 // EnvInspect validates or generates an example .env file.
 func EnvInspect(_ context.Context, input EnvInspectInput) string {
 	if strings.TrimSpace(input.EnvContent) == "" {
-		return errResult("env_content is required")
+		return toolsutil.ErrResult("env_content is required")
 	}
 
 	op := input.Operation
@@ -976,14 +963,14 @@ func EnvInspect(_ context.Context, input EnvInspectInput) string {
 		op = "validate"
 	}
 	if op != "validate" && op != "generate_example" {
-		return errResult("operation must be 'validate' or 'generate_example'")
+		return toolsutil.ErrResult("operation must be 'validate' or 'generate_example'")
 	}
 
 	// Parse schema if provided
 	var schema map[string]EnvKeySchema
 	if strings.TrimSpace(input.Schema) != "" {
 		if err := json.Unmarshal([]byte(input.Schema), &schema); err != nil {
-			return errResult("invalid schema JSON: " + err.Error())
+			return toolsutil.ErrResult("invalid schema JSON: " + err.Error())
 		}
 	}
 
@@ -1041,7 +1028,7 @@ func validateEnv(parsed map[string]string, schema map[string]EnvKeySchema) strin
 	}
 
 	out.Valid = len(out.MissingRequired) == 0 && len(out.InvalidFormat) == 0
-	return resultJSON(out)
+	return toolsutil.ResultJSON(out)
 }
 
 func generateEnvExample(parsed map[string]string, schema map[string]EnvKeySchema) string {
@@ -1079,7 +1066,7 @@ func generateEnvExample(parsed map[string]string, schema map[string]EnvKeySchema
 		}
 	}
 
-	return resultJSON(EnvGenerateOutput{Example: sb.String()})
+	return toolsutil.ResultJSON(EnvGenerateOutput{Example: sb.String()})
 }
 
 // ─── backend_mq_payload ──────────────────────────────────────────────────────
@@ -1106,7 +1093,7 @@ func MQPayload(_ context.Context, input MQPayloadInput) string {
 	broker := strings.ToLower(input.Broker)
 	validBrokers := map[string]bool{"kafka": true, "rabbitmq": true, "sqs": true}
 	if !validBrokers[broker] {
-		return errResult("broker must be one of: kafka, rabbitmq, sqs")
+		return toolsutil.ErrResult("broker must be one of: kafka, rabbitmq, sqs")
 	}
 
 	op := input.Operation
@@ -1115,7 +1102,7 @@ func MQPayload(_ context.Context, input MQPayloadInput) string {
 	}
 	validOps := map[string]bool{"build": true, "serialize": true, "format": true}
 	if !validOps[op] {
-		return errResult("operation must be one of: build, serialize, format")
+		return toolsutil.ErrResult("operation must be one of: build, serialize, format")
 	}
 
 	// Parse payload as JSON if provided
@@ -1150,7 +1137,7 @@ func MQPayload(_ context.Context, input MQPayloadInput) string {
 
 	serializedBytes, err := json.Marshal(envelope)
 	if err != nil {
-		return errResult("failed to serialize envelope: " + err.Error())
+		return toolsutil.ErrResult("failed to serialize envelope: " + err.Error())
 	}
 
 	out := MQPayloadOutput{
@@ -1158,7 +1145,7 @@ func MQPayload(_ context.Context, input MQPayloadInput) string {
 		Serialized: string(serializedBytes),
 		Broker:     broker,
 	}
-	return resultJSON(out)
+	return toolsutil.ResultJSON(out)
 }
 
 // strOption extracts a string option from the options map.
@@ -1308,22 +1295,22 @@ type CIDRSubnetOutput struct {
 func CIDRSubnet(_ context.Context, input CIDRSubnetInput) string {
 	cidr := strings.TrimSpace(input.CIDR)
 	if cidr == "" {
-		return errResult("cidr is required")
+		return toolsutil.ErrResult("cidr is required")
 	}
 
 	ip, ipNet, err := net.ParseCIDR(cidr)
 	if err != nil {
-		return errResult("invalid cidr: " + err.Error())
+		return toolsutil.ErrResult("invalid cidr: " + err.Error())
 	}
 
 	ipv4 := ip.To4()
 	if ipv4 == nil {
-		return errResult("only IPv4 CIDR blocks are supported")
+		return toolsutil.ErrResult("only IPv4 CIDR blocks are supported")
 	}
 
 	ones, bits := ipNet.Mask.Size()
 	if bits != 32 {
-		return errResult("only IPv4 CIDR blocks are supported")
+		return toolsutil.ErrResult("only IPv4 CIDR blocks are supported")
 	}
 
 	network := ipv4.Mask(ipNet.Mask).To4()
@@ -1378,7 +1365,7 @@ func CIDRSubnet(_ context.Context, input CIDRSubnetInput) string {
 		out.AvailableIP = available
 	}
 
-	return resultJSON(out)
+	return toolsutil.ResultJSON(out)
 }
 
 func ipToUint32(ip net.IP) uint32 {

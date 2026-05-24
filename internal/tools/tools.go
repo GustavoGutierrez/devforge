@@ -12,7 +12,7 @@ import (
 
 // Server holds shared dependencies for all tool handlers.
 type Server struct {
-	DPF *dpf.StreamClient
+	DPF dpf.Streamer
 	// GetConfig returns the current config (hot-reloadable).
 	GetConfig func() interface{ GetGeminiAPIKey() string }
 }

@@ -60,29 +60,28 @@ func main() {
 		log.Fatalf("failed to resolve executable directory: %v", err)
 	}
 
-	// 2. Initialize StreamClient for dpf (DevPixelForge)
-	var sc *dpf.StreamClient
+	// 2. Initialize dpf Pool (DevPixelForge).
+	// Pool size defaults to 2; override via DEVFORGE_DPF_POOL_SIZE (1–16).
+	var streamer dpf.Streamer
 	dpfPath, err := dpf.ResolveBinaryPath(exeDir)
 	if err != nil {
 		log.Printf("warning: dpf binary not available: %v", err)
 		log.Printf("optimize_images, generate_favicon, markdown_to_pdf, and media tools will return errors")
-		sc = nil
 	} else {
-		sc, err = dpf.NewStreamClient(dpfPath)
-	}
-	if err != nil {
-		log.Printf("warning: dpf binary not available at %s: %v", dpfPath, err)
-		log.Printf("optimize_images, generate_favicon, markdown_to_pdf, and media tools will return errors")
-		sc = nil
-	} else {
-		log.Printf("dpf available at %s", dpfPath)
-		defer sc.Close()
+		pool, poolErr := dpf.NewPool(dpfPath)
+		if poolErr != nil {
+			log.Printf("warning: dpf pool init failed at %s: %v", dpfPath, poolErr)
+			log.Printf("optimize_images, generate_favicon, markdown_to_pdf, and media tools will return errors")
+		} else {
+			log.Printf("dpf pool ready (size=%d) at %s", pool.Size(), dpfPath)
+			streamer = pool
+		}
 	}
 
 	// 3. Build app state
 	app := &mcpApp{
 		srv: &tools.Server{
-			DPF: sc,
+			DPF: streamer,
 		},
 		geminiKey:  cfg.GeminiAPIKey,
 		imageModel: cfg.ImageModel,
@@ -130,8 +129,8 @@ func registerTools(s *mcpserver.MCPServer, app *mcpApp) {
 
 	// ── generate_ui_image ────────────────────────────────────────
 	s.AddTool(mcp.NewTool("generate_ui_image",
-		mcp.WithDescription("Generate a UI image via Gemini API. Requires gemini_api_key to be configured."),
-		mcp.WithString("prompt", mcp.Required(), mcp.Description("Image generation prompt")),
+		mcp.WithDescription("Generate a UI image (wireframe, mockup, or illustration) from a text prompt via the Gemini image-generation API. Params: prompt:string (required), style:string (wireframe|mockup|illustration), width:int (pixels, default 1280), height:int (pixels, default 720), output_path:string (required, file path to save). Requires configure_gemini to be called first. Example: generate a login page mockup at 1280x720 saved to /tmp/login.png. Use generate_ui_image to create new AI-generated UI images; use ui2md to analyze an existing UI screenshot into a Markdown spec."),
+		mcp.WithString("prompt", mcp.Required(), mcp.Description("Image generation prompt describing the UI to create")),
 		mcp.WithString("style", mcp.Required(), mcp.Description("wireframe | mockup | illustration")),
 		mcp.WithNumber("width", mcp.Description("Image width in pixels (default 1280)")),
 		mcp.WithNumber("height", mcp.Description("Image height in pixels (default 720)")),
@@ -149,9 +148,9 @@ func registerTools(s *mcpserver.MCPServer, app *mcpApp) {
 
 	// ── ui2md ────────────────────────────────────────────────────
 	s.AddTool(mcp.NewTool("ui2md",
-		mcp.WithDescription("Analyze a UI screenshot and generate a Markdown design spec (useful for PRPs, handoff docs, and implementation notes)."),
-		mcp.WithString("image_path", mcp.Required(), mcp.Description("Path to the UI image to analyze")),
-		mcp.WithString("output_dir", mcp.Description("Directory to save the generated markdown (default: same as image)")),
+		mcp.WithDescription("Analyze an existing UI screenshot with Gemini Vision and write a structured Markdown design spec covering layout, colors, typography, and components. Params: image_path:string (required, path to PNG/JPEG/WebP/GIF), output_dir:string (optional, directory to save the .md file; defaults to same directory as the image). Requires configure_gemini to be called first. Example: analyze /designs/dashboard.png and save spec to /docs/. Use ui2md to reverse-engineer an existing image into a spec; use generate_ui_image to create a new image from a prompt."),
+		mcp.WithString("image_path", mcp.Required(), mcp.Description("Path to the UI screenshot to analyze (PNG, JPEG, WebP, or GIF)")),
+		mcp.WithString("output_dir", mcp.Description("Directory to save the generated Markdown spec (default: same directory as image_path)")),
 	), func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		input := tools.UI2MDInput{
 			ImagePath: mcp.ParseString(req, "image_path", ""),
@@ -162,7 +161,7 @@ func registerTools(s *mcpserver.MCPServer, app *mcpApp) {
 
 	// ── markdown_to_pdf ─────────────────────────────────────────
 	s.AddTool(mcp.NewTool("markdown_to_pdf",
-		mcp.WithDescription("Convert Markdown into a PDF document (reports, PRPs, specs, technical docs, articles, invoices, deliverables). Input supports file path, inline markdown_text, or markdown_base64; output supports explicit output path, output_dir+file_name, or inline base64 PDF response."),
+		mcp.WithDescription("Convert Markdown content into a styled PDF document suitable for reports, PRPs, specs, invoices, and technical deliverables. Input: one of input:string (file path), markdown_text:string (inline UTF-8 content), or markdown_base64:string (base64-encoded UTF-8). Output: one of output:string (explicit PDF path), output_dir+file_name, or inline:bool=true (returns base64 PDF in tool response). Optional styling: page_size:string (a4|letter|legal), page_width_mm/page_height_mm:number (mm), layout_mode:string (paged|single_page), theme:string (invoice|scientific_article|professional|engineering|informational), theme_override:object (name, body_font_size_pt, code_font_size_pt, heading_scale, margin_mm). Example: convert /docs/report.md to /output/report.pdf using the professional theme."),
 		mcp.WithString("input", mcp.Description("Source mode 1: Markdown file path")),
 		mcp.WithString("markdown_text", mcp.Description("Source mode 2: inline UTF-8 Markdown content")),
 		mcp.WithString("markdown_base64", mcp.Description("Source mode 3: base64-encoded UTF-8 Markdown content")),
@@ -221,8 +220,8 @@ func registerTools(s *mcpserver.MCPServer, app *mcpApp) {
 
 	// ── configure_gemini ────────────────────────────────────────
 	s.AddTool(mcp.NewTool("configure_gemini",
-		mcp.WithDescription("Save Gemini API key to config file and hot-reload without restart."),
-		mcp.WithString("api_key", mcp.Required(), mcp.Description("Gemini API key")),
+		mcp.WithDescription("Persist a Gemini API key to the DevForge config file and hot-reload it into the running server without a restart. Params: api_key:string (required, your Google Gemini API key). Must be called before generate_ui_image or ui2md will work. Example: configure_gemini with api_key='AIza...' to enable Gemini-powered tools immediately."),
+		mcp.WithString("api_key", mcp.Required(), mcp.Description("Google Gemini API key to persist and activate")),
 	), func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		input := tools.ConfigureGeminiInput{
 			APIKey: mcp.ParseString(req, "api_key", ""),
@@ -233,10 +232,10 @@ func registerTools(s *mcpserver.MCPServer, app *mcpApp) {
 
 	// ── optimize_images ─────────────────────────────────────────
 	s.AddTool(mcp.NewTool("optimize_images",
-		mcp.WithDescription("Batch optimize/convert one or more images with dpf profiles (use when an agent needs many image transforms in one call)."),
-		mcp.WithArray("inputs", mcp.Required(), mcp.Description("Array of image optimization requests"),
+		mcp.WithDescription("Batch-optimize multiple images in a single call, applying per-image constraints (max dimensions, format conversion, quality). Params: inputs:array (required, each object: path:string, max_width:int (pixels), max_height:int (pixels), formats:string[] (e.g. [\"webp\",\"png\"]), quality:int (1-100, default 85)), parallelism:int (max concurrent jobs, default 4). Example: optimize [logo.png, hero.jpg] to WebP at max 1200px wide with quality 80. Use optimize_images for batch processing; use image_quality when you need to hit an exact file-size target on a single image."),
+		mcp.WithArray("inputs", mcp.Required(), mcp.Description("Array of per-image optimization requests, each with path, optional max_width/max_height (pixels), formats (e.g. [\"webp\"]), and quality (1-100)"),
 			mcp.Items(map[string]any{"type": "object"})),
-		mcp.WithNumber("parallelism", mcp.Description("Max parallel operations (default 4)")),
+		mcp.WithNumber("parallelism", mcp.Description("Max parallel dpf operations (default 4)")),
 	), func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		args := argsMap(req)
 		var optInputs []tools.OptimizeInput
@@ -253,11 +252,11 @@ func registerTools(s *mcpserver.MCPServer, app *mcpApp) {
 
 	// ── generate_favicon ────────────────────────────────────────
 	s.AddTool(mcp.NewTool("generate_favicon",
-		mcp.WithDescription("Generate favicon variants (ico, png, svg) from a source image."),
-		mcp.WithString("source_path", mcp.Required(), mcp.Description("Path to source image (PNG or SVG)")),
-		mcp.WithString("background_color", mcp.Description("Hex background color (default #ffffff)")),
-		mcp.WithArray("sizes", mcp.Description("Icon sizes (default [16,32,48,180,192,512])"), mcp.WithNumberItems()),
-		mcp.WithArray("formats", mcp.Description("Output formats: ico | png | svg"), mcp.WithStringItems()),
+		mcp.WithDescription("Generate a complete set of favicon variants (ico, png, svg) from a source image and return ready-to-use HTML <link> snippets. Params: source_path:string (required, path to PNG or SVG source), background_color:string (hex, default #ffffff), sizes:int[] (pixel sizes, default [16,32,48,180,192,512]), formats:string[] (ico|png|svg, default all three). Output files are saved to a favicons/ subdirectory next to the source. Example: generate favicons from /assets/logo.png producing ico, png, and svg variants at default sizes."),
+		mcp.WithString("source_path", mcp.Required(), mcp.Description("Path to source image (PNG or SVG); output goes to a favicons/ folder beside it")),
+		mcp.WithString("background_color", mcp.Description("Hex background color for transparent sources (default #ffffff)")),
+		mcp.WithArray("sizes", mcp.Description("Icon pixel sizes to generate (default [16,32,48,180,192,512])"), mcp.WithNumberItems()),
+		mcp.WithArray("formats", mcp.Description("Output formats to produce: ico | png | svg (default: all three)"), mcp.WithStringItems()),
 	), func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		args := argsMap(req)
 		input := tools.GenerateFaviconInput{
@@ -284,13 +283,13 @@ func registerTools(s *mcpserver.MCPServer, app *mcpApp) {
 
 	// image_crop
 	s.AddTool(mcp.NewTool("image_crop",
-		mcp.WithDescription("Crop an image to specific dimensions."),
+		mcp.WithDescription("Crop a rectangular region from an image using pixel coordinates. Params: input:string (required), output:string (required), x:int (pixels, top-left X), y:int (pixels, top-left Y), width:int (pixels, crop width), height:int (pixels, crop height). Example: crop input.png from (100,50) to a 800x600 region into cropped.png."),
 		mcp.WithString("input", mcp.Required(), mcp.Description("Input image path")),
 		mcp.WithString("output", mcp.Required(), mcp.Description("Output image path")),
-		mcp.WithNumber("x", mcp.Required(), mcp.Description("X coordinate of top-left corner")),
-		mcp.WithNumber("y", mcp.Required(), mcp.Description("Y coordinate of top-left corner")),
-		mcp.WithNumber("width", mcp.Required(), mcp.Description("Crop width in pixels")),
-		mcp.WithNumber("height", mcp.Required(), mcp.Description("Crop height in pixels")),
+		mcp.WithNumber("x", mcp.Required(), mcp.Description("X coordinate of the top-left corner of the crop region (pixels)")),
+		mcp.WithNumber("y", mcp.Required(), mcp.Description("Y coordinate of the top-left corner of the crop region (pixels)")),
+		mcp.WithNumber("width", mcp.Required(), mcp.Description("Width of the crop region in pixels")),
+		mcp.WithNumber("height", mcp.Required(), mcp.Description("Height of the crop region in pixels")),
 	), func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		args := argsMap(req)
 		input := tools.ImageCropInput{
@@ -306,12 +305,12 @@ func registerTools(s *mcpserver.MCPServer, app *mcpApp) {
 
 	// image_rotate
 	s.AddTool(mcp.NewTool("image_rotate",
-		mcp.WithDescription("Rotate and/or flip an image."),
+		mcp.WithDescription("Rotate an image by 90, 180, or 270 degrees and/or flip it horizontally or vertically. Params: input:string (required), output:string (required), angle:number (degrees: 90|180|270), flip_h:bool (mirror left-right), flip_v:bool (mirror top-bottom). Any combination of angle and flips can be applied in one call. Example: rotate input.png 90 degrees clockwise and save to rotated.png."),
 		mcp.WithString("input", mcp.Required(), mcp.Description("Input image path")),
 		mcp.WithString("output", mcp.Required(), mcp.Description("Output image path")),
-		mcp.WithNumber("angle", mcp.Description("Rotation angle in degrees (90, 180, 270)")),
-		mcp.WithBoolean("flip_h", mcp.Description("Horizontal flip")),
-		mcp.WithBoolean("flip_v", mcp.Description("Vertical flip")),
+		mcp.WithNumber("angle", mcp.Description("Rotation angle in degrees: 90, 180, or 270")),
+		mcp.WithBoolean("flip_h", mcp.Description("Mirror the image horizontally (left-right flip)")),
+		mcp.WithBoolean("flip_v", mcp.Description("Mirror the image vertically (top-bottom flip)")),
 	), func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		input := tools.ImageRotateInput{
 			Input:  mcp.ParseString(req, "input", ""),
@@ -325,17 +324,17 @@ func registerTools(s *mcpserver.MCPServer, app *mcpApp) {
 
 	// image_watermark
 	s.AddTool(mcp.NewTool("image_watermark",
-		mcp.WithDescription("Add a watermark (text or image) to an image."),
+		mcp.WithDescription("Overlay a text or image watermark onto an image at a specified position. Params: input:string (required), output:string (required), text:string (watermark text — required if image_path is absent), image_path:string (watermark image path — required if text is absent), position:string (center|tile|custom), x:int (pixels, for custom position), y:int (pixels, for custom position), opacity:number (0.0–1.0), size:int (font size in points for text watermarks), color:string (hex color for text). Example: add semi-transparent 'CONFIDENTIAL' text at center of photo.jpg with opacity 0.4."),
 		mcp.WithString("input", mcp.Required(), mcp.Description("Input image path")),
 		mcp.WithString("output", mcp.Required(), mcp.Description("Output image path")),
-		mcp.WithString("text", mcp.Description("Text watermark")),
-		mcp.WithString("image_path", mcp.Description("Image watermark path")),
-		mcp.WithString("position", mcp.Description("Position: center, tile, custom")),
-		mcp.WithNumber("x", mcp.Description("X coordinate for custom position")),
-		mcp.WithNumber("y", mcp.Description("Y coordinate for custom position")),
-		mcp.WithNumber("opacity", mcp.Description("Opacity 0.0-1.0")),
-		mcp.WithNumber("size", mcp.Description("Font size for text watermark")),
-		mcp.WithString("color", mcp.Description("Text color (hex)")),
+		mcp.WithString("text", mcp.Description("Text to use as watermark (required when image_path is not provided)")),
+		mcp.WithString("image_path", mcp.Description("Path to an image to use as watermark (required when text is not provided)")),
+		mcp.WithString("position", mcp.Description("Watermark position: center | tile | custom")),
+		mcp.WithNumber("x", mcp.Description("X offset in pixels for custom position")),
+		mcp.WithNumber("y", mcp.Description("Y offset in pixels for custom position")),
+		mcp.WithNumber("opacity", mcp.Description("Watermark opacity: 0.0 (invisible) to 1.0 (opaque)")),
+		mcp.WithNumber("size", mcp.Description("Font size in points for text watermarks")),
+		mcp.WithString("color", mcp.Description("Text color as hex string (e.g. #ffffff)")),
 	), func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		args := argsMap(req)
 		input := tools.ImageWatermarkInput{
@@ -364,14 +363,14 @@ func registerTools(s *mcpserver.MCPServer, app *mcpApp) {
 
 	// image_adjust
 	s.AddTool(mcp.NewTool("image_adjust",
-		mcp.WithDescription("Adjust image properties (brightness, contrast, saturation, blur, sharpen)."),
+		mcp.WithDescription("Apply tonal and focus adjustments to an image in a single pass. Params: input:string (required), output:string (required), brightness:number (-100 to 100), contrast:number (-100 to 100), saturation:number (-100 to 100), blur:number (radius in pixels), sharpen:number (amount, higher = sharper). All adjustment params are optional; only the non-zero ones are applied. Example: increase brightness by 20 and sharpen by 1.5 on photo.jpg."),
 		mcp.WithString("input", mcp.Required(), mcp.Description("Input image path")),
 		mcp.WithString("output", mcp.Required(), mcp.Description("Output image path")),
-		mcp.WithNumber("brightness", mcp.Description("Brightness adjustment -100 to 100")),
-		mcp.WithNumber("contrast", mcp.Description("Contrast adjustment -100 to 100")),
-		mcp.WithNumber("saturation", mcp.Description("Saturation adjustment -100 to 100")),
-		mcp.WithNumber("blur", mcp.Description("Blur radius in pixels")),
-		mcp.WithNumber("sharpen", mcp.Description("Sharpen amount")),
+		mcp.WithNumber("brightness", mcp.Description("Brightness adjustment: -100 (darkest) to 100 (brightest)")),
+		mcp.WithNumber("contrast", mcp.Description("Contrast adjustment: -100 to 100")),
+		mcp.WithNumber("saturation", mcp.Description("Saturation adjustment: -100 (grayscale) to 100 (vivid)")),
+		mcp.WithNumber("blur", mcp.Description("Gaussian blur radius in pixels")),
+		mcp.WithNumber("sharpen", mcp.Description("Sharpening amount (higher values increase edge contrast)")),
 	), func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		args := argsMap(req)
 		input := tools.ImageAdjustInput{
@@ -388,13 +387,13 @@ func registerTools(s *mcpserver.MCPServer, app *mcpApp) {
 
 	// image_quality
 	s.AddTool(mcp.NewTool("image_quality",
-		mcp.WithDescription("Optimize image quality to target file size using binary search."),
+		mcp.WithDescription("Re-encode an image to meet a target file size using binary search over quality levels. Params: input:string (required), output:string (required), target_size_kb:int (required, desired output size in KB), format:string (webp|jpeg|png), max_quality:int (1-100, upper quality bound), min_quality:int (1-100, lower quality bound). Example: compress hero.png to under 150 KB in WebP format. Use image_quality to hit an exact file-size target on a single image; use optimize_images to batch-process many images at once."),
 		mcp.WithString("input", mcp.Required(), mcp.Description("Input image path")),
 		mcp.WithString("output", mcp.Required(), mcp.Description("Output image path")),
-		mcp.WithNumber("target_size_kb", mcp.Required(), mcp.Description("Target file size in KB")),
-		mcp.WithString("format", mcp.Description("Output format: webp, jpeg, png")),
-		mcp.WithNumber("max_quality", mcp.Description("Maximum quality 1-100")),
-		mcp.WithNumber("min_quality", mcp.Description("Minimum quality 1-100")),
+		mcp.WithNumber("target_size_kb", mcp.Required(), mcp.Description("Desired output file size in kilobytes")),
+		mcp.WithString("format", mcp.Description("Output format: webp | jpeg | png")),
+		mcp.WithNumber("max_quality", mcp.Description("Maximum quality bound (1-100); default 95")),
+		mcp.WithNumber("min_quality", mcp.Description("Minimum quality bound (1-100); default 10")),
 	), func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		args := argsMap(req)
 		input := tools.ImageQualityInput{
@@ -416,12 +415,12 @@ func registerTools(s *mcpserver.MCPServer, app *mcpApp) {
 
 	// image_srcset
 	s.AddTool(mcp.NewTool("image_srcset",
-		mcp.WithDescription("Generate responsive image variants for srcset attribute."),
+		mcp.WithDescription("Generate multiple width-based image variants ready for use in an HTML srcset attribute. Params: input:string (required), output_dir:string (required, directory where variants are saved), widths:int[] (pixel widths to generate, e.g. [320,640,960,1280]), sizes:string[] (optional HTML sizes attribute values, e.g. ['100vw','(min-width:768px) 50vw']), format:string (webp|jpeg|png). Returns a list of variants with paths, widths, and file sizes. Example: generate srcset variants of hero.jpg at 320, 640, 960, and 1280px wide in WebP format."),
 		mcp.WithString("input", mcp.Required(), mcp.Description("Input image path")),
-		mcp.WithString("output_dir", mcp.Required(), mcp.Description("Output directory")),
-		mcp.WithArray("widths", mcp.Description("Target widths (e.g., [320, 640, 960, 1280])"), mcp.WithNumberItems()),
-		mcp.WithArray("sizes", mcp.Description("Sizes attribute values"), mcp.WithStringItems()),
-		mcp.WithString("format", mcp.Description("Output format: webp, jpeg, png")),
+		mcp.WithString("output_dir", mcp.Required(), mcp.Description("Directory where width variants will be saved")),
+		mcp.WithArray("widths", mcp.Description("Target pixel widths to generate (e.g. [320, 640, 960, 1280])"), mcp.WithNumberItems()),
+		mcp.WithArray("sizes", mcp.Description("HTML sizes attribute values to annotate in the response (e.g. ['100vw'])"), mcp.WithStringItems()),
+		mcp.WithString("format", mcp.Description("Output format: webp | jpeg | png")),
 	), func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		args := argsMap(req)
 		input := tools.ImageSrcsetInput{
@@ -442,10 +441,10 @@ func registerTools(s *mcpserver.MCPServer, app *mcpApp) {
 
 	// image_exif
 	s.AddTool(mcp.NewTool("image_exif",
-		mcp.WithDescription("EXIF operations: strip, preserve, extract, or auto-orient."),
+		mcp.WithDescription("Read or modify EXIF metadata on an image. Params: input:string (required), exif_op:string (required: strip|preserve|extract|auto_orient), output:string (required for strip, preserve, and auto_orient; optional for extract). 'extract' returns the metadata map in the response. 'strip' removes all metadata and writes to output. 'auto_orient' rotates the image to match the EXIF orientation tag then strips the tag. Example: strip EXIF from photo.jpg to sanitized.jpg, or extract metadata from an image without writing output."),
 		mcp.WithString("input", mcp.Required(), mcp.Description("Input image path")),
-		mcp.WithString("output", mcp.Description("Output image path (required for strip/preserve)")),
-		mcp.WithString("exif_op", mcp.Required(), mcp.Description("Operation: strip, preserve, extract, auto_orient")),
+		mcp.WithString("output", mcp.Description("Output image path (required for strip, preserve, and auto_orient operations)")),
+		mcp.WithString("exif_op", mcp.Required(), mcp.Description("EXIF operation: strip | preserve | extract | auto_orient")),
 	), func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		input := tools.ImageExifInput{
 			Input:  mcp.ParseString(req, "input", ""),
@@ -457,16 +456,16 @@ func registerTools(s *mcpserver.MCPServer, app *mcpApp) {
 
 	// image_resize
 	s.AddTool(mcp.NewTool("image_resize",
-		mcp.WithDescription("Resize an image to multiple widths or by percentage."),
+		mcp.WithDescription("Resize an image to one or more target widths or by a percentage scale factor. Params: input:string (required), output_dir:string (required for width-based resize; defaults to same directory when using scale_percent), widths:int[] (pixel widths to generate), scale_percent:number (e.g. 50.0 = half size), max_height:int (pixels, optional height cap), format:string (webp|jpeg|png|avif), quality:int (1-100), filter:string (lanczos3|gaussian|bilinear), linear_rgb:bool (use linear color space for better downscale quality). Either widths or scale_percent must be provided. Example: resize product.jpg to 400 and 800px wide in WebP at quality 85. Use image_resize for bulk or percentage-based resizing; use image_srcset when you specifically need srcset-ready HTML attributes returned."),
 		mcp.WithString("input", mcp.Required(), mcp.Description("Input image path")),
-		mcp.WithString("output_dir", mcp.Description("Output directory (for width-based resize)")),
-		mcp.WithArray("widths", mcp.Description("Target widths"), mcp.WithNumberItems()),
-		mcp.WithNumber("scale_percent", mcp.Description("Scale by percentage (e.g., 50.0 for half)")),
-		mcp.WithNumber("max_height", mcp.Description("Maximum height constraint")),
-		mcp.WithString("format", mcp.Description("Output format: webp, jpeg, png, avif")),
-		mcp.WithNumber("quality", mcp.Description("Quality 1-100")),
-		mcp.WithString("filter", mcp.Description("Resampling filter: lanczos3, gaussian, bilinear")),
-		mcp.WithBoolean("linear_rgb", mcp.Description("Use linear RGB for better quality")),
+		mcp.WithString("output_dir", mcp.Description("Output directory for resized variants (required for width-based resize; defaults to input directory when using scale_percent)")),
+		mcp.WithArray("widths", mcp.Description("Target pixel widths to generate (e.g. [400, 800, 1200])"), mcp.WithNumberItems()),
+		mcp.WithNumber("scale_percent", mcp.Description("Scale by percentage: 50.0 = half size, 200.0 = double size")),
+		mcp.WithNumber("max_height", mcp.Description("Maximum output height in pixels (aspect-ratio preserved)")),
+		mcp.WithString("format", mcp.Description("Output format: webp | jpeg | png | avif")),
+		mcp.WithNumber("quality", mcp.Description("Encoding quality: 1 (lowest) to 100 (highest)")),
+		mcp.WithString("filter", mcp.Description("Resampling filter: lanczos3 (best quality) | gaussian | bilinear (fastest)")),
+		mcp.WithBoolean("linear_rgb", mcp.Description("Process in linear RGB color space for perceptually better downscale results")),
 	), func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		args := argsMap(req)
 		input := tools.ImageResizeInput{
@@ -496,13 +495,13 @@ func registerTools(s *mcpserver.MCPServer, app *mcpApp) {
 
 	// image_convert
 	s.AddTool(mcp.NewTool("image_convert",
-		mcp.WithDescription("Convert an image to a different format."),
+		mcp.WithDescription("Convert an image to a different file format, optionally resizing in the same call. Params: input:string (required), output:string (required), format:string (required: webp|jpeg|png|avif|gif), quality:int (1-100), width:int (pixels, optional resize), height:int (pixels, optional resize). Example: convert logo.png to logo.webp at quality 90 without resizing."),
 		mcp.WithString("input", mcp.Required(), mcp.Description("Input image path")),
 		mcp.WithString("output", mcp.Required(), mcp.Description("Output image path")),
-		mcp.WithString("format", mcp.Required(), mcp.Description("Target format: webp, jpeg, png, avif, gif")),
-		mcp.WithNumber("quality", mcp.Description("Quality 1-100")),
-		mcp.WithNumber("width", mcp.Description("Target width")),
-		mcp.WithNumber("height", mcp.Description("Target height")),
+		mcp.WithString("format", mcp.Required(), mcp.Description("Target format: webp | jpeg | png | avif | gif")),
+		mcp.WithNumber("quality", mcp.Description("Encoding quality: 1 (lowest) to 100 (highest)")),
+		mcp.WithNumber("width", mcp.Description("Optional target width in pixels (aspect ratio preserved if only one dimension is set)")),
+		mcp.WithNumber("height", mcp.Description("Optional target height in pixels (aspect ratio preserved if only one dimension is set)")),
 	), func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		args := argsMap(req)
 		input := tools.ImageConvertInput{
@@ -527,12 +526,12 @@ func registerTools(s *mcpserver.MCPServer, app *mcpApp) {
 
 	// image_placeholder
 	s.AddTool(mcp.NewTool("image_placeholder",
-		mcp.WithDescription("Generate image placeholders (LQIP, dominant color, CSS gradient)."),
-		mcp.WithString("input", mcp.Required(), mcp.Description("Input image path")),
-		mcp.WithString("output", mcp.Description("Optional output path for placeholder")),
-		mcp.WithString("kind", mcp.Description("Placeholder kind: lqip, dominant_color, css_gradient")),
-		mcp.WithNumber("lqip_width", mcp.Description("LQIP width in pixels")),
-		mcp.WithBoolean("inline", mcp.Description("Return base64 data inline")),
+		mcp.WithDescription("Generate a lightweight image placeholder for use during lazy-loading: a low-quality preview image (LQIP), a dominant-color hex string, or a CSS gradient string. Params: input:string (required), kind:string (lqip|dominant_color|css_gradient), output:string (optional file path to save the placeholder), lqip_width:int (pixels, width of the tiny preview image), inline:bool (return placeholder as base64 in tool response instead of writing to file). Example: generate a 20px-wide LQIP of hero.jpg returned as inline base64. Use image_placeholder for lazy-load placeholders derived from an existing image; use generate_ui_image to generate a brand-new AI image."),
+		mcp.WithString("input", mcp.Required(), mcp.Description("Input image path to derive the placeholder from")),
+		mcp.WithString("output", mcp.Description("Optional file path to save the placeholder (not needed when inline=true)")),
+		mcp.WithString("kind", mcp.Description("Placeholder type: lqip (tiny blurred preview) | dominant_color (hex string) | css_gradient")),
+		mcp.WithNumber("lqip_width", mcp.Description("Width of the LQIP preview in pixels (default 20)")),
+		mcp.WithBoolean("inline", mcp.Description("Return the placeholder as base64 data in the tool response")),
 	), func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		args := argsMap(req)
 		input := tools.ImagePlaceholderInput{
@@ -550,12 +549,12 @@ func registerTools(s *mcpserver.MCPServer, app *mcpApp) {
 
 	// image_palette
 	s.AddTool(mcp.NewTool("image_palette",
-		mcp.WithDescription("Reduce image to a limited color palette or extract dominant colors."),
+		mcp.WithDescription("Quantize an image to a limited color palette (for GIF/indexed-PNG output) and extract the dominant color list as hex values. Params: input:string (required), output_dir:string (required), max_colors:int (palette size, default 16), dithering:number (0.0–1.0, controls dither noise vs. banding), format:string (gif|png). Returns the quantized image and a colors array. Example: reduce banner.png to a 32-color GIF with 0.5 dithering. Use image_palette to quantize or extract dominant colors from an existing image; use image_placeholder to generate a CSS gradient or dominant-color placeholder for lazy loading."),
 		mcp.WithString("input", mcp.Required(), mcp.Description("Input image path")),
-		mcp.WithString("output_dir", mcp.Required(), mcp.Description("Output directory")),
-		mcp.WithNumber("max_colors", mcp.Description("Maximum colors (default 16)")),
-		mcp.WithNumber("dithering", mcp.Description("Dithering amount 0.0-1.0")),
-		mcp.WithString("format", mcp.Description("Output format: gif, png")),
+		mcp.WithString("output_dir", mcp.Required(), mcp.Description("Directory where the palette-quantized output file will be saved")),
+		mcp.WithNumber("max_colors", mcp.Description("Maximum number of colors in the palette (default 16)")),
+		mcp.WithNumber("dithering", mcp.Description("Dithering intensity: 0.0 (none, more banding) to 1.0 (maximum, less banding)")),
+		mcp.WithString("format", mcp.Description("Output format: gif | png")),
 	), func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		args := argsMap(req)
 		input := tools.ImagePaletteInput{
@@ -576,13 +575,13 @@ func registerTools(s *mcpserver.MCPServer, app *mcpApp) {
 
 	// image_sprite
 	s.AddTool(mcp.NewTool("image_sprite",
-		mcp.WithDescription("Generate a sprite sheet from multiple images with optional CSS."),
-		mcp.WithArray("inputs", mcp.Required(), mcp.Description("Input image paths"), mcp.WithStringItems()),
-		mcp.WithString("output", mcp.Required(), mcp.Description("Output sprite path")),
-		mcp.WithNumber("cell_size", mcp.Description("Cell size (width=height)")),
-		mcp.WithNumber("columns", mcp.Description("Number of columns")),
-		mcp.WithNumber("padding", mcp.Description("Padding between sprites in pixels")),
-		mcp.WithBoolean("generate_css", mcp.Description("Generate CSS for sprite positioning")),
+		mcp.WithDescription("Pack multiple images into a single sprite sheet PNG and optionally generate companion CSS with background-position rules for each sprite. Params: inputs:string[] (required, ordered list of image paths), output:string (required, sprite sheet output path), cell_size:int (pixels, forces all cells to this square size), columns:int (grid columns; auto-calculated if omitted), padding:int (pixels between sprites, default 0), generate_css:bool (write a .css file alongside the sprite). Example: pack icons/[a,b,c].png into sprites.png with 4 columns and 2px padding, generating CSS."),
+		mcp.WithArray("inputs", mcp.Required(), mcp.Description("Ordered list of input image paths to pack into the sprite sheet"), mcp.WithStringItems()),
+		mcp.WithString("output", mcp.Required(), mcp.Description("Output path for the generated sprite sheet PNG")),
+		mcp.WithNumber("cell_size", mcp.Description("Force all sprite cells to this square pixel size (width = height)")),
+		mcp.WithNumber("columns", mcp.Description("Number of columns in the sprite grid (auto-calculated if omitted)")),
+		mcp.WithNumber("padding", mcp.Description("Padding in pixels between sprites (default 0)")),
+		mcp.WithBoolean("generate_css", mcp.Description("Also write a CSS file with background-position rules for each sprite")),
 	), func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		args := argsMap(req)
 		input := tools.ImageSpriteInput{
@@ -612,12 +611,12 @@ func registerTools(s *mcpserver.MCPServer, app *mcpApp) {
 
 	// video_transcode
 	s.AddTool(mcp.NewTool("video_transcode",
-		mcp.WithDescription("Transcode video to different codec (h264, h265, vp8, vp9, av1)."),
+		mcp.WithDescription("Re-encode a video file to a different codec with control over bitrate and encoder speed. Params: input:string (required), output:string (required), codec:string (required: h264|h265|vp8|vp9|av1), bitrate:string (e.g. '2M' or '5000k'), preset:string (ultrafast|fast|medium|slow|veryslow — trades speed for compression efficiency). Example: transcode raw.mov to output.mp4 using h264 at 4M bitrate with the fast preset. Use video_transcode for full re-encoding with codec choice; use video_profile for opinionated web-optimized presets without specifying codec details."),
 		mcp.WithString("input", mcp.Required(), mcp.Description("Input video path")),
 		mcp.WithString("output", mcp.Required(), mcp.Description("Output video path")),
-		mcp.WithString("codec", mcp.Required(), mcp.Description("Target codec: h264, h265, vp8, vp9, av1")),
-		mcp.WithString("bitrate", mcp.Description("Target bitrate (e.g., '2M', '5000k')")),
-		mcp.WithString("preset", mcp.Description("Encoding preset: ultrafast, fast, medium, slow, veryslow")),
+		mcp.WithString("codec", mcp.Required(), mcp.Description("Target video codec: h264 | h265 | vp8 | vp9 | av1")),
+		mcp.WithString("bitrate", mcp.Description("Target bitrate (e.g. '2M' for 2 Mbps, '5000k' for 5000 kbps)")),
+		mcp.WithString("preset", mcp.Description("Encoder speed/quality preset: ultrafast | fast | medium | slow | veryslow")),
 	), func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		input := tools.VideoTranscodeInput{
 			Input:   mcp.ParseString(req, "input", ""),
@@ -631,12 +630,12 @@ func registerTools(s *mcpserver.MCPServer, app *mcpApp) {
 
 	// video_resize
 	s.AddTool(mcp.NewTool("video_resize",
-		mcp.WithDescription("Resize video while maintaining aspect ratio."),
+		mcp.WithDescription("Scale a video to different dimensions, optionally preserving the original aspect ratio. Params: input:string (required), output:string (required), width:int (pixels, target width), height:int (pixels, target height), maintain_aspect:bool (default true; set false to force exact dimensions and allow distortion). At least one of width or height is required. Example: resize lecture.mp4 to 1280px wide while keeping aspect ratio. Use video_resize to change pixel dimensions; use video_profile to apply a complete web-optimized preset (resolution + bitrate in one step)."),
 		mcp.WithString("input", mcp.Required(), mcp.Description("Input video path")),
 		mcp.WithString("output", mcp.Required(), mcp.Description("Output video path")),
-		mcp.WithNumber("width", mcp.Description("Target width")),
-		mcp.WithNumber("height", mcp.Description("Target height")),
-		mcp.WithBoolean("maintain_aspect", mcp.Description("Maintain aspect ratio (default true)")),
+		mcp.WithNumber("width", mcp.Description("Target width in pixels (required if height is not set)")),
+		mcp.WithNumber("height", mcp.Description("Target height in pixels (required if width is not set)")),
+		mcp.WithBoolean("maintain_aspect", mcp.Description("Preserve aspect ratio (default true); set false to force exact width × height")),
 	), func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		input := tools.VideoResizeInput{
 			Input:          mcp.ParseString(req, "input", ""),
@@ -650,11 +649,11 @@ func registerTools(s *mcpserver.MCPServer, app *mcpApp) {
 
 	// video_trim
 	s.AddTool(mcp.NewTool("video_trim",
-		mcp.WithDescription("Extract a time range from video."),
+		mcp.WithDescription("Extract a contiguous time segment from a video by specifying start and end times in seconds. Params: input:string (required), output:string (required), start:number (required, seconds from beginning, must be ≥ 0), end:number (required, seconds, must be > start). Example: trim intro.mp4 from 5.0 to 30.0 seconds and save to clip.mp4. Use video_trim to cut a clip by time range; use audio_trim to cut audio-only files."),
 		mcp.WithString("input", mcp.Required(), mcp.Description("Input video path")),
 		mcp.WithString("output", mcp.Required(), mcp.Description("Output video path")),
-		mcp.WithNumber("start", mcp.Required(), mcp.Description("Start time in seconds")),
-		mcp.WithNumber("end", mcp.Required(), mcp.Description("End time in seconds")),
+		mcp.WithNumber("start", mcp.Required(), mcp.Description("Start time in seconds (must be ≥ 0)")),
+		mcp.WithNumber("end", mcp.Required(), mcp.Description("End time in seconds (must be greater than start)")),
 	), func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		args := argsMap(req)
 		input := tools.VideoTrimInput{
@@ -668,12 +667,12 @@ func registerTools(s *mcpserver.MCPServer, app *mcpApp) {
 
 	// video_thumbnail
 	s.AddTool(mcp.NewTool("video_thumbnail",
-		mcp.WithDescription("Extract a frame as image from video."),
+		mcp.WithDescription("Extract a single frame from a video and save it as an image. Params: input:string (required), output:string (required, image file path), timestamp:string (required: percentage like '25%' or seconds like '30.5'), format:string (jpeg|png|webp, default jpeg), quality:int (1-100, default 85). Example: extract the frame at 5 seconds from interview.mp4 and save as thumb.jpg. Use video_thumbnail to grab one frame; use video_trim to extract a time segment as a new video."),
 		mcp.WithString("input", mcp.Required(), mcp.Description("Input video path")),
-		mcp.WithString("output", mcp.Required(), mcp.Description("Output image path")),
-		mcp.WithString("timestamp", mcp.Required(), mcp.Description("Timestamp: '25%' or seconds like '30.5'")),
-		mcp.WithString("format", mcp.Description("Output format: jpeg, png, webp (default jpeg)")),
-		mcp.WithNumber("quality", mcp.Description("Image quality 1-100 (default 85)")),
+		mcp.WithString("output", mcp.Required(), mcp.Description("Output image file path")),
+		mcp.WithString("timestamp", mcp.Required(), mcp.Description("Frame position: percentage string like '25%' or elapsed seconds like '30.5'")),
+		mcp.WithString("format", mcp.Description("Output image format: jpeg | png | webp (default jpeg)")),
+		mcp.WithNumber("quality", mcp.Description("Image encoding quality: 1 (lowest) to 100 (highest), default 85")),
 	), func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		input := tools.VideoThumbnailInput{
 			Input:     mcp.ParseString(req, "input", ""),
@@ -687,10 +686,10 @@ func registerTools(s *mcpserver.MCPServer, app *mcpApp) {
 
 	// video_profile
 	s.AddTool(mcp.NewTool("video_profile",
-		mcp.WithDescription("Apply web-optimized encoding profile."),
+		mcp.WithDescription("Encode a video using a named web-delivery profile that bundles resolution and bitrate settings. Params: input:string (required), output:string (required), profile:string (required: web-low = 480p/1 Mbps | web-mid = 720p/2.5 Mbps | web-high = 1080p/5 Mbps). Example: produce a web-ready 720p copy of raw-footage.mp4 using web-mid. Use video_profile when you want sensible web defaults with a single parameter; use video_transcode when you need explicit codec, bitrate, or preset control."),
 		mcp.WithString("input", mcp.Required(), mcp.Description("Input video path")),
 		mcp.WithString("output", mcp.Required(), mcp.Description("Output video path")),
-		mcp.WithString("profile", mcp.Required(), mcp.Description("Profile: web-low (480p/1M), web-mid (720p/2.5M), web-high (1080p/5M)")),
+		mcp.WithString("profile", mcp.Required(), mcp.Description("Web delivery profile: web-low (480p, 1 Mbps) | web-mid (720p, 2.5 Mbps) | web-high (1080p, 5 Mbps)")),
 	), func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		input := tools.VideoProfileInput{
 			Input:   mcp.ParseString(req, "input", ""),
@@ -704,11 +703,11 @@ func registerTools(s *mcpserver.MCPServer, app *mcpApp) {
 
 	// audio_transcode
 	s.AddTool(mcp.NewTool("audio_transcode",
-		mcp.WithDescription("Convert between audio formats (mp3, aac, opus, vorbis, flac, wav)."),
+		mcp.WithDescription("Re-encode an audio file to a different format or codec. Params: input:string (required), output:string (required), codec:string (required: mp3|aac|opus|vorbis|flac|wav), bitrate:string (e.g. '192k' or '320k'). Example: convert podcast.flac to podcast.mp3 at 192k bitrate. Use audio_transcode to change codec or bitrate; use audio_trim to extract a time segment without re-encoding."),
 		mcp.WithString("input", mcp.Required(), mcp.Description("Input audio path")),
 		mcp.WithString("output", mcp.Required(), mcp.Description("Output audio path")),
-		mcp.WithString("codec", mcp.Required(), mcp.Description("Target codec: mp3, aac, opus, vorbis, flac, wav")),
-		mcp.WithString("bitrate", mcp.Description("Target bitrate (e.g., '192k')")),
+		mcp.WithString("codec", mcp.Required(), mcp.Description("Target audio codec: mp3 | aac | opus | vorbis | flac | wav")),
+		mcp.WithString("bitrate", mcp.Description("Target bitrate (e.g. '192k' for 192 kbps, '320k' for 320 kbps)")),
 	), func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		input := tools.AudioTranscodeInput{
 			Input:   mcp.ParseString(req, "input", ""),
@@ -721,11 +720,11 @@ func registerTools(s *mcpserver.MCPServer, app *mcpApp) {
 
 	// audio_trim
 	s.AddTool(mcp.NewTool("audio_trim",
-		mcp.WithDescription("Trim audio by timestamps."),
+		mcp.WithDescription("Extract a contiguous segment from an audio file by specifying start and end positions in seconds. Params: input:string (required), output:string (required), start:number (required, seconds from beginning, must be ≥ 0), end:number (required, seconds, must be > start). Example: extract the segment from 5.0 to 30.0 seconds of interview.mp3 into clip.mp3. Use audio_trim to cut audio by time range; use audio_silence_trim to automatically remove quiet sections at the edges."),
 		mcp.WithString("input", mcp.Required(), mcp.Description("Input audio path")),
 		mcp.WithString("output", mcp.Required(), mcp.Description("Output audio path")),
-		mcp.WithNumber("start", mcp.Required(), mcp.Description("Start time in seconds")),
-		mcp.WithNumber("end", mcp.Required(), mcp.Description("End time in seconds")),
+		mcp.WithNumber("start", mcp.Required(), mcp.Description("Start position in seconds (must be ≥ 0)")),
+		mcp.WithNumber("end", mcp.Required(), mcp.Description("End position in seconds (must be greater than start)")),
 	), func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		args := argsMap(req)
 		input := tools.AudioTrimInput{
@@ -739,10 +738,10 @@ func registerTools(s *mcpserver.MCPServer, app *mcpApp) {
 
 	// audio_normalize
 	s.AddTool(mcp.NewTool("audio_normalize",
-		mcp.WithDescription("Normalize loudness to target LUFS."),
+		mcp.WithDescription("Normalize an audio file's integrated loudness to a target LUFS level (ITU-R BS.1770). Params: input:string (required), output:string (required), target_lufs:number (required, negative float: -14 for YouTube, -16 for Spotify, -23 for broadcast/EBU R128). Example: normalize podcast.mp3 to -16 LUFS for Spotify distribution. Use audio_normalize to adjust perceived loudness; use audio_silence_trim to remove quiet padding from the edges."),
 		mcp.WithString("input", mcp.Required(), mcp.Description("Input audio path")),
 		mcp.WithString("output", mcp.Required(), mcp.Description("Output audio path")),
-		mcp.WithNumber("target_lufs", mcp.Required(), mcp.Description("Target LUFS (-14 for YouTube, -16 for Spotify, -23 for EBU R128)")),
+		mcp.WithNumber("target_lufs", mcp.Required(), mcp.Description("Target integrated loudness in LUFS: -14 (YouTube), -16 (Spotify), -23 (EBU R128 broadcast)")),
 	), func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		args := argsMap(req)
 		input := tools.AudioNormalizeInput{
@@ -755,11 +754,11 @@ func registerTools(s *mcpserver.MCPServer, app *mcpApp) {
 
 	// audio_silence_trim
 	s.AddTool(mcp.NewTool("audio_silence_trim",
-		mcp.WithDescription("Remove leading/trailing silence from audio."),
+		mcp.WithDescription("Automatically remove leading and trailing silence from an audio file based on a dB threshold. Params: input:string (required), output:string (required), threshold_db:number (dB level below which audio is considered silent, default -40), min_duration:number (minimum silent segment length in seconds to cut, default 0.5). Example: trim dead air from recording.wav using a -35 dB threshold and 0.3s minimum silence. Use audio_silence_trim to auto-remove edge silence by level detection; use audio_trim to cut specific seconds manually."),
 		mcp.WithString("input", mcp.Required(), mcp.Description("Input audio path")),
 		mcp.WithString("output", mcp.Required(), mcp.Description("Output audio path")),
-		mcp.WithNumber("threshold_db", mcp.Description("Silence threshold in dB (default -40)")),
-		mcp.WithNumber("min_duration", mcp.Description("Minimum silence duration in seconds (default 0.5)")),
+		mcp.WithNumber("threshold_db", mcp.Description("dB level below which audio counts as silence (default -40; e.g. -35 for noisier recordings)")),
+		mcp.WithNumber("min_duration", mcp.Description("Minimum contiguous silence duration in seconds to remove (default 0.5)")),
 	), func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		args := argsMap(req)
 		input := tools.AudioSilenceTrimInput{

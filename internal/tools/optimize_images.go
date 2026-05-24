@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"dev-forge-mcp/internal/dpf"
+	"dev-forge-mcp/internal/tools/toolsutil"
 )
 
 // OptimizeInput represents a single image optimization request.
@@ -47,8 +48,8 @@ func (s *Server) OptimizeImages(ctx context.Context, input OptimizeImagesInput) 
 	if len(input.Inputs) == 0 {
 		return errorJSON("inputs is required and must not be empty")
 	}
-	if s.DPF == nil {
-		return errorJSON("dpf binary not available. Ensure bin/dpf is installed and executable.")
+	if msg, ok := toolsutil.RequireDPF(s.DPF); !ok {
+		return msg
 	}
 
 	var results []OptimizeResult

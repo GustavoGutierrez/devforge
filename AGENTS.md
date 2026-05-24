@@ -80,6 +80,32 @@ Homebrew tap. Use `workflow_dispatch` to republish an existing tag without re-ta
 3. Define the MCP tool schema (name, description, input schema) in the same handler file.
 4. Add a table-driven unit test covering happy path and error cases.
 5. Keep the handler stateless and side-effect-free.
+6. Use the shared helpers in `internal/tools/toolsutil` — do not redefine error/result envelopes.
+
+## Shared Helpers (`internal/tools/toolsutil`)
+
+Every handler MUST use these instead of redefining local copies:
+
+| Helper | Purpose |
+|--------|---------|
+| `toolsutil.ErrResult(msg)` | Canonical `{"error":"..."}` envelope. Replaces former package-local `errResult` / `errJSON`. |
+| `toolsutil.ResultJSON(v)` | Marshal `v` and return JSON string; falls back to `ErrResult` on marshal failure. |
+| `toolsutil.RequireDPF(s.DPF)` | DPF readiness guard. Usage: `if msg, ok := toolsutil.RequireDPF(s.DPF); !ok { return msg }`. |
+
+The `Server.DPF` field is of type `dpf.Streamer` (interface) — both `*dpf.StreamClient` and `*dpf.Pool` satisfy it, and tests inject fakes by setting `Server{DPF: fakeStreamer{...}}`. See `internal/tools/testhelpers_test.go` for the reference fake.
+
+The dpf pool size defaults to 2 and is configurable via the `DEVFORGE_DPF_POOL_SIZE` env var (range 1–16).
+
+## Tool Description Style (LLM routing)
+
+Every `mcp.WithDescription(...)` for a new tool MUST include:
+
+1. **Purpose** — one sentence, action verb first.
+2. **Key params** — explicit list with units (e.g. `width:int (pixels)`, `quality:int (1-100)`).
+3. **Example** — one concrete invocation prefixed with `Example:`.
+4. **Disambiguation** — when an adjacent tool exists, one short line: `Use X for ... ; use Y for ...`.
+
+Aim for 2–4 sentences total. Don't pad. Read the handler to confirm parameter behavior before writing the description — never invent params.
 
 ## MCP Schema Rules (cross-model compatibility)
 

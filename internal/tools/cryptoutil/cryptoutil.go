@@ -28,22 +28,9 @@ import (
 
 	"golang.org/x/crypto/argon2"
 	"golang.org/x/crypto/bcrypt"
+
+	"dev-forge-mcp/internal/tools/toolsutil"
 )
-
-// errResult returns a JSON-encoded error response.
-func errResult(msg string) string {
-	b, _ := json.Marshal(map[string]string{"error": msg})
-	return string(b)
-}
-
-// resultJSON marshals v to JSON or returns an error JSON.
-func resultJSON(v any) string {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return errResult("marshal failed: " + err.Error())
-	}
-	return string(b)
-}
 
 // ── crypto_hash ──────────────────────────────────────────────────────────────
 
@@ -64,7 +51,7 @@ type HashOutput struct {
 // Hash computes a hash of the input string using the specified algorithm and encoding.
 func Hash(_ context.Context, in HashInput) string {
 	if in.Input == "" {
-		return errResult("input is required")
+		return toolsutil.ErrResult("input is required")
 	}
 	algo := strings.ToLower(in.Algorithm)
 	if algo == "" {
@@ -90,15 +77,15 @@ func Hash(_ context.Context, in HashInput) string {
 		h := sha1.Sum([]byte(in.Input)) // SHA1 exposed by explicit user choice
 		raw = h[:]
 	default:
-		return errResult("unsupported algorithm: " + algo + " (sha256|sha512|md5|sha1)")
+		return toolsutil.ErrResult("unsupported algorithm: " + algo + " (sha256|sha512|md5|sha1)")
 	}
 
 	encoded, err := encodeBytes(raw, enc)
 	if err != nil {
-		return errResult(err.Error())
+		return toolsutil.ErrResult(err.Error())
 	}
 
-	return resultJSON(HashOutput{Hash: encoded, Algorithm: algo, Encoding: enc})
+	return toolsutil.ResultJSON(HashOutput{Hash: encoded, Algorithm: algo, Encoding: enc})
 }
 
 // ── crypto_hmac ──────────────────────────────────────────────────────────────
@@ -120,10 +107,10 @@ type HMACOutput struct {
 // HMAC computes an HMAC over the message using the given key.
 func HMAC(_ context.Context, in HMACInput) string {
 	if in.Message == "" {
-		return errResult("message is required")
+		return toolsutil.ErrResult("message is required")
 	}
 	if in.Key == "" {
-		return errResult("key is required")
+		return toolsutil.ErrResult("key is required")
 	}
 
 	algo := strings.ToLower(in.Algorithm)
@@ -146,15 +133,15 @@ func HMAC(_ context.Context, in HMACInput) string {
 		h.Write([]byte(in.Message))
 		mac = h.Sum(nil)
 	default:
-		return errResult("unsupported algorithm: " + algo + " (sha256|sha512)")
+		return toolsutil.ErrResult("unsupported algorithm: " + algo + " (sha256|sha512)")
 	}
 
 	encoded, err := encodeBytes(mac, enc)
 	if err != nil {
-		return errResult(err.Error())
+		return toolsutil.ErrResult(err.Error())
 	}
 
-	return resultJSON(HMACOutput{HMAC: encoded, Algorithm: algo})
+	return toolsutil.ResultJSON(HMACOutput{HMAC: encoded, Algorithm: algo})
 }
 
 // ── jwt ─────────────────────────────────────────────────────────────────────
@@ -173,7 +160,7 @@ type JWTInput struct {
 func JWT(_ context.Context, in JWTInput) string {
 	op := strings.ToLower(in.Operation)
 	if op == "" {
-		return errResult("operation is required (decode|verify|generate)")
+		return toolsutil.ErrResult("operation is required (decode|verify|generate)")
 	}
 
 	algo := strings.ToUpper(in.Algorithm)
@@ -181,7 +168,7 @@ func JWT(_ context.Context, in JWTInput) string {
 		algo = "HS256"
 	}
 	if algo != "HS256" && algo != "HS512" {
-		return errResult("unsupported algorithm: " + algo + " (HS256|HS512)")
+		return toolsutil.ErrResult("unsupported algorithm: " + algo + " (HS256|HS512)")
 	}
 
 	switch op {
@@ -192,27 +179,27 @@ func JWT(_ context.Context, in JWTInput) string {
 	case "verify":
 		return jwtVerify(in.Token, in.Secret, algo)
 	default:
-		return errResult("unknown operation: " + op + " (decode|verify|generate)")
+		return toolsutil.ErrResult("unknown operation: " + op + " (decode|verify|generate)")
 	}
 }
 
 func jwtGenerate(in JWTInput, algo string) string {
 	if in.Secret == "" {
-		return errResult("secret is required for generate")
+		return toolsutil.ErrResult("secret is required for generate")
 	}
 
 	// Build header
 	header := map[string]string{"alg": algo, "typ": "JWT"}
 	headerJSON, err := json.Marshal(header)
 	if err != nil {
-		return errResult("failed to marshal header: " + err.Error())
+		return toolsutil.ErrResult("failed to marshal header: " + err.Error())
 	}
 
 	// Build payload
 	var claims map[string]any
 	if in.Payload != "" {
 		if err := json.Unmarshal([]byte(in.Payload), &claims); err != nil {
-			return errResult("invalid payload JSON: " + err.Error())
+			return toolsutil.ErrResult("invalid payload JSON: " + err.Error())
 		}
 	} else {
 		claims = make(map[string]any)
@@ -228,7 +215,7 @@ func jwtGenerate(in JWTInput, algo string) string {
 
 	payloadJSON, err := json.Marshal(claims)
 	if err != nil {
-		return errResult("failed to marshal payload: " + err.Error())
+		return toolsutil.ErrResult("failed to marshal payload: " + err.Error())
 	}
 
 	headerEnc := base64url(headerJSON)
@@ -238,30 +225,30 @@ func jwtGenerate(in JWTInput, algo string) string {
 	sig := jwtSign(sigInput, in.Secret, algo)
 	token := sigInput + "." + sig
 
-	return resultJSON(map[string]string{"token": token})
+	return toolsutil.ResultJSON(map[string]string{"token": token})
 }
 
 func jwtDecode(token string) string {
 	parts := strings.Split(token, ".")
 	if len(parts) != 3 {
-		return errResult("invalid JWT format: expected 3 parts")
+		return toolsutil.ErrResult("invalid JWT format: expected 3 parts")
 	}
 
 	headerJSON, err := base64urlDecode(parts[0])
 	if err != nil {
-		return errResult("invalid header encoding: " + err.Error())
+		return toolsutil.ErrResult("invalid header encoding: " + err.Error())
 	}
 	payloadJSON, err := base64urlDecode(parts[1])
 	if err != nil {
-		return errResult("invalid payload encoding: " + err.Error())
+		return toolsutil.ErrResult("invalid payload encoding: " + err.Error())
 	}
 
 	var headerMap, payloadMap map[string]any
 	if err := json.Unmarshal(headerJSON, &headerMap); err != nil {
-		return errResult("invalid header JSON: " + err.Error())
+		return toolsutil.ErrResult("invalid header JSON: " + err.Error())
 	}
 	if err := json.Unmarshal(payloadJSON, &payloadMap); err != nil {
-		return errResult("invalid payload JSON: " + err.Error())
+		return toolsutil.ErrResult("invalid payload JSON: " + err.Error())
 	}
 
 	expired := false
@@ -278,7 +265,7 @@ func jwtDecode(token string) string {
 		}
 	}
 
-	return resultJSON(map[string]any{
+	return toolsutil.ResultJSON(map[string]any{
 		"header":    headerMap,
 		"payload":   payloadMap,
 		"signature": parts[2],
@@ -289,7 +276,7 @@ func jwtDecode(token string) string {
 func jwtVerify(token, secret, algo string) string {
 	parts := strings.Split(token, ".")
 	if len(parts) != 3 {
-		return errResult("invalid JWT format: expected 3 parts")
+		return toolsutil.ErrResult("invalid JWT format: expected 3 parts")
 	}
 
 	sigInput := parts[0] + "." + parts[1]
@@ -297,11 +284,11 @@ func jwtVerify(token, secret, algo string) string {
 
 	payloadJSON, err := base64urlDecode(parts[1])
 	if err != nil {
-		return errResult("invalid payload encoding: " + err.Error())
+		return toolsutil.ErrResult("invalid payload encoding: " + err.Error())
 	}
 	var claims map[string]any
 	if err := json.Unmarshal(payloadJSON, &claims); err != nil {
-		return errResult("invalid payload JSON: " + err.Error())
+		return toolsutil.ErrResult("invalid payload JSON: " + err.Error())
 	}
 
 	expired := false
@@ -320,7 +307,7 @@ func jwtVerify(token, secret, algo string) string {
 
 	valid := hmac.Equal([]byte(parts[2]), []byte(expectedSig)) && !expired
 
-	return resultJSON(map[string]any{
+	return toolsutil.ResultJSON(map[string]any{
 		"valid":   valid,
 		"expired": expired,
 		"claims":  claims,
@@ -367,11 +354,11 @@ type PasswordInput struct {
 // Password hashes or verifies a password using bcrypt or argon2id.
 func Password(_ context.Context, in PasswordInput) string {
 	if in.Password == "" {
-		return errResult("password is required")
+		return toolsutil.ErrResult("password is required")
 	}
 	op := strings.ToLower(in.Operation)
 	if op == "" {
-		return errResult("operation is required (hash|verify)")
+		return toolsutil.ErrResult("operation is required (hash|verify)")
 	}
 	algo := strings.ToLower(in.Algorithm)
 	if algo == "" {
@@ -383,11 +370,11 @@ func Password(_ context.Context, in PasswordInput) string {
 		return passwordHash(in.Password, algo, in.Cost)
 	case "verify":
 		if in.Hash == "" {
-			return errResult("hash is required for verify")
+			return toolsutil.ErrResult("hash is required for verify")
 		}
 		return passwordVerify(in.Password, in.Hash, algo)
 	default:
-		return errResult("unknown operation: " + op + " (hash|verify)")
+		return toolsutil.ErrResult("unknown operation: " + op + " (hash|verify)")
 	}
 }
 
@@ -405,14 +392,14 @@ func passwordHash(password, algo string, cost int) string {
 		}
 		h, err := bcrypt.GenerateFromPassword([]byte(password), cost)
 		if err != nil {
-			return errResult("bcrypt hash failed: " + err.Error())
+			return toolsutil.ErrResult("bcrypt hash failed: " + err.Error())
 		}
-		return resultJSON(map[string]string{"hash": string(h)})
+		return toolsutil.ResultJSON(map[string]string{"hash": string(h)})
 
 	case "argon2id":
 		salt := make([]byte, 16)
 		if _, err := rand.Read(salt); err != nil {
-			return errResult("failed to generate salt: " + err.Error())
+			return toolsutil.ErrResult("failed to generate salt: " + err.Error())
 		}
 		// Argon2id recommended parameters: time=1, memory=64MB, threads=4, keyLen=32
 		key := argon2.IDKey([]byte(password), salt, 1, 64*1024, 4, 32)
@@ -425,10 +412,10 @@ func passwordHash(password, algo string, cost int) string {
 			base64.RawStdEncoding.EncodeToString(salt),
 			base64.RawStdEncoding.EncodeToString(key),
 		)
-		return resultJSON(map[string]string{"hash": encoded})
+		return toolsutil.ResultJSON(map[string]string{"hash": encoded})
 
 	default:
-		return errResult("unsupported algorithm: " + algo + " (bcrypt|argon2id)")
+		return toolsutil.ErrResult("unsupported algorithm: " + algo + " (bcrypt|argon2id)")
 	}
 }
 
@@ -436,17 +423,17 @@ func passwordVerify(password, hash, algo string) string {
 	switch algo {
 	case "bcrypt":
 		err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
-		return resultJSON(map[string]bool{"valid": err == nil})
+		return toolsutil.ResultJSON(map[string]bool{"valid": err == nil})
 
 	case "argon2id":
 		valid, err := verifyArgon2id(password, hash)
 		if err != nil {
-			return errResult("argon2id verify failed: " + err.Error())
+			return toolsutil.ErrResult("argon2id verify failed: " + err.Error())
 		}
-		return resultJSON(map[string]bool{"valid": valid})
+		return toolsutil.ResultJSON(map[string]bool{"valid": valid})
 
 	default:
-		return errResult("unsupported algorithm: " + algo + " (bcrypt|argon2id)")
+		return toolsutil.ErrResult("unsupported algorithm: " + algo + " (bcrypt|argon2id)")
 	}
 }
 
@@ -502,7 +489,7 @@ type KeygenOutput struct {
 func Keygen(_ context.Context, in KeygenInput) string {
 	kt := strings.ToLower(in.KeyType)
 	if kt == "" {
-		return errResult("key_type is required (rsa|ec|ed25519)")
+		return toolsutil.ErrResult("key_type is required (rsa|ec|ed25519)")
 	}
 
 	format := strings.ToLower(in.Format)
@@ -510,7 +497,7 @@ func Keygen(_ context.Context, in KeygenInput) string {
 		format = "pem"
 	}
 	if format != "pem" && format != "jwk" {
-		return errResult("unsupported format: " + format + " (pem|jwk)")
+		return toolsutil.ErrResult("unsupported format: " + format + " (pem|jwk)")
 	}
 
 	switch kt {
@@ -521,7 +508,7 @@ func Keygen(_ context.Context, in KeygenInput) string {
 	case "ed25519":
 		return keygenED25519(format)
 	default:
-		return errResult("unsupported key_type: " + kt + " (rsa|ec|ed25519)")
+		return toolsutil.ErrResult("unsupported key_type: " + kt + " (rsa|ec|ed25519)")
 	}
 }
 
@@ -530,12 +517,12 @@ func keygenRSA(bits int, format string) string {
 		bits = 2048
 	}
 	if bits != 2048 && bits != 4096 {
-		return errResult("bits must be 2048 or 4096 for RSA")
+		return toolsutil.ErrResult("bits must be 2048 or 4096 for RSA")
 	}
 
 	priv, err := rsa.GenerateKey(rand.Reader, bits)
 	if err != nil {
-		return errResult("RSA key generation failed: " + err.Error())
+		return toolsutil.ErrResult("RSA key generation failed: " + err.Error())
 	}
 
 	if format == "jwk" {
@@ -544,17 +531,17 @@ func keygenRSA(bits int, format string) string {
 
 	privDER, err := x509.MarshalPKCS8PrivateKey(priv)
 	if err != nil {
-		return errResult("failed to marshal RSA private key: " + err.Error())
+		return toolsutil.ErrResult("failed to marshal RSA private key: " + err.Error())
 	}
 	privPEM := string(pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: privDER}))
 
 	pubDER, err := x509.MarshalPKIXPublicKey(&priv.PublicKey)
 	if err != nil {
-		return errResult("failed to marshal RSA public key: " + err.Error())
+		return toolsutil.ErrResult("failed to marshal RSA public key: " + err.Error())
 	}
 	pubPEM := string(pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: pubDER}))
 
-	return resultJSON(KeygenOutput{PrivateKey: privPEM, PublicKey: pubPEM, KeyType: "rsa"})
+	return toolsutil.ResultJSON(KeygenOutput{PrivateKey: privPEM, PublicKey: pubPEM, KeyType: "rsa"})
 }
 
 func keygenRSAJWK(priv *rsa.PrivateKey) string {
@@ -578,7 +565,7 @@ func keygenRSAJWK(priv *rsa.PrivateKey) string {
 	}
 	privJSON, _ := json.Marshal(privJWK)
 	pubJSON, _ := json.Marshal(pubJWK)
-	return resultJSON(KeygenOutput{
+	return toolsutil.ResultJSON(KeygenOutput{
 		PrivateKey: string(privJSON),
 		PublicKey:  string(pubJSON),
 		KeyType:    "rsa",
@@ -596,12 +583,12 @@ func keygenEC(curve, format string) string {
 	case "P-384":
 		c = elliptic.P384()
 	default:
-		return errResult("unsupported curve: " + curve + " (P-256|P-384)")
+		return toolsutil.ErrResult("unsupported curve: " + curve + " (P-256|P-384)")
 	}
 
 	priv, err := ecdsa.GenerateKey(c, rand.Reader)
 	if err != nil {
-		return errResult("EC key generation failed: " + err.Error())
+		return toolsutil.ErrResult("EC key generation failed: " + err.Error())
 	}
 
 	if format == "jwk" {
@@ -610,17 +597,17 @@ func keygenEC(curve, format string) string {
 
 	privDER, err := x509.MarshalECPrivateKey(priv)
 	if err != nil {
-		return errResult("failed to marshal EC private key: " + err.Error())
+		return toolsutil.ErrResult("failed to marshal EC private key: " + err.Error())
 	}
 	privPEM := string(pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: privDER}))
 
 	pubDER, err := x509.MarshalPKIXPublicKey(&priv.PublicKey)
 	if err != nil {
-		return errResult("failed to marshal EC public key: " + err.Error())
+		return toolsutil.ErrResult("failed to marshal EC public key: " + err.Error())
 	}
 	pubPEM := string(pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: pubDER}))
 
-	return resultJSON(KeygenOutput{PrivateKey: privPEM, PublicKey: pubPEM, KeyType: "ec"})
+	return toolsutil.ResultJSON(KeygenOutput{PrivateKey: privPEM, PublicKey: pubPEM, KeyType: "ec"})
 }
 
 func keygenECJWK(priv *ecdsa.PrivateKey, curve string) string {
@@ -639,7 +626,7 @@ func keygenECJWK(priv *ecdsa.PrivateKey, curve string) string {
 	}
 	privJSON, _ := json.Marshal(privJWK)
 	pubJSON, _ := json.Marshal(pubJWK)
-	return resultJSON(KeygenOutput{
+	return toolsutil.ResultJSON(KeygenOutput{
 		PrivateKey: string(privJSON),
 		PublicKey:  string(pubJSON),
 		KeyType:    "ec",
@@ -649,7 +636,7 @@ func keygenECJWK(priv *ecdsa.PrivateKey, curve string) string {
 func keygenED25519(format string) string {
 	pub, priv, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
-		return errResult("Ed25519 key generation failed: " + err.Error())
+		return toolsutil.ErrResult("Ed25519 key generation failed: " + err.Error())
 	}
 
 	if format == "jwk" {
@@ -666,7 +653,7 @@ func keygenED25519(format string) string {
 		}
 		privJSON, _ := json.Marshal(privJWK)
 		pubJSON, _ := json.Marshal(pubJWK)
-		return resultJSON(KeygenOutput{
+		return toolsutil.ResultJSON(KeygenOutput{
 			PrivateKey: string(privJSON),
 			PublicKey:  string(pubJSON),
 			KeyType:    "ed25519",
@@ -675,17 +662,17 @@ func keygenED25519(format string) string {
 
 	privDER, err := x509.MarshalPKCS8PrivateKey(priv)
 	if err != nil {
-		return errResult("failed to marshal Ed25519 private key: " + err.Error())
+		return toolsutil.ErrResult("failed to marshal Ed25519 private key: " + err.Error())
 	}
 	privPEM := string(pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: privDER}))
 
 	pubDER, err := x509.MarshalPKIXPublicKey(pub)
 	if err != nil {
-		return errResult("failed to marshal Ed25519 public key: " + err.Error())
+		return toolsutil.ErrResult("failed to marshal Ed25519 public key: " + err.Error())
 	}
 	pubPEM := string(pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: pubDER}))
 
-	return resultJSON(KeygenOutput{PrivateKey: privPEM, PublicKey: pubPEM, KeyType: "ed25519"})
+	return toolsutil.ResultJSON(KeygenOutput{PrivateKey: privPEM, PublicKey: pubPEM, KeyType: "ed25519"})
 }
 
 // ── crypto_random ─────────────────────────────────────────────────────────────
@@ -701,7 +688,7 @@ type RandomInput struct {
 func Random(_ context.Context, in RandomInput) string {
 	kind := strings.ToLower(in.Kind)
 	if kind == "" {
-		return errResult("kind is required (token|bytes|otp)")
+		return toolsutil.ErrResult("kind is required (token|bytes|otp)")
 	}
 
 	enc := strings.ToLower(in.Encoding)
@@ -717,13 +704,13 @@ func Random(_ context.Context, in RandomInput) string {
 		}
 		buf := make([]byte, length)
 		if _, err := rand.Read(buf); err != nil {
-			return errResult("random generation failed: " + err.Error())
+			return toolsutil.ErrResult("random generation failed: " + err.Error())
 		}
 		encoded, err := encodeBytes(buf, enc)
 		if err != nil {
-			return errResult(err.Error())
+			return toolsutil.ErrResult(err.Error())
 		}
-		return resultJSON(map[string]string{"value": encoded})
+		return toolsutil.ResultJSON(map[string]string{"value": encoded})
 
 	case "otp":
 		length := in.Length
@@ -732,12 +719,12 @@ func Random(_ context.Context, in RandomInput) string {
 		}
 		digits, err := randomDigits(length)
 		if err != nil {
-			return errResult("OTP generation failed: " + err.Error())
+			return toolsutil.ErrResult("OTP generation failed: " + err.Error())
 		}
-		return resultJSON(map[string]string{"value": digits})
+		return toolsutil.ResultJSON(map[string]string{"value": digits})
 
 	default:
-		return errResult("unsupported kind: " + kind + " (token|bytes|otp)")
+		return toolsutil.ErrResult("unsupported kind: " + kind + " (token|bytes|otp)")
 	}
 }
 
@@ -793,7 +780,7 @@ var maskPatterns = []maskPattern{
 // Mask redacts sensitive patterns from text.
 func Mask(_ context.Context, in MaskInput) string {
 	if in.Text == "" {
-		return errResult("text is required")
+		return toolsutil.ErrResult("text is required")
 	}
 
 	replacement := in.Replacement
@@ -832,7 +819,7 @@ func Mask(_ context.Context, in MaskInput) string {
 		}
 	}
 
-	return resultJSON(MaskOutput{Result: result, RedactedCount: redactedCount})
+	return toolsutil.ResultJSON(MaskOutput{Result: result, RedactedCount: redactedCount})
 }
 
 // ── helpers ───────────────────────────────────────────────────────────────────
@@ -880,7 +867,7 @@ type PasswordGenerateOutput struct {
 func PasswordGenerate(_ context.Context, input PasswordGenerateInput) string {
 	length := input.Length
 	if length < 1 || length > 50 {
-		return errResult("length must be between 1 and 50")
+		return toolsutil.ErrResult("length must be between 1 and 50")
 	}
 
 	charPool := ""
@@ -898,7 +885,7 @@ func PasswordGenerate(_ context.Context, input PasswordGenerateInput) string {
 	}
 
 	if charPool == "" {
-		return errResult("at least one character set must be selected (uppercase, lowercase, numbers, or symbols)")
+		return toolsutil.ErrResult("at least one character set must be selected (uppercase, lowercase, numbers, or symbols)")
 	}
 
 	poolLen := len(charPool)
@@ -907,14 +894,14 @@ func PasswordGenerate(_ context.Context, input PasswordGenerateInput) string {
 
 	password := make([]byte, length)
 	if _, err := rand.Read(password); err != nil {
-		return errResult("failed to generate random password: " + err.Error())
+		return toolsutil.ErrResult("failed to generate random password: " + err.Error())
 	}
 
 	for i := range password {
 		password[i] = charPool[int(password[i])%poolLen]
 	}
 
-	return resultJSON(PasswordGenerateOutput{
+	return toolsutil.ResultJSON(PasswordGenerateOutput{
 		Password: string(password),
 		Length:   length,
 		Entropy:  entropy,

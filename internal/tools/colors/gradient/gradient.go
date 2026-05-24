@@ -3,9 +3,10 @@ package gradient
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strings"
+
+	"dev-forge-mcp/internal/tools/toolsutil"
 )
 
 // ColorStopInput defines a single gradient stop.
@@ -38,9 +39,9 @@ type GenerateOutput struct {
 func Generate(_ context.Context, in GenerateInput) string {
 	out, err := Compute(in)
 	if err != nil {
-		return errJSON(err.Error())
+		return toolsutil.ErrResult(err.Error())
 	}
-	return resultJSON(out)
+	return toolsutil.ResultJSON(out)
 }
 
 // Compute validates and builds a CSS gradient result.
@@ -122,15 +123,3 @@ func clamp(v, lo, hi int) int {
 	return v
 }
 
-func errJSON(msg string) string {
-	b, _ := json.Marshal(map[string]string{"error": msg})
-	return string(b)
-}
-
-func resultJSON(v any) string {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return errJSON("marshal failed: " + err.Error())
-	}
-	return string(b)
-}

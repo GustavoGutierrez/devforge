@@ -8,32 +8,18 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
+
+	"dev-forge-mcp/internal/tools/toolsutil"
 )
 
 // maxBodyBytes is the maximum response body size we read (1 MB).
 const maxBodyBytes = 1 << 20
-
-// errResult returns a JSON-encoded error response.
-func errResult(msg string) string {
-	b, _ := json.Marshal(map[string]string{"error": msg})
-	return string(b)
-}
-
-// resultJSON marshals v to JSON or returns an error JSON.
-func resultJSON(v any) string {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return errResult("marshal failed: " + err.Error())
-	}
-	return string(b)
-}
 
 // ─── http_request ──────────────────────────────────────────────────────────
 
@@ -58,7 +44,7 @@ type HTTPRequestOutput struct {
 // HTTPRequest performs an HTTP request and returns status, headers, body, and duration.
 func HTTPRequest(ctx context.Context, input HTTPRequestInput) string {
 	if strings.TrimSpace(input.URL) == "" {
-		return errResult("url is required")
+		return toolsutil.ErrResult("url is required")
 	}
 
 	method := strings.ToUpper(input.Method)
@@ -87,7 +73,7 @@ func HTTPRequest(ctx context.Context, input HTTPRequestInput) string {
 
 	req, err := http.NewRequestWithContext(ctx, method, input.URL, bodyReader)
 	if err != nil {
-		return errResult("failed to create request: " + err.Error())
+		return toolsutil.ErrResult("failed to create request: " + err.Error())
 	}
 
 	for k, v := range input.Headers {
@@ -99,14 +85,14 @@ func HTTPRequest(ctx context.Context, input HTTPRequestInput) string {
 	elapsed := time.Since(start)
 
 	if err != nil {
-		return errResult("request failed: " + err.Error())
+		return toolsutil.ErrResult("request failed: " + err.Error())
 	}
 	defer resp.Body.Close()
 
 	limitedReader := io.LimitReader(resp.Body, maxBodyBytes)
 	bodyBytes, err := io.ReadAll(limitedReader)
 	if err != nil {
-		return errResult("failed to read response body: " + err.Error())
+		return toolsutil.ErrResult("failed to read response body: " + err.Error())
 	}
 
 	headers := make(map[string]string, len(resp.Header))
@@ -114,7 +100,7 @@ func HTTPRequest(ctx context.Context, input HTTPRequestInput) string {
 		headers[k] = strings.Join(vals, ", ")
 	}
 
-	return resultJSON(HTTPRequestOutput{
+	return toolsutil.ResultJSON(HTTPRequestOutput{
 		Status:     resp.StatusCode,
 		Headers:    headers,
 		Body:       string(bodyBytes),
@@ -252,18 +238,18 @@ func tokenizeCurl(cmd string) []string {
 // HTTPCurlConvert parses a curl command and generates a code snippet.
 func HTTPCurlConvert(ctx context.Context, input HTTPCurlConvertInput) string {
 	if strings.TrimSpace(input.Curl) == "" {
-		return errResult("curl is required")
+		return toolsutil.ErrResult("curl is required")
 	}
 	target := strings.ToLower(strings.TrimSpace(input.Target))
 	switch target {
 	case "go", "typescript", "python":
 	default:
-		return errResult("target must be one of: go, typescript, python")
+		return toolsutil.ErrResult("target must be one of: go, typescript, python")
 	}
 
 	parsed := parseCurl(input.Curl)
 	if parsed.url == "" {
-		return errResult("could not parse URL from curl command")
+		return toolsutil.ErrResult("could not parse URL from curl command")
 	}
 
 	var snippet string
@@ -276,7 +262,7 @@ func HTTPCurlConvert(ctx context.Context, input HTTPCurlConvertInput) string {
 		snippet = buildPythonSnippet(parsed)
 	}
 
-	return resultJSON(HTTPCurlConvertOutput{
+	return toolsutil.ResultJSON(HTTPCurlConvertOutput{
 		Snippet: snippet,
 		Target:  target,
 	})
@@ -388,7 +374,7 @@ type HTTPWebhookReplayOutput struct {
 // HTTPWebhookReplay replays a saved webhook payload to a target URL.
 func HTTPWebhookReplay(ctx context.Context, input HTTPWebhookReplayInput) string {
 	if strings.TrimSpace(input.URL) == "" {
-		return errResult("url is required")
+		return toolsutil.ErrResult("url is required")
 	}
 
 	method := strings.ToUpper(input.Method)
@@ -412,7 +398,7 @@ func HTTPWebhookReplay(ctx context.Context, input HTTPWebhookReplayInput) string
 
 	req, err := http.NewRequestWithContext(ctx, method, input.URL, bodyReader)
 	if err != nil {
-		return errResult("failed to create request: " + err.Error())
+		return toolsutil.ErrResult("failed to create request: " + err.Error())
 	}
 
 	for k, v := range input.Headers {
@@ -421,14 +407,14 @@ func HTTPWebhookReplay(ctx context.Context, input HTTPWebhookReplayInput) string
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return errResult("request failed: " + err.Error())
+		return toolsutil.ErrResult("request failed: " + err.Error())
 	}
 	defer resp.Body.Close()
 
 	limitedReader := io.LimitReader(resp.Body, maxBodyBytes)
 	bodyBytes, err := io.ReadAll(limitedReader)
 	if err != nil {
-		return errResult("failed to read response body: " + err.Error())
+		return toolsutil.ErrResult("failed to read response body: " + err.Error())
 	}
 
 	headers := make(map[string]string, len(resp.Header))
@@ -436,7 +422,7 @@ func HTTPWebhookReplay(ctx context.Context, input HTTPWebhookReplayInput) string
 		headers[k] = strings.Join(vals, ", ")
 	}
 
-	return resultJSON(HTTPWebhookReplayOutput{
+	return toolsutil.ResultJSON(HTTPWebhookReplayOutput{
 		Status:  resp.StatusCode,
 		Headers: headers,
 		Body:    string(bodyBytes),
@@ -463,10 +449,10 @@ type HTTPSignedURLOutput struct {
 // HTTPSignedURL generates a signed URL or signature header value using HMAC-SHA256.
 func HTTPSignedURL(ctx context.Context, input HTTPSignedURLInput) string {
 	if strings.TrimSpace(input.URL) == "" {
-		return errResult("url is required")
+		return toolsutil.ErrResult("url is required")
 	}
 	if strings.TrimSpace(input.Secret) == "" {
-		return errResult("secret is required")
+		return toolsutil.ErrResult("secret is required")
 	}
 
 	method := strings.ToLower(input.Method)
@@ -474,7 +460,7 @@ func HTTPSignedURL(ctx context.Context, input HTTPSignedURLInput) string {
 		method = "query"
 	}
 	if method != "query" && method != "header" {
-		return errResult("method must be query or header")
+		return toolsutil.ErrResult("method must be query or header")
 	}
 
 	expirySecs := input.ExpirySeconds
@@ -487,7 +473,7 @@ func HTTPSignedURL(ctx context.Context, input HTTPSignedURLInput) string {
 
 	parsedURL, err := url.Parse(input.URL)
 	if err != nil {
-		return errResult("invalid url: " + err.Error())
+		return toolsutil.ErrResult("invalid url: " + err.Error())
 	}
 
 	// Build the message to sign: path + "?expires=" + timestamp
@@ -505,14 +491,14 @@ func HTTPSignedURL(ctx context.Context, input HTTPSignedURLInput) string {
 		q.Set("signature", sig)
 		parsedURL.RawQuery = q.Encode()
 
-		return resultJSON(HTTPSignedURLOutput{
+		return toolsutil.ResultJSON(HTTPSignedURLOutput{
 			SignedURL: parsedURL.String(),
 			ExpiresAt: expiresAtISO,
 		})
 	}
 
 	// header method: return the signature value (caller adds it as a header)
-	return resultJSON(HTTPSignedURLOutput{
+	return toolsutil.ResultJSON(HTTPSignedURLOutput{
 		Signature: sig,
 		ExpiresAt: expiresAtISO,
 	})
@@ -556,18 +542,18 @@ func HTTPURLParse(ctx context.Context, input HTTPURLParseInput) string {
 	case "build":
 		return httpURLBuildAction(input.Components)
 	default:
-		return errResult("action must be parse or build")
+		return toolsutil.ErrResult("action must be parse or build")
 	}
 }
 
 func httpURLParseAction(rawURL string) string {
 	if strings.TrimSpace(rawURL) == "" {
-		return errResult("url is required for parse action")
+		return toolsutil.ErrResult("url is required for parse action")
 	}
 
 	parsed, err := url.Parse(rawURL)
 	if err != nil {
-		return errResult("invalid url: " + err.Error())
+		return toolsutil.ErrResult("invalid url: " + err.Error())
 	}
 
 	port := parsed.Port()
@@ -580,7 +566,7 @@ func httpURLParseAction(rawURL string) string {
 		}
 	}
 
-	return resultJSON(HTTPURLParseOutput{
+	return toolsutil.ResultJSON(HTTPURLParseOutput{
 		Scheme:   parsed.Scheme,
 		Host:     host,
 		Port:     port,
@@ -593,7 +579,7 @@ func httpURLParseAction(rawURL string) string {
 
 func httpURLBuildAction(components map[string]interface{}) string {
 	if components == nil {
-		return errResult("components are required for build action")
+		return toolsutil.ErrResult("components are required for build action")
 	}
 
 	strField := func(key string) string {
@@ -632,5 +618,5 @@ func httpURLBuildAction(components map[string]interface{}) string {
 		}
 	}
 
-	return resultJSON(HTTPURLBuildOutput{URL: u.String()})
+	return toolsutil.ResultJSON(HTTPURLBuildOutput{URL: u.String()})
 }

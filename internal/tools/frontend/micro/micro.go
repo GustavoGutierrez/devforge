@@ -12,20 +12,8 @@ import (
 	"dev-forge-mcp/internal/tools/filetools"
 	"dev-forge-mcp/internal/tools/frontend"
 	"dev-forge-mcp/internal/tools/textenc"
+	"dev-forge-mcp/internal/tools/toolsutil"
 )
-
-func errJSON(msg string) string {
-	b, _ := json.Marshal(map[string]string{"error": msg})
-	return string(b)
-}
-
-func resultJSON(v any) string {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return errJSON("marshal failed: " + err.Error())
-	}
-	return string(b)
-}
 
 // TextDiffInput defines the input for generate_text_diff.
 type TextDiffInput struct {
@@ -51,10 +39,10 @@ func GenerateTextDiff(ctx context.Context, in TextDiffInput) string {
 
 	var m map[string]any
 	if err := json.Unmarshal([]byte(raw), &m); err != nil {
-		return errJSON("unexpected diff response")
+		return toolsutil.ErrResult("unexpected diff response")
 	}
 	if e, ok := m["error"].(string); ok && e != "" {
-		return errJSON(e)
+		return toolsutil.ErrResult(e)
 	}
 
 	out := TextDiffOutput{}
@@ -68,7 +56,7 @@ func GenerateTextDiff(ctx context.Context, in TextDiffInput) string {
 		out.Deletions = int(v)
 	}
 
-	return resultJSON(out)
+	return toolsutil.ResultJSON(out)
 }
 
 // CSSUnitsBatchInput defines input for convert_css_units.
@@ -88,7 +76,7 @@ type CSSUnitsBatchOutput struct {
 // ConvertCSSUnits converts multiple pixel values to rem or em.
 func ConvertCSSUnits(_ context.Context, in CSSUnitsBatchInput) string {
 	if len(in.ValuesPX) == 0 {
-		return errJSON("values_px is required")
+		return toolsutil.ErrResult("values_px is required")
 	}
 	base := in.BaseSize
 	if base <= 0 {
@@ -99,7 +87,7 @@ func ConvertCSSUnits(_ context.Context, in CSSUnitsBatchInput) string {
 		unit = "rem"
 	}
 	if unit != "rem" && unit != "em" {
-		return errJSON("target_unit must be rem or em")
+		return toolsutil.ErrResult("target_unit must be rem or em")
 	}
 
 	conv := make(map[string]string, len(in.ValuesPX))
@@ -108,7 +96,7 @@ func ConvertCSSUnits(_ context.Context, in CSSUnitsBatchInput) string {
 		conv[fmt.Sprintf("%spx", trimFloat(v))] = fmt.Sprintf("%s%s", trimFloat(res), unit)
 	}
 
-	return resultJSON(CSSUnitsBatchOutput{
+	return toolsutil.ResultJSON(CSSUnitsBatchOutput{
 		Base:        base,
 		Unit:        unit,
 		Conversions: conv,
@@ -136,7 +124,7 @@ type WCAGContrastOutput struct {
 // CheckWCAGContrast computes WCAG contrast and pass/fail for AA/AAA, normal and large text.
 func CheckWCAGContrast(ctx context.Context, in WCAGContrastInput) string {
 	if strings.TrimSpace(in.ForegroundColor) == "" || strings.TrimSpace(in.BackgroundColor) == "" {
-		return errJSON("foreground_color and background_color are required")
+		return toolsutil.ErrResult("foreground_color and background_color are required")
 	}
 
 	raw := frontend.Color(ctx, frontend.ColorInput{
@@ -147,14 +135,14 @@ func CheckWCAGContrast(ctx context.Context, in WCAGContrastInput) string {
 
 	var m map[string]any
 	if err := json.Unmarshal([]byte(raw), &m); err != nil {
-		return errJSON("unexpected color response")
+		return toolsutil.ErrResult("unexpected color response")
 	}
 	if e, ok := m["error"].(string); ok && e != "" {
-		return errJSON(e)
+		return toolsutil.ErrResult(e)
 	}
 	ratio, ok := m["contrast_ratio"].(float64)
 	if !ok {
-		return errJSON("could not compute contrast ratio")
+		return toolsutil.ErrResult("could not compute contrast ratio")
 	}
 
 	out := WCAGContrastOutput{
@@ -168,7 +156,7 @@ func CheckWCAGContrast(ctx context.Context, in WCAGContrastInput) string {
 			LargeTextPass:  ratio >= 4.5,
 		},
 	}
-	return resultJSON(out)
+	return toolsutil.ResultJSON(out)
 }
 
 // AspectRatioInput defines input for calculate_aspect_ratio.
@@ -194,7 +182,7 @@ func CalculateAspectRatio(_ context.Context, in AspectRatioInput) string {
 	if strings.TrimSpace(in.AspectRatio) != "" {
 		rw, rh, err := parseRatio(in.AspectRatio)
 		if err != nil {
-			return errJSON(err.Error())
+			return toolsutil.ErrResult(err.Error())
 		}
 		ratio = rw / rh
 		ratioLabel = fmt.Sprintf("%d:%d", int(math.Round(rw)), int(math.Round(rh)))
@@ -204,7 +192,7 @@ func CalculateAspectRatio(_ context.Context, in AspectRatioInput) string {
 	hasH := in.KnownHeight != nil && *in.KnownHeight > 0
 
 	if !hasW && !hasH {
-		return errJSON("known_width or known_height is required")
+		return toolsutil.ErrResult("known_width or known_height is required")
 	}
 
 	var width, height float64
@@ -217,7 +205,7 @@ func CalculateAspectRatio(_ context.Context, in AspectRatioInput) string {
 
 	if ratio == 0 {
 		if !hasW || !hasH {
-			return errJSON("aspect_ratio is required when one dimension is missing")
+			return toolsutil.ErrResult("aspect_ratio is required when one dimension is missing")
 		}
 		ratio = width / height
 		ratioLabel = simplifyRatio(width, height)
@@ -235,7 +223,7 @@ func CalculateAspectRatio(_ context.Context, in AspectRatioInput) string {
 		Width:        width,
 		Height:       height,
 	}
-	return resultJSON(out)
+	return toolsutil.ResultJSON(out)
 }
 
 // StringCasesInput defines input for convert_string_cases.
@@ -252,11 +240,11 @@ type StringCasesOutput struct {
 // ConvertStringCases converts a list of variable names to the desired case format.
 func ConvertStringCases(ctx context.Context, in StringCasesInput) string {
 	if len(in.Variables) == 0 {
-		return errJSON("variables is required")
+		return toolsutil.ErrResult("variables is required")
 	}
 	target, err := normalizeTargetCase(in.TargetCase)
 	if err != nil {
-		return errJSON(err.Error())
+		return toolsutil.ErrResult(err.Error())
 	}
 
 	converted := make(map[string]string, len(in.Variables))
@@ -264,16 +252,16 @@ func ConvertStringCases(ctx context.Context, in StringCasesInput) string {
 		raw := textenc.Case(ctx, textenc.CaseInput{Text: v, TargetCase: target})
 		var m map[string]any
 		if err := json.Unmarshal([]byte(raw), &m); err != nil {
-			return errJSON("unexpected case conversion response")
+			return toolsutil.ErrResult("unexpected case conversion response")
 		}
 		if e, ok := m["error"].(string); ok && e != "" {
-			return errJSON(e)
+			return toolsutil.ErrResult(e)
 		}
 		res, _ := m["result"].(string)
 		converted[v] = res
 	}
 
-	return resultJSON(StringCasesOutput{Converted: converted})
+	return toolsutil.ResultJSON(StringCasesOutput{Converted: converted})
 }
 
 func normalizeTargetCase(v string) (string, error) {

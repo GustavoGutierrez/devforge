@@ -36,9 +36,9 @@ func registerFrontendTools(s *mcpserver.MCPServer, _ *mcpApp) {
 		mcp.WithNumber("base_size", mcp.Description("Base font size in px (default: 16)")),
 		mcp.WithString("target_unit", mcp.Description("Target unit: rem | em (default: rem)")),
 	), func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		args := frontendArgsMap(req)
+		args := argsMap(req)
 		in := micro.CSSUnitsBatchInput{
-			BaseSize:   frontendNumVal(args, "base_size", 16),
+			BaseSize:   numVal(args, "base_size", 16),
 			TargetUnit: mcp.ParseString(req, "target_unit", "rem"),
 		}
 		if arr, ok := args["values_px"]; ok {
@@ -68,14 +68,14 @@ func registerFrontendTools(s *mcpserver.MCPServer, _ *mcpApp) {
 		mcp.WithNumber("known_width", mcp.Description("Known width value (optional)")),
 		mcp.WithNumber("known_height", mcp.Description("Known height value (optional)")),
 	), func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		args := frontendArgsMap(req)
+		args := argsMap(req)
 		in := micro.AspectRatioInput{AspectRatio: mcp.ParseString(req, "aspect_ratio", "")}
 		if _, ok := args["known_width"]; ok {
-			v := frontendNumVal(args, "known_width", 0)
+			v := numVal(args, "known_width", 0)
 			in.KnownWidth = &v
 		}
 		if _, ok := args["known_height"]; ok {
-			v := frontendNumVal(args, "known_height", 0)
+			v := numVal(args, "known_height", 0)
 			in.KnownHeight = &v
 		}
 		return mcp.NewToolResultText(micro.CalculateAspectRatio(ctx, in)), nil
@@ -87,7 +87,7 @@ func registerFrontendTools(s *mcpserver.MCPServer, _ *mcpApp) {
 		mcp.WithArray("variables", mcp.Required(), mcp.Description("List of variable names to convert"), mcp.WithStringItems()),
 		mcp.WithString("target_case", mcp.Required(), mcp.Description("Target case: camelCase | snake_case | kebab-case | PascalCase")),
 	), func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		args := frontendArgsMap(req)
+		args := argsMap(req)
 		in := micro.StringCasesInput{TargetCase: mcp.ParseString(req, "target_case", "")}
 		if vars, ok := args["variables"]; ok {
 			data, _ := json.Marshal(vars)
@@ -128,11 +128,11 @@ func registerFrontendTools(s *mcpserver.MCPServer, _ *mcpApp) {
 		mcp.WithNumber("alpha", mcp.Description("Alpha channel 0.0-1.0 for rgba/hsla output (default: 1.0)")),
 		mcp.WithString("against", mcp.Description("Optional second color for WCAG contrast ratio computation")),
 	), func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		args := frontendArgsMap(req)
+		args := argsMap(req)
 		in := frontend.ColorInput{
 			Color:   mcp.ParseString(req, "color", ""),
 			To:      mcp.ParseString(req, "to", "hex"),
-			Alpha:   frontendNumVal(args, "alpha", 1.0),
+			Alpha:   numVal(args, "alpha", 1.0),
 			Against: mcp.ParseString(req, "against", ""),
 		}
 		return mcp.NewToolResultText(frontend.Color(ctx, in)), nil
@@ -149,15 +149,15 @@ func registerFrontendTools(s *mcpserver.MCPServer, _ *mcpApp) {
 		mcp.WithNumber("viewport_height", mcp.Description("Viewport height in px for vh conversions (default: 900)")),
 		mcp.WithNumber("parent_size", mcp.Description("Parent element size in px for em/percent conversions (default: 16)")),
 	), func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		args := frontendArgsMap(req)
+		args := argsMap(req)
 		in := frontend.CSSUnitInput{
-			Value:          frontendNumVal(args, "value", 0),
+			Value:          numVal(args, "value", 0),
 			From:           mcp.ParseString(req, "from", ""),
 			To:             mcp.ParseString(req, "to", ""),
-			BaseFontSize:   frontendNumVal(args, "base_font_size", 16),
-			ViewportWidth:  frontendNumVal(args, "viewport_width", 1440),
-			ViewportHeight: frontendNumVal(args, "viewport_height", 900),
-			ParentSize:     frontendNumVal(args, "parent_size", 16),
+			BaseFontSize:   numVal(args, "base_font_size", 16),
+			ViewportWidth:  numVal(args, "viewport_width", 1440),
+			ViewportHeight: numVal(args, "viewport_height", 900),
+			ParentSize:     numVal(args, "parent_size", 16),
 		}
 		return mcp.NewToolResultText(frontend.CSSUnit(ctx, in)), nil
 	})
@@ -170,9 +170,9 @@ func registerFrontendTools(s *mcpserver.MCPServer, _ *mcpApp) {
 		mcp.WithObject("custom_breakpoints", mcp.Description("Custom breakpoints as {name: minWidthPx} pairs (required when system=custom)")),
 		mcp.WithBoolean("generate_query", mcp.Description("Include generated @media query in response (default: true)")),
 	), func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		args := frontendArgsMap(req)
+		args := argsMap(req)
 		in := frontend.BreakpointInput{
-			Width:         int(frontendNumVal(args, "width", 0)),
+			Width:         int(numVal(args, "width", 0)),
 			System:        mcp.ParseString(req, "system", "tailwind"),
 			GenerateQuery: mcp.ParseBoolean(req, "generate_query", true),
 		}
@@ -216,7 +216,7 @@ func registerFrontendTools(s *mcpserver.MCPServer, _ *mcpApp) {
 		mcp.WithString("currency", mcp.Description("ISO 4217 currency code (e.g. USD, EUR, GBP) — required for kind=currency")),
 		mcp.WithObject("options", mcp.Description("Additional options: decimal_places (int), format (custom Go time layout string)")),
 	), func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		args := frontendArgsMap(req)
+		args := argsMap(req)
 		in := frontend.LocaleFormatInput{
 			Value:    mcp.ParseString(req, "value", ""),
 			Kind:     mcp.ParseString(req, "kind", ""),
@@ -236,7 +236,7 @@ func registerFrontendTools(s *mcpserver.MCPServer, _ *mcpApp) {
 		mcp.WithObject("values", mcp.Required(), mcp.Description("Variable bindings as key-value pairs. Numeric values must be numbers for plural rules.")),
 		mcp.WithString("locale", mcp.Description("Locale for plural rules (default: en)")),
 	), func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		args := frontendArgsMap(req)
+		args := argsMap(req)
 		in := frontend.ICUFormatInput{
 			Template: mcp.ParseString(req, "template", ""),
 			Locale:   mcp.ParseString(req, "locale", "en"),
@@ -250,28 +250,3 @@ func registerFrontendTools(s *mcpserver.MCPServer, _ *mcpApp) {
 	})
 }
 
-// frontendArgsMap extracts the arguments map from a CallToolRequest.
-// Defined here to avoid conflicts with argsMap in main.go (same package).
-func frontendArgsMap(req mcp.CallToolRequest) map[string]any {
-	if m, ok := req.Params.Arguments.(map[string]any); ok {
-		return m
-	}
-	return map[string]any{}
-}
-
-// frontendNumVal extracts a float64 from a map with a fallback.
-func frontendNumVal(m map[string]any, key string, fallback float64) float64 {
-	if v, ok := m[key]; ok {
-		switch n := v.(type) {
-		case float64:
-			return n
-		case float32:
-			return float64(n)
-		case int:
-			return float64(n)
-		case int64:
-			return float64(n)
-		}
-	}
-	return fallback
-}

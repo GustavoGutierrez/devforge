@@ -9,11 +9,12 @@ package conversion
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"math"
 	"strconv"
 	"strings"
+
+	"dev-forge-mcp/internal/tools/toolsutil"
 )
 
 // ConvertInput is the MCP input schema for color code conversion.
@@ -66,9 +67,9 @@ type HWB struct{ H, W, B float64 }
 func Convert(_ context.Context, in ConvertInput) string {
 	out, err := Compute(in)
 	if err != nil {
-		return errJSON(err.Error())
+		return toolsutil.ErrResult(err.Error())
 	}
-	return resultJSON(out)
+	return toolsutil.ResultJSON(out)
 }
 
 // Compute performs strict color conversion via a Linear sRGB hub.
@@ -750,15 +751,3 @@ func clamp(v, lo, hi float64) float64 {
 	return v
 }
 
-func errJSON(msg string) string {
-	b, _ := json.Marshal(map[string]string{"error": msg})
-	return string(b)
-}
-
-func resultJSON(v any) string {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return errJSON("marshal failed: " + err.Error())
-	}
-	return string(b)
-}

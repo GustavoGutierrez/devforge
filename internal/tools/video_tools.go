@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"dev-forge-mcp/internal/dpf"
+	"dev-forge-mcp/internal/tools/toolsutil"
 )
 
 // ─── Video Tool Inputs ──────────────────────────────────────────────────────────
@@ -103,8 +104,8 @@ func (s *Server) VideoTranscode(ctx context.Context, input VideoTranscodeInput) 
 	if input.Codec == "" {
 		return errorJSON("codec is required (h264, h265, vp8, vp9, av1)")
 	}
-	if s.DPF == nil {
-		return errorJSON("dpf binary not available. Ensure bin/dpf is installed and executable.")
+	if msg, ok := toolsutil.RequireDPF(s.DPF); !ok {
+		return msg
 	}
 
 	job := &dpf.VideoTranscodeJob{
@@ -139,8 +140,8 @@ func (s *Server) VideoResize(ctx context.Context, input VideoResizeInput) string
 	if input.Width == 0 && input.Height == 0 {
 		return errorJSON("at least one of width or height is required")
 	}
-	if s.DPF == nil {
-		return errorJSON("dpf binary not available. Ensure bin/dpf is installed and executable.")
+	if msg, ok := toolsutil.RequireDPF(s.DPF); !ok {
+		return msg
 	}
 
 	job := &dpf.VideoResizeJob{
@@ -178,8 +179,8 @@ func (s *Server) VideoTrim(ctx context.Context, input VideoTrimInput) string {
 	if input.End <= input.Start {
 		return errorJSON("end must be greater than start")
 	}
-	if s.DPF == nil {
-		return errorJSON("dpf binary not available. Ensure bin/dpf is installed and executable.")
+	if msg, ok := toolsutil.RequireDPF(s.DPF); !ok {
+		return msg
 	}
 
 	job := &dpf.VideoTrimJob{
@@ -213,8 +214,8 @@ func (s *Server) VideoThumbnail(ctx context.Context, input VideoThumbnailInput) 
 	if input.Timestamp == "" {
 		return errorJSON("timestamp is required (e.g., '25%' or '30.5')")
 	}
-	if s.DPF == nil {
-		return errorJSON("dpf binary not available. Ensure bin/dpf is installed and executable.")
+	if msg, ok := toolsutil.RequireDPF(s.DPF); !ok {
+		return msg
 	}
 
 	job := &dpf.VideoThumbnailJob{
@@ -253,8 +254,8 @@ func (s *Server) VideoProfile(ctx context.Context, input VideoProfileInput) stri
 	if input.Profile == "" {
 		return errorJSON("profile is required (web-low, web-mid, web-high)")
 	}
-	if s.DPF == nil {
-		return errorJSON("dpf binary not available. Ensure bin/dpf is installed and executable.")
+	if msg, ok := toolsutil.RequireDPF(s.DPF); !ok {
+		return msg
 	}
 
 	job := &dpf.VideoProfileJob{
