@@ -19,6 +19,7 @@ func (f *fakeStreamer) record(job any) (*dpf.JobResult, error) {
 	return f.result, f.err
 }
 
+func (f *fakeStreamer) Close() error                                                   { return nil }
 func (f *fakeStreamer) Execute(job any) (*dpf.JobResult, error)                        { return f.record(job) }
 func (f *fakeStreamer) Crop(job *dpf.CropJob) (*dpf.JobResult, error)                  { return f.record(job) }
 func (f *fakeStreamer) Rotate(job *dpf.RotateJob) (*dpf.JobResult, error)              { return f.record(job) }

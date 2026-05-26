@@ -52,6 +52,26 @@ func (p *Pool) Size() int {
 	return p.size
 }
 
+// Close drains the free-list channel and calls Close on every idle *StreamClient.
+// It is safe to call concurrently with in-flight operations: only clients that
+// have already been returned to the free-list are closed. Clients still
+// executing a job when Close is called are NOT signalled; the caller should
+// ensure all in-flight calls have returned before calling Close (e.g. by
+// draining the work queue first). Returns the first Close error encountered,
+// continuing to close remaining clients regardless.
+func (p *Pool) Close() error {
+	close(p.clients)
+	var firstErr error
+	for s := range p.clients {
+		if sc, ok := s.(*StreamClient); ok {
+			if err := sc.Close(); err != nil && firstErr == nil {
+				firstErr = err
+			}
+		}
+	}
+	return firstErr
+}
+
 // resolvePoolSize reads DEVFORGE_DPF_POOL_SIZE and returns a validated size.
 func resolvePoolSize() int {
 	raw := os.Getenv(poolSizeEnvVar)

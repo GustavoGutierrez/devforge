@@ -14,6 +14,8 @@ type fakeStreamer struct {
 	callCount atomic.Int64
 }
 
+func (f *fakeStreamer) Close() error { return nil }
+
 func (f *fakeStreamer) Execute(job any) (*JobResult, error) {
 	f.callCount.Add(1)
 	time.Sleep(f.sleepDur)

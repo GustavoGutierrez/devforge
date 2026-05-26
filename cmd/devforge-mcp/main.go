@@ -75,6 +75,7 @@ func main() {
 		} else {
 			log.Printf("dpf pool ready (size=%d) at %s", pool.Size(), dpfPath)
 			streamer = pool
+			defer func() { _ = pool.Close() }()
 		}
 	}
 
@@ -252,7 +253,7 @@ func registerTools(s *mcpserver.MCPServer, app *mcpApp) {
 
 	// ── generate_favicon ────────────────────────────────────────
 	s.AddTool(mcp.NewTool("generate_favicon",
-		mcp.WithDescription("Generate a complete set of favicon variants (ico, png, svg) from a source image and return ready-to-use HTML <link> snippets. Params: source_path:string (required, path to PNG or SVG source), background_color:string (hex, default #ffffff), sizes:int[] (pixel sizes, default [16,32,48,180,192,512]), formats:string[] (ico|png|svg, default all three). Output files are saved to a favicons/ subdirectory next to the source. Example: generate favicons from /assets/logo.png producing ico, png, and svg variants at default sizes."),
+		mcp.WithDescription("Generate a complete set of favicon variants from a source image and return ready-to-use HTML <link> snippets. Params: source_path:string (required, path to PNG or SVG source), sizes:int[] (pixel sizes passed to dpf, default [16,32,48,180,192,512]), background_color:string (hex, used only in the fallback synth path when dpf returns no outputs), formats:string[] (used only in the fallback synth path; dpf controls output formats on the primary path). Output files are saved to a favicons/ subdirectory next to the source. Example: generate favicons from /assets/logo.png at default sizes."),
 		mcp.WithString("source_path", mcp.Required(), mcp.Description("Path to source image (PNG or SVG); output goes to a favicons/ folder beside it")),
 		mcp.WithString("background_color", mcp.Description("Hex background color for transparent sources (default #ffffff)")),
 		mcp.WithArray("sizes", mcp.Description("Icon pixel sizes to generate (default [16,32,48,180,192,512])"), mcp.WithNumberItems()),

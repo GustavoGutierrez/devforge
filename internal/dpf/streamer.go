@@ -6,6 +6,10 @@ package dpf
 // Only the methods actually called via tools.Server.DPF are included here;
 // convenience wrappers on *Client (one-shot per-call) are not in scope.
 type Streamer interface {
+	// Close signals the underlying dpf process(es) to exit cleanly.
+	// After Close returns, the Streamer must not be used again.
+	Close() error
+
 	// Execute sends any job payload to the dpf process and returns the result.
 	Execute(job any) (*JobResult, error)
 

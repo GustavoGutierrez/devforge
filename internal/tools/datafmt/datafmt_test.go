@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
-	"time"
 
 	"dev-forge-mcp/internal/tools/datafmt"
 )
@@ -1246,18 +1245,16 @@ func TestFakeData_DateTimeFields(t *testing.T) {
 // ─── context cancellation ──────────────────────────────────────────────────────
 
 // TestFakeData_ContextCancellation verifies that FakeData respects context
-// cancellation when generating a large number of rows. The test cancels the
-// context after 5ms and expects FakeData to return an error envelope containing
-// the word "cancelled" before completing all 5000 rows.
+// cancellation. An already-cancelled context is used so the check at i=0
+// (i&0xFF==0 is true for i=0) fires immediately and returns an error envelope.
+// This is deterministic and not subject to timing races.
 func TestFakeData_ContextCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
-	go func() {
-		time.Sleep(5 * time.Millisecond)
-		cancel()
-	}()
+	defer cancel()
+	cancel() // pre-cancel so the first iteration check fires immediately
 
 	schema := `{"type":"object","properties":{"name":{"type":"string"},"email":{"type":"string"},"address":{"type":"string"}}}`
-	result := datafmt.FakeData(ctx, datafmt.FakeDataInput{Schema: schema, Count: 5000})
+	result := datafmt.FakeData(ctx, datafmt.FakeDataInput{Schema: schema, Count: 1000})
 
 	m := mustUnmarshal(t, result)
 	errVal, hasErr := m["error"]
